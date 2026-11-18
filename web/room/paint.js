@@ -89,6 +89,9 @@
     //    the saddles between are cut a little deeper. A tent laid on a round top gives the break of a real summit
     const win = Math.max(4, Math.round(0.1 * H / STEP)), tr = Math.max(4, Math.round(0.055 * H / STEP)), crests = [];
     const tent = (k, h, skew) => { const r = tr; for (let i = Math.max(0, k - r); i <= Math.min(n - 1, k + r); i++) { const w = Math.pow(1 - Math.abs(i - k) / (r + 1), 1.6); P[i][1] -= h * w; P[i][0] += skew * Math.abs(h) * w; } };
+    // the brush belly lies on one side of the whole stroke (below it over most of its length). Where a loop turns that side
+    // upward (r008: two loops), a top is no summit of a body: left round, or the brush slices fanned out of the point
+    const bellyUp = (() => { const tx = (i) => { const a = P[Math.max(0, i - 2)], b = P[Math.min(n - 1, i + 2)]; return (b[0] - a[0]) / (Math.hypot(b[0] - a[0], b[1] - a[1]) || 1); }; let s = 0; for (let i = 0; i < n; i++) s += tx(i); const f = s < 0 ? -1 : 1; return (k) => f * tx(k) < 0; })();
     { const y = P.map((p) => p[1]), found = [];
       for (let k = 2; k < n - 2; k++) {
         let lo = true, hi = true, l = -1e9, r = -1e9, l2 = 1e9, r2 = 1e9;
@@ -96,7 +99,7 @@
         if (lo && Math.min(l, r) - y[k] > 0.01 * H) found.push([k, Math.min(l, r) - y[k], 1]);
         else if (hi && y[k] - Math.max(l2, r2) > 0.01 * H) found.push([k, y[k] - Math.max(l2, r2), -1]);
       }
-      for (const [k, prom, up] of found) { const h = S.peak * clamp(prom * 0.9, 0.015 * H, 0.085 * H) * (0.7 + 0.6 * R()); tent(k, up > 0 ? h : -0.45 * h, (R() - 0.5) * 0.9); if (up > 0) crests.push(k); } }
+      for (const [k, prom, up] of found) { const h = S.peak * clamp(prom * 0.9, 0.015 * H, 0.085 * H) * (0.7 + 0.6 * R()); const skew = (R() - 0.5) * 0.9; if (bellyUp(k)) continue; tent(k, up > 0 ? h : -0.45 * h, skew); if (up > 0) crests.push(k); } }
     const real = (STROKES[S.tex] || []).some((q) => q.im), shake = real ? 0.35 : 1;   // a real stroke brings its own rough edge: shaken as much as a drawn one it read as a wobbly marker line
     // -- the tremor of a hand on rough paper
     const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
@@ -202,6 +205,7 @@
     if (kit.length) {
       // a real stroke, cut into thin slices across and each slice turned to the line: its dark upper edge on the ridge,
       // the rest on the mountain's side; pressed wider where the hand was slow and on crests
+      const Tn = P.map((_, i) => { const a = P[Math.max(0, i - 2)], b = P[Math.min(n - 1, i + 2)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
       const q = kit[Math.floor(R() * kit.length) % kit.length], ds = 2, back = R() < 0.25; let j = 0;
       for (let a = 0; a < L; a += ds) {
         while (j < n - 2 && cum[j + 1] < a) j++;
@@ -209,7 +213,9 @@
         const p0 = P[Math.max(0, j - 2)], p1 = P[Math.min(n - 1, j + 3)], tl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, tx = (p1[0] - p0[0]) / tl, ty = (p1[1] - p0[1]) / tl;
         const th = H * 0.044 * (0.6 + 0.55 * clamp(prAt[j], 0, 1.6)) * (0.8 + 0.4 * S.dry), u = (back ? 1 - (a + ds) / L : a / L) * q.w;
         gr.setTransform(dpr * tx, dpr * ty, dpr * nrm[j][0], dpr * nrm[j][1], dpr * (px - ox), dpr * (py - oy));
-        gr.drawImage(q.im, clamp(u, 0, q.w - 1), 0, Math.max(1, (ds + 0.8) / L * q.w), q.h, 0, -0.1 * th, ds + 0.8, th);
+        // on the outside of a bend the slices spread apart like a fan: each is widened by as much as the bend opens there
+        const j0 = Math.max(0, j - 3), j1 = Math.min(n - 1, j + 3), dc = Math.max(1, cum[j1] - cum[j0]), ko = -((Tn[j1][0] - Tn[j0][0]) * nrm[j][0] + (Tn[j1][1] - Tn[j0][1]) * nrm[j][1]) / dc, wd = (ds + 0.8) * (1 + clamp(ko * th * 0.95, 0, 6));
+        gr.drawImage(q.im, clamp(u, 0, q.w - 1), 0, Math.max(1, (ds + 0.8) / L * q.w), q.h, (ds + 0.8 - wd) / 2, -0.1 * th, wd, th);
       }
       home(gr);
       for (const k of crests) { const rr = 0.013 * H, gd = gr.createRadialGradient(P[k][0], P[k][1] + rr * 0.5, 0, P[k][0], P[k][1] + rr * 0.5, rr); gd.addColorStop(0, `rgba(${INK},0.55)`); gd.addColorStop(1, `rgba(${INK},0)`); gr.fillStyle = gd; gr.fillRect(P[k][0] - rr, P[k][1] - rr, 2 * rr, 3 * rr); }   // ink pooled where the brush was pressed and turned
