@@ -1,380 +1,210 @@
-// InkDragon paint prototype (Yang 2026-11-18, his gameplay idea): the dragon is the brush. A figure is shown as numbered
-// points on the white paper; the player flies the head through them in order with the left button held (pen down), in
-// one stroke. Done right, the thing the figure stands for appears: circle -> moon, S -> river, infinity -> cloud.
-// The pictures are assembled along the player's own stroke from pieces of ink paintings generated ahead with Muse
-// (web/assets/parts, cut by tools/build_parts.py): peaks, cloud puffs, pine branches, reeds, rocks. Different every
-// time. They bleed in outward from the stroke. No score, no levels: this is to feel the idea.
-// Rules, all of them:
+// InkDragon paint (Yang 2026-11-18, evening): free drawing, the dragon is the brush stroke. No figures, no numbered
+// points. Mountains only, until one stroke reads as a mountain.
 //   - ink flows while the left button is held (pointer locked). The stroke is the path of the held point (the eye)
-//   - points count only in order, each within S.tol screens of the stroke. Closed figures end back on point 1
-//   - reaching any later point before point k = missed (the dragon swung wide: it cannot turn tighter than its turning circle)
-//   - lifting the pen before the last point = broken stroke. Either way the stroke fades and the figure starts over
+//   - lifting the pen turns the stroke into a mountain ridge. Any number of strokes
+// The player gives the gesture, the code does the brushwork (side-brush, as the ridge is painted on paper):
+//   ridge   the path itself, as a line of uneven weight: heavy where the hand was slow, on crests (the brush is pressed
+//           where it turns) and on the shaded side; dry and broken where the hand was fast and toward the end of a
+//           long stroke (the brush runs out)
+//   peaks   the dragon cannot turn sharply, so every top comes out round: each crest of the path is drawn up into a point
+//   wash    the belly of the brush: ink under the ridge, thinning to bare paper at the foot (the mist). The side falling
+//           away to the right is the shaded one, darker
+//   cun     texture strokes: a few long dry lines running down from each peak, short ones hanging on the shaded slopes
+// A stroke lower on the paper is a nearer mountain: darker, and it hides what stands behind it.
+// The pieced pictures (templates, river, pine, cloud, moon) are in git up to 5067f47.
 // Sits on top of room.js (window.__room): wraps its draw hook, adds its own canvas (#ink, multiplied onto the paper).
 (() => {
   const D = window.__dragon, Rm = window.__room;
   if (!D || !Rm) return;
   const ink = document.getElementById('ink'), cMain = ink.getContext('2d'), panel = document.getElementById('panel');
-  let c = cMain;   // swapped to the cache canvas while finished pictures are baked
-  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-  const S = { tol: 0.055, guide: true, vec: true };   // vec: mountains as generated shapes + ink texture (N switches back to the pieced ones)   // tol: how near a point the stroke must pass, screen heights
-  try { Object.assign(S, JSON.parse(localStorage.getItem('paint.v1') || '{}')); } catch { /* defaults */ }
-  { const q = new URLSearchParams(location.search).get('vec'); if (q != null) S.vec = q !== '0'; }
-  const save = () => { try { localStorage.setItem('paint.v1', JSON.stringify(S)); } catch { /* ok */ } };
-
-  // ---- figures: f(t), t 0..1, in px of the free paper (left of the panel). Laid out as one picture ------------------
+  let c = cMain;
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+  const S = { peak: 0.6, cun: 0.6, dry: 0.5 };   // peak: how far crests are drawn up into points; cun: how many texture strokes; dry: how dry the brush
+  try { Object.assign(S, JSON.parse(localStorage.getItem('paint.v2') || '{}')); } catch { /* defaults */ }
+  const save = () => { try { localStorage.setItem('paint.v2', JSON.stringify(S)); } catch { /* ok */ } };
   const freeW = () => D.W - (panel.classList.contains('hide') ? 0 : panel.offsetWidth);
-  const TPL = [
-    { id: 'moon', name: 'Vòng tròn → mặt trăng', closed: true, n: 8, z: 2, spread: 0.45,
-      f: (t, w, H) => { const a = t * 6.2832 - 1.5708; return [0.76 * w + 0.16 * H * Math.cos(a), 0.23 * H + 0.16 * H * Math.sin(a)]; } },
-    { id: 'river', name: 'Chữ S → dòng sông', closed: false, n: 7, z: 3, spread: 0.4,
-      f: (t, w, H) => [w * (0.2 + 0.66 * t), H * (0.84 - 0.07 * Math.sin(t * 6.2832))] },
-    { id: 'cloud', name: 'Vô cực ∞ → mây cuộn', closed: true, n: 10, z: 1, spread: 0.5,
-      // the points are set off the crossing, so no point is passed twice
-      f: (t, w, H) => { const a = (t + 0.05) * 6.2832, A = 0.26 * H; return [0.3 * w + A * Math.sin(a), 0.22 * H + 0.45 * A * Math.sin(2 * a)]; } },
-    // two soft waves: tighter ones the dragon cannot fly (its turning circle is about a tenth of the screen)
-    { id: 'mountain', name: 'Lượn sóng → dãy núi', closed: false, n: 7, z: 0, spread: 1.0,
-      f: (t, w, H) => [w * (0.14 + 0.72 * t), H * (0.54 - 0.05 * Math.sin(t * 2 * 6.2832))] },
-    { id: 'pine', name: 'Nét sổ ↑ → cây tùng', closed: false, n: 5, z: 4, spread: 0.7,
-      f: (t, w, H) => [0.14 * w, H * (0.9 - 0.45 * t)] },
-  ];
-  let geo = null;   // per figure: line (dense polyline), pts (the numbered points)
-  function layout() {
-    const w = freeW(), H = D.H;
-    geo = TPL.map((T) => ({
-      line: Array.from({ length: 241 }, (_, i) => T.f(i / 240 * (T.closed ? 1 : 1), w, H)),
-      pts: Array.from({ length: T.n }, (_, k) => T.f(T.closed ? k / T.n : k / (T.n - 1), w, H)),
-    }));
-  }
+  const INK = '18,18,24';
 
   // ---- state --------------------------------------------------------------------------------------------------------
-  const st = { cur: 0, pen: false, next: 0, counting: false, over: false, stroke: [], fade: null, done: [], msg: '', msgT: -9, last: null };
+  const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9 };
   const say = (s) => { st.msg = s; st.msgT = D.T; };
-  function reset(all) {
-    st.pen = false; st.next = 0; st.counting = false; st.over = false; st.stroke = []; st.fade = null;
-    if (all) { st.done = []; st.cur = 0; st.last = null; }
-    sync();
-  }
-  function pick(i) { st.cur = clamp(i, 0, TPL.length - 1); st.done = st.done.filter((d) => d.i !== st.cur); st.next = 0; st.counting = false; st.over = false; st.stroke = []; sync(); }
-  function penDown() { if (st.pen) return; st.pen = true; st.over = false; st.next = 0; st.counting = false; st.stroke = []; }
+  function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; sync(); }
+  function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
+  function penDown() { if (st.pen) return; st.pen = true; st.stroke = []; }
   function penUp() {
     if (!st.pen) return; st.pen = false;
-    if (!st.over && st.stroke.length > 3) fail(st.counting ? `Đứt nét ở điểm ${st.next + 1}` : 'Chưa chạm điểm 1');
-    st.over = false;
-  }
-  function fail(why) { st.fade = { s: st.stroke, t0: D.T }; st.stroke = []; st.next = 0; st.counting = false; st.over = true; st.last = { ok: false, why, fig: TPL[st.cur].id }; say(why + ' · vẽ lại'); }
-  const dLine = (L, x, y) => { let b = 1e9; for (let i = 0; i < L.length; i++) { const d = Math.hypot(L[i][0] - x, L[i][1] - y); if (d < b) b = d; } return b; };
-  function finish() {
-    const T = TPL[st.cur], g = geo[st.cur], R = D.rad(); let sum = 0, mx = 0, n = 0;
-    for (const p of st.stroke) if (p[3]) { const d = dLine(g.line, p[0], p[1]); sum += d; if (d > mx) mx = d; n++; }
-    const avg = sum / Math.max(1, n), grade = avg < 0.5 * R ? 'nét đẹp' : avg < R ? 'nét tạm' : 'nét run';
-    st.done.push({ i: st.cur, stroke: st.stroke.filter((p) => p[3]), t0: D.T, seed: (Math.random() * 2147483647) | 0 });   // the run-up before point 1 is not part of the picture
-    st.last = { ok: true, fig: T.id, avgPx: +avg.toFixed(1), maxPx: +mx.toFixed(1), avgR: +(avg / R).toFixed(2), grade };
-    say(`Xong: ${T.name.split('→')[1].trim()} · lệch TB ${avg.toFixed(0)} px (${grade})`);
-    st.stroke = []; st.over = true; st.counting = false; st.next = 0;
-    const nx = TPL.findIndex((_, i) => !st.done.some((d) => d.i === i)); if (nx >= 0) st.cur = nx;
-    sync();
+    const q = st.stroke; st.stroke = []; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
+    if (L < 0.06 * D.H) return;   // a tap, not a stroke
+    st.done.push({ stroke: q, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); sync();
   }
   function step(dt) {
-    if (!geo || geo.w !== freeW() || geo.H !== D.H) { layout(); geo.w = freeW(); geo.H = D.H; }
-    if (!st.pen || st.over) return;
-    const hc = Rm.hc, H = D.H, T = TPL[st.cur], P = geo[st.cur].pts, tol = S.tol * H, q = st.stroke, l = q[q.length - 1];
-    const v = l ? Math.hypot(hc.x - l[0], hc.y - l[1]) / dt / H : 0;
-    if (!l || Math.hypot(hc.x - l[0], hc.y - l[1]) > 1.5) q.push([hc.x, hc.y, v, st.counting]);
-    const near = (k) => Math.hypot(P[k][0] - hc.x, P[k][1] - hc.y) < tol;
-    const last = st.next >= T.n;   // closed figure: all points taken, the way back to point 1 is left
-    if (near(last ? 0 : st.next)) {
-      if (last || (!T.closed && st.next === T.n - 1)) return finish();
-      st.next++; st.counting = true; sync();
-    } else if (st.counting && !last) { for (let k = st.next + 1; k < T.n; k++) if (near(k)) return fail(`Trượt điểm ${st.next + 1}`); }
+    if (!st.pen) return;
+    const hc = Rm.hc, q = st.stroke, l = q[q.length - 1], d = l ? Math.hypot(hc.x - l[0], hc.y - l[1]) : 0;
+    if (!l || d > 1.5) q.push([hc.x, hc.y, l ? d / dt / D.H : 0]);   // x, y, speed in screens a second
   }
 
   // ---- drawing ------------------------------------------------------------------------------------------------------
   let dpr = 1;
   function size() { dpr = Math.min(2, devicePixelRatio || 1); ink.width = Math.round(innerWidth * dpr); ink.height = Math.round(innerHeight * dpr); }
-  size(); addEventListener('resize', () => { size(); reset(true); geo = null; });
-  // The stroke is drawn opaque on a scratch canvas and laid on at its alpha: drawn straight, the overlapping round
-  // caps showed as a string of beads
+  size(); addEventListener('resize', () => { size(); for (const d of st.done) d.m = null; bakeKey = ''; });
+  // the stroke while it is being flown: drawn opaque on a scratch canvas and laid on at its alpha (drawn straight, the
+  // overlapping round caps showed as a string of beads)
   const tmp = document.createElement('canvas'), tc = tmp.getContext('2d');
-  function strokePath(q, alpha) {   // brush: slow = fat, fast = thin
-    if (q.length < 2) return;
-    const R = D.rad(); if (tmp.width !== ink.width || tmp.height !== ink.height) { tmp.width = ink.width; tmp.height = ink.height; }
-    tc.setTransform(dpr, 0, 0, dpr, 0, 0); tc.clearRect(0, 0, D.W, D.H); tc.lineCap = 'round'; tc.strokeStyle = 'rgb(18,18,24)';
-    let w = R * 0.8;
-    for (let i = 1; i < q.length; i++) { w += (R * (0.95 - 0.6 * clamp(q[i][2] / 1.6, 0, 1)) - w) * 0.25; tc.lineWidth = Math.max(2, w); tc.beginPath(); tc.moveTo(q[i - 1][0], q[i - 1][1]); tc.lineTo(q[i][0], q[i][1]); tc.stroke(); }
+  function strokePath(q, alpha) {
+    if (q.length < 2 || alpha <= 0) return;
+    const w0 = D.H * 0.009; if (tmp.width !== ink.width || tmp.height !== ink.height) { tmp.width = ink.width; tmp.height = ink.height; }
+    tc.setTransform(dpr, 0, 0, dpr, 0, 0); tc.clearRect(0, 0, D.W, D.H); tc.lineCap = 'round'; tc.strokeStyle = `rgb(${INK})`;
+    let w = w0;
+    for (let i = 1; i < q.length; i++) { w += (w0 * (1.25 - 0.8 * clamp(q[i][2] / 1.6, 0, 1)) - w) * 0.25; tc.lineWidth = Math.max(1.5, w); tc.beginPath(); tc.moveTo(q[i - 1][0], q[i - 1][1]); tc.lineTo(q[i][0], q[i][1]); tc.stroke(); }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = alpha; c.drawImage(tmp, 0, 0); c.restore();
   }
-  // the stroke as an even, calm line (a hand wobbles; the painting must not)
+  // the stroke at even steps, hand wobble smoothed off: [x, y, speed]
   function calm(q, step, k) {
-    const P = [[q[0][0], q[0][1]]]; let left = step;
+    const P = [[q[0][0], q[0][1], q[0][2]]]; let left = step;
     for (let i = 1; i < q.length; i++) { let ax = q[i - 1][0], ay = q[i - 1][1]; const bx = q[i][0], by = q[i][1]; let d = Math.hypot(bx - ax, by - ay);
-      while (d >= left) { ax += (bx - ax) * left / d; ay += (by - ay) * left / d; P.push([ax, ay]); d -= left; left = step; } left -= d; }
-    return P.map((_, i) => { let x = 0, y = 0, n = 0; for (let j = Math.max(0, i - k); j <= Math.min(P.length - 1, i + k); j++) { x += P[j][0]; y += P[j][1]; n++; } return [x / n, y / n]; });
+      while (d >= left) { ax += (bx - ax) * left / d; ay += (by - ay) * left / d; P.push([ax, ay, q[i][2]]); d -= left; left = step; } left -= d; }
+    return P.map((_, i) => { let x = 0, y = 0, v = 0, n = 0; for (let j = Math.max(0, i - k); j <= Math.min(P.length - 1, i + k); j++) { x += P[j][0]; y += P[j][1]; v += P[j][2]; n++; } return [x / n, y / n, v / n]; });
   }
-  const box = (P) => P.reduce((m, p) => [Math.min(m[0], p[0]), Math.min(m[1], p[1]), Math.max(m[2], p[0]), Math.max(m[3], p[1])], [1e9, 1e9, -1e9, -1e9]);
-  // a long piece lying flat (water streak, pine trunk on its side) bent along the line P: cut into thin slices across,
-  // each turned to the line. A: the piece (im, and b = its ink box as fractions)
-  function bend(x, A, P, vs, ends, rows) {
-    const im = A.im, iw = im.width, ih = im.height, n = P.length, cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
-    const L = cum[n - 1], u0 = A.b[0] * iw, s = L / ((A.b[2] - A.b[0]) * iw), pad = 0.03, bh = A.b[3] - A.b[1], r0 = (rows ? A.b[1] + rows[0] * bh : Math.max(0, A.b[1] - pad)) * ih, r1 = (rows ? A.b[1] + rows[1] * bh : Math.min(1, A.b[3] + pad)) * ih, mid = (A.b[1] + A.b[3]) / 2 * ih, ds = 3,
-      wide = typeof vs === 'function' ? vs : () => vs;   // how much the painting is stretched across the line, by place along it (0..1)
-    let j = 0;
-    for (let a = 0; a < L; a += ds) {
-      while (j < n - 2 && cum[j + 1] < a) j++;
-      const f = (a - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), px = P[j][0] + (P[j + 1][0] - P[j][0]) * f, py = P[j][1] + (P[j + 1][1] - P[j][1]) * f;
-      const p0 = P[Math.max(0, j - 3)], p1 = P[Math.min(n - 1, j + 4)], th = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]), co = Math.cos(th), si = Math.sin(th);
-      x.setTransform(dpr * co, dpr * si, -dpr * si, dpr * co, dpr * px, dpr * py);
-      const v = wide(a / L); x.drawImage(im, u0 + a / s, r0, (ds + 1.5) / s, r1 - r0, 0, (r0 - mid) * s * v, ds + 1.5, (r1 - r0) * s * v);
-    }
-    if (ends) {   // both ends melt away (cut square, a river or a cloud bank looks pasted on)
-      const len = ends * L, big = (r1 - r0) * s * wide(0), at = (d) => { let k = 0; while (k < n - 2 && cum[k + 1] < d) k++; const f = (d - cum[k]) / Math.max(1e-6, cum[k + 1] - cum[k]); return [P[k][0] + (P[k + 1][0] - P[k][0]) * f, P[k][1] + (P[k + 1][1] - P[k][1]) * f]; };
-      x.globalCompositeOperation = 'destination-out';
-      for (const [e, i] of [[P[0], at(len)], [P[n - 1], at(L - len)]]) {
-        const th = Math.atan2(i[1] - e[1], i[0] - e[0]), co = Math.cos(th), si = Math.sin(th), g = x.createLinearGradient(0, 0, len, 0); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        x.setTransform(dpr * co, dpr * si, -dpr * si, dpr * co, dpr * e[0], dpr * e[1]); x.fillStyle = g; x.fillRect(-len, -big, 2 * len, 2 * big);
-      }
-      x.globalCompositeOperation = 'source-over';
-    }
-    x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return (r1 - r0) * s * wide(0.5) / 2;
-  }
-  // ---- scenery put together from pieces ------------------------------------------------------------------------------
-  // Yang 11-18: not one ready painting per figure. The paintings are cut into pieces (tools/build_parts.py: peaks,
-  // cloud puffs and swirls, pine branches and trunks, reeds, rocks, bank strips) and each picture is assembled from them
-  // along the player's stroke, by dice seeded per picture: the same stroke gives a different mountain range every time.
-  const PARTS = {}; let partsReady = false;
-  fetch('../assets/parts/parts.json').then((r) => r.json()).then((man) => {
-    let left = 0;
-    for (const k in man) { PARTS[k] = man[k]; for (const p of man[k]) { left++; const im = new Image(); im.onload = () => { p.im = im; if (--left === 0) partsReady = true; }; im.src = '../assets/parts/' + p.f; } }
-  });
-  const MOON = { im: null, b: [0.1, 0.1, 0.9, 0.9] };   // b: the disc's box in the painting, measured when it loads
-  { const im = new Image(); im.onload = () => { const w = 128, cv = document.createElement('canvas'); cv.width = cv.height = w; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, w, w);
-      const px = g.getImageData(0, 0, w, w).data; let x0 = w, x1 = 0, y0 = w, y1 = 0;
-      for (let j = 0; j < w; j++) for (let i = 0; i < w; i++) if (765 - px[(j * w + i) * 4] - px[(j * w + i) * 4 + 1] - px[(j * w + i) * 4 + 2] > 90) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
-      MOON.b = [x0 / w, y0 / w, (x1 + 1) / w, (y1 + 1) / w]; MOON.im = im; }; im.src = '../assets/scene/moon.webp'; }
   const dice = (seed) => () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const any = (R, a) => a[Math.floor(R() * a.length) % a.length];
-  // one piece: its anchor (ax, ay; the middle if it has none) at (px, py), `size` px wide, turned by rot, mirrored if flip.
-  // Pieces are opaque on white and multiplied on; peaks carry their own alpha and are laid over (mode 'source-over')
-  function stamp(x, p, px, py, size, rot, flip, alpha, mode) {
-    const s = size / p.w, co = Math.cos(rot || 0) * dpr, si = Math.sin(rot || 0) * dpr;
-    x.setTransform(co, si, -si, co, px * dpr, py * dpr); x.scale(flip ? -s : s, s); x.globalAlpha = alpha ?? 1; x.globalCompositeOperation = mode || 'multiply';
-    x.drawImage(p.im, -(p.ax ?? 0.5) * p.w, -(p.ay ?? 0.5) * p.h);
-  }
-  const plain = (x) => { x.setTransform(dpr, 0, 0, dpr, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; };
-  // the stroke by arc length: at(d) -> [x, y, heading]
-  function along(P) {
-    const n = P.length, cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
-    const L = cum[n - 1];
-    return { L, at: (d) => { d = clamp(d, 0, L); let j = 0, lo = 0, hi = n - 2; while (lo <= hi) { const m = (lo + hi) >> 1; if (cum[m] <= d) { j = m; lo = m + 1; } else hi = m - 1; }
-      const f = (d - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), p0 = P[Math.max(0, j - 3)], p1 = P[Math.min(n - 1, j + 4)];
-      return [P[j][0] + (P[j + 1][0] - P[j][0]) * f, P[j][1] + (P[j + 1][1] - P[j][1]) * f, Math.atan2(p1[1] - p0[1], p1[0] - p0[0])]; } };
-  }
-  const scr = document.createElement('canvas'), sc = scr.getContext('2d'), scr2 = document.createElement('canvas'), sc2 = scr2.getContext('2d');
-  // the ink of a piece as alpha (pieces are opaque on white): so a blot can be laid inside a shape only (source-atop),
-  // or bitten out of it (destination-out). Made once per piece
-  function inkA(p) {
-    if (p.a) return p.a;
-    const cv = document.createElement('canvas'); cv.width = p.w; cv.height = p.h; const g = cv.getContext('2d'); g.drawImage(p.im, 0, 0, p.w, p.h);
-    const d = g.getImageData(0, 0, p.w, p.h), px = d.data;
-    for (let i = 0; i < px.length; i += 4) { const k = 1 - (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) / 255; px[i + 3] = Math.round(clamp(k * 1.15 - 0.03, 0, 1) * px[i + 3]); px[i] = 18; px[i + 1] = 18; px[i + 2] = 24; }
-    g.putImageData(d, 0, 0); return (p.a = cv);
-  }
-  function dab(x, p, px, py, size, rot, alpha, mode) {
-    const a = inkA(p), s = size / p.w, co = Math.cos(rot) * dpr * s, si = Math.sin(rot) * dpr * s;
-    x.setTransform(co, si, -si, co, px * dpr, py * dpr); x.globalAlpha = alpha; x.globalCompositeOperation = mode; x.drawImage(a, -p.w / 2, -p.h / 2);
-  }
-  // smooth 1-D noise from the picture's dice: n(t, octaves) in 0..1
+  // smooth 1-D noise from the stroke's dice: n(t, octaves) in 0..1
   const noise1 = (R) => { const g = Array.from({ length: 64 }, R), v = (t) => { const i = Math.floor(t), f = t - i, s = f * f * (3 - 2 * f); return g[i & 63] + (g[(i + 1) & 63] - g[i & 63]) * s; };
     return (t, oct) => { let a = 0, w = 1, n = 0; for (let o = 0; o < oct; o++) { a += w * v(t * (1 << o) + o * 17.3); n += w; w *= 0.5; } return a / n; }; };
-  // the stroke as a height per x (8 px bins): yAt(x), ym = its mean height
-  function profile(P) {
-    const B = box(P), nb = Math.ceil((B[2] - B[0]) / 8) + 1, acc = new Array(nb).fill(0), cnt = new Array(nb).fill(0);
-    for (const p of P) { const k = clamp(Math.round((p[0] - B[0]) / 8), 0, nb - 1); acc[k] += p[1]; cnt[k]++; }
-    let last = P[0][1]; const ys = acc.map((v, k) => (cnt[k] ? (last = v / cnt[k]) : null)); for (let k = nb - 1, nx = last; k >= 0; k--) { if (ys[k] == null) ys[k] = nx; else nx = ys[k]; }
-    for (let it = 0; it < 3; it++) for (let k = 1; k < nb - 1; k++) ys[k] = (ys[k - 1] + 2 * ys[k] + ys[k + 1]) / 4;
-    return { B, ym: ys.reduce((a, b) => a + b, 0) / nb, yAt: (cx) => ys[clamp(Math.round((cx - B[0]) / 8), 0, nb - 1)] };
-  }
-  // Mountains as shapes (Yang 11-18, after his reference paintings: the mist is the paper, left where a mountain's foot
-  // fades out). Three ranges, far to near. Each: an outline generated from the stroke (crests of the stroke become the
-  // high peaks) plus noise; filled with ink that thins to nothing toward the foot; ink blots laid inside for tone and
-  // bitten out for pale patches; small blots along the ridge so the edge is ink on paper, not a drawn line.
-  function mountainV(x, P, R) {
-    const H = D.H, pf = profile(P), B = pf.B, y0 = pf.ym + 0.05 * H, N = noise1(R), sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
-    const tex = PARTS.puff, line = PARTS.trunk.concat(PARTS.bank);
-    for (const cv of [scr, scr2]) if (cv.width !== ink.width || cv.height !== ink.height) { cv.width = ink.width; cv.height = ink.height; }
-    const LAY = [{ up: 0.11, amp: 0.1, follow: 0.8, tone: 0.3, wide: 0.12, f: 0.24 }, { up: 0.055, amp: 0.125, follow: 1.2, tone: 0.55, wide: 0.05, f: 0.19 }, { up: 0, amp: 0.15, follow: 1.7, tone: 1, wide: -0.01, f: 0.15 }];
-    LAY.forEach((Ly, li) => {
-      const x0 = B[0] - Ly.wide * H - 0.03 * H, x1 = B[2] + Ly.wide * H + 0.03 * H, ph = R() * 50, shift = (R() - 0.5) * 0.1 * H * (LAY.length - 1 - li);
-      const envAt = (cx) => { const t = (cx - x0) / (x1 - x0); return sm(t / 0.2) * sm((1 - t) / 0.2); };
-      // jag: the fine tooth of the outline. Left out (0) for the fade of the foot, or each column fades from its own
-      // tooth and the wash comes out in vertical stripes
-      const elev = (cx, jag) => { const n = N(cx / (Ly.f * H) + ph, 4), r = 1 - Math.abs(2 * n - 1);
-        return envAt(cx) * (0.025 * H + Ly.follow * Math.max(-0.02 * H, pf.ym - pf.yAt(cx + shift)) + Ly.amp * H * (0.75 * r + 0.25 * n) + jag * 0.012 * H * (N(cx / (0.03 * H) + ph, 2) - 0.5)); };
-      const top = (cx, jag = 1) => y0 - Ly.up * H - Math.max(0, elev(cx, jag)), deep = (cx) => Math.max(0, elev(cx, 0)) * 1.0 + 0.05 * H, yb = y0 + 0.14 * H;
-      const path = (g) => { g.beginPath(); g.moveTo(x0, yb); for (let cx = x0; cx <= x1; cx += 2) g.lineTo(cx, top(cx)); g.lineTo(x1, yb); g.closePath(); };
-      // the mist of this range hides what stands behind it
-      if (li) { plain(x); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 0.8; x.fillStyle = '#000'; path(x); x.fill(); plain(x); }
-      sc.setTransform(1, 0, 0, 1, 0, 0); sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = 1; sc.clearRect(0, 0, scr.width, scr.height);
-      sc.setTransform(dpr, 0, 0, dpr, 0, 0); sc.fillStyle = 'rgba(18,18,24,0.68)'; path(sc); sc.fill();
-      // ink inside: dark washes high up under the ridge, pale patches lower down. Soft washes only: the round blots
-      // of sheet 5 have dark rims and showed as rings
-      for (let i = 0, n = 18 + Math.floor(R() * 8); i < n; i++) { const cx = x0 + (x1 - x0) * R(), e = Math.max(0, elev(cx, 0)); dab(sc, any(R, tex), cx, top(cx) + e * 0.3 * R(), H * (0.06 + 0.12 * R()), R() * 6.2832, 0.5 + 0.5 * R(), 'source-atop'); }
-      for (let i = 0, n = 8 + Math.floor(R() * 6); i < n; i++) { const cx = x0 + (x1 - x0) * R(), e = Math.max(0, elev(cx, 0)); dab(sc, any(R, tex), cx, top(cx) + e * (0.3 + 0.6 * R()), H * (0.05 + 0.1 * R()), R() * 6.2832, 0.3 + 0.4 * R(), 'destination-out'); }
-      // the ridge: real brush strokes (trunk and bank pieces) bent along the outline, in lengths with gaps between,
-      // sunk half their width into the shape. A string of blots here read as beads
-      for (let cx = x0 + (x1 - x0) * 0.08; cx < x1 - (x1 - x0) * 0.1;) {
-        const len = H * (0.1 + 0.22 * R()), p = any(R, line), thick = H * (0.01 + 0.014 * R()), seg = [];
-        for (let q = cx; q <= Math.min(cx + len, x1); q += 3) seg.push([q, top(q) + thick * 0.35]);
-        if (seg.length > 6) { if (R() < 0.5) seg.reverse(); const nat = (p.b[3] - p.b[1]) * p.h * (len / ((p.b[2] - p.b[0]) * p.w));
-          // bent on a canvas of its own: the melting of its two ends rubs out whatever lies under them
-          sc2.setTransform(1, 0, 0, 1, 0, 0); sc2.clearRect(0, 0, scr2.width, scr2.height); bend(sc2, { im: inkA(p), b: p.b }, seg, thick / nat, 0.12);
-          sc.setTransform(1, 0, 0, 1, 0, 0); sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = envAt(cx + len / 2) * (0.55 + 0.45 * R()); sc.drawImage(scr2, 0, 0); }
-        cx += len * (0.75 + 0.7 * R());
+  // paper tooth: specks rubbed out of the ink
+  const grain = document.createElement('canvas');
+  { grain.width = grain.height = 128; const g = grain.getContext('2d'), d = g.createImageData(128, 128); for (let i = 0; i < d.data.length; i += 4) { const r = Math.random(); d.data[i + 3] = Math.round(r * r * r * 255); } g.putImageData(d, 0, 0); }
+
+  const STEP = 3, BIN = 2;   // px between points of the calmed stroke; px per column of the wash
+  // One stroke -> one mountain, on canvases cropped to it: cv (the ink) and body (what it hides of the mountains behind)
+  function mountain(d) {
+    const H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 4), n = P.length;
+    if (n < 8) return null;
+    // -- peaks: every crest of the path (a top, standing at least a little above both its sides) is drawn up into a point;
+    //    the saddles between are cut a little deeper. A tent laid on a round top gives the break of a real summit
+    const win = Math.max(4, Math.round(0.1 * H / STEP)), tr = Math.max(4, Math.round(0.055 * H / STEP)), crests = [];
+    const tent = (k, h, skew) => { const r = tr; for (let i = Math.max(0, k - r); i <= Math.min(n - 1, k + r); i++) { const w = Math.pow(1 - Math.abs(i - k) / (r + 1), 1.6); P[i][1] -= h * w; P[i][0] += skew * Math.abs(h) * w; } };
+    { const y = P.map((p) => p[1]), found = [];
+      for (let k = 2; k < n - 2; k++) {
+        let lo = true, hi = true, l = -1e9, r = -1e9, l2 = 1e9, r2 = 1e9;
+        for (let j = Math.max(0, k - win); j <= Math.min(n - 1, k + win); j++) { if (y[j] < y[k] || (y[j] === y[k] && j < k)) lo = false; if (y[j] > y[k] || (y[j] === y[k] && j < k)) hi = false; if (j < k) { l = Math.max(l, y[j]); l2 = Math.min(l2, y[j]); } else if (j > k) { r = Math.max(r, y[j]); r2 = Math.min(r2, y[j]); } }
+        if (lo && Math.min(l, r) - y[k] > 0.01 * H) found.push([k, Math.min(l, r) - y[k], 1]);
+        else if (hi && y[k] - Math.max(l2, r2) > 0.01 * H) found.push([k, y[k] - Math.max(l2, r2), -1]);
       }
-      // foot: every column thins to nothing below its own ridge (one gradient per column: a single one for the whole
-      // range would leave the low stretches of the ridge already faded); the two ends of the range thin out as well
-      sc.setTransform(1, 0, 0, 1, 0, 0); sc.globalAlpha = 1; sc.globalCompositeOperation = 'destination-out';
-      for (let px = Math.floor(x0 * dpr) - 8; px < x1 * dpr + 8; px += 2) { const cx = (px + 1) / dpr, t = top(cx, 0) * dpr, d = deep(cx) * dpr, g = sc.createLinearGradient(0, t, 0, t + d), e = 1 - sm(envAt(cx) * 2.5);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.18, 'rgba(0,0,0,0.12)'); g.addColorStop(0.55, 'rgba(0,0,0,0.6)'); g.addColorStop(0.85, 'rgba(0,0,0,0.93)'); g.addColorStop(1, 'rgba(0,0,0,1)'); sc.fillStyle = g; sc.fillRect(px, t - 0.06 * H * dpr, 2, d + 0.3 * H * dpr);
-        if (e > 0.003) { sc.fillStyle = `rgba(0,0,0,${e.toFixed(3)})`; sc.fillRect(px, 0, 2, scr.height); } }
-      sc.globalCompositeOperation = 'source-over';
-      x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = Ly.tone; x.drawImage(scr, 0, 0);
-    });
-    plain(x);
+      for (const [k, prom, up] of found) { const h = S.peak * clamp(prom * 0.9, 0.015 * H, 0.085 * H) * (0.7 + 0.6 * R()); tent(k, up > 0 ? h : -0.45 * h, (R() - 0.5) * 0.9); if (up > 0) crests.push(k); } }
+    // -- the tremor of a hand on rough paper
+    const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const L = cum[n - 1], nrm = [];
+    for (let i = 0; i < n; i++) { const a = P[Math.max(0, i - 2)], b = P[Math.min(n - 1, i + 2)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, ny = (b[0] - a[0]) / l; if (ny < 0) { nx = -nx; ny = -ny; } nrm.push([nx, ny]); }   // the normal that points down the paper
+    for (let i = 0; i < n; i++) { const s = cum[i], j = H * (0.0035 * (N(s / (0.018 * H), 2) - 0.5) + 0.009 * (N(s / (0.07 * H) + 9, 2) - 0.5)) * 2 * sm(Math.min(s, L - s) / (0.03 * H)); P[i][0] += nrm[i][0] * j; P[i][1] += nrm[i][1] * j; }
+    // -- the ridge as seen: the highest point of the path over every column
+    let bx0 = 1e9, bx1 = -1e9, yTop = 1e9, yBase = -1e9; for (const p of P) { bx0 = Math.min(bx0, p[0]); bx1 = Math.max(bx1, p[0]); yTop = Math.min(yTop, p[1]); yBase = Math.max(yBase, p[1]); }
+    bx0 = Math.floor(bx0); const nb = Math.max(2, Math.ceil((bx1 - bx0) / BIN) + 1), top = new Array(nb).fill(1e9);
+    for (let i = 1; i < n; i++) { const a = P[i - 1], b = P[i], k0 = (a[0] - bx0) / BIN, k1 = (b[0] - bx0) / BIN, lo = Math.floor(Math.min(k0, k1)), hi = Math.ceil(Math.max(k0, k1));
+      for (let k = Math.max(0, lo); k <= Math.min(nb - 1, hi); k++) { const f = k1 === k0 ? 0 : clamp((k - k0) / (k1 - k0), 0, 1), y = a[1] + (b[1] - a[1]) * f; if (y < top[k]) top[k] = y; } }
+    for (let k = 0, last = P[0][1]; k < nb; k++) { if (top[k] > 1e8) top[k] = last; else last = top[k]; }
+    const blur = (A, it) => { let B = A.slice(); for (let q = 0; q < it; q++) { const Cc = B.slice(); for (let k = 1; k < nb - 1; k++) Cc[k] = (B[k - 1] + 2 * B[k] + B[k + 1]) / 4; B = Cc; } return B; };
+    const ts = blur(top, 5), wide = blur(top, 40), slope = (k) => (wide[Math.min(nb - 1, k + 4)] - wide[Math.max(0, k - 4)]) / (8 * BIN);
+    // the two ends of the stroke thin out: the brush is set down and lifted there
+    const te = Math.min(0.3, 0.09 * H / Math.max(1, bx1 - bx0)), env = (k) => { const t = k / (nb - 1); return sm(t / te) * sm((1 - t) / te); };
+    // how far the ink runs down the slope: to about the level of the stroke's lowest point, so tall peaks get long slopes
+    const depth = ts.map((t, k) => ((yBase - t) * 1.0 + 0.17 * H) * (0.45 + 0.55 * env(k)));
+    // -- canvases, cropped to the mountain
+    const pad = 0.04 * H, ox = bx0 - pad, oy = yTop - 0.1 * H, cw = Math.ceil((bx1 - bx0 + 2 * pad) * dpr), chh = Math.ceil((yBase + 0.19 * H - oy) * dpr);
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
+    const [cv, g] = mk(), [body, gb] = mk(), [rib, gr] = mk();
+    const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
+    // -- wash: per column, ink thinning from the ridge to nothing at the foot. A second, shorter and darker band under
+    //    the ridge with an uneven lower edge: the brush belly does not touch the paper evenly
+    for (let k = 0; k < nb; k++) {
+      const x = bx0 + k * BIN, t = ts[k], dd = depth[k], e = env(k), sh = clamp(slope(k) * 1.3, -1, 1), y0 = Math.min(top[k], t) - 1;
+      const a0 = 0.56 * (0.8 + 0.4 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2));
+      let gd = g.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(${INK},${a0.toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * 0.34).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * 0.1).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
+      g.fillStyle = gd; g.fillRect(x, y0, BIN + 0.05, t + dd - y0);
+      const d2 = dd * 0.3 * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)), a2 = 0.34 * clamp(0.5 + 0.7 * sh, 0.12, 1) * e;
+      gd = g.createLinearGradient(0, t, 0, t + d2); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
+      g.fillStyle = gd; g.fillRect(x, y0, BIN + 0.05, t + d2 - y0);
+      gd = gb.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(0,0,0,${(0.95 * e).toFixed(3)})`); gd.addColorStop(0.55, `rgba(0,0,0,${(0.8 * e).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
+      gb.fillStyle = gd; gb.fillRect(x, y0, BIN + 0.05, t + dd - y0);
+    }
+    // -- cun: texture strokes, each a thin line of a drying brush that bends toward the fall line and fades out
+    const col = (x) => clamp(Math.round((x - bx0) / BIN), 0, nb - 1);
+    const hair = (x, y, ang, len, w0, a0, to) => {
+      const m = 16; g.lineCap = 'butt'; g.strokeStyle = `rgb(${INK})`;
+      for (let i = 0; i < m; i++) { const f = i / m; ang += (to - ang) * 0.1 + (R() - 0.5) * 0.14; const nx = x + Math.cos(ang) * len / m, ny = y + Math.sin(ang) * len / m;
+        if (R() > S.dry * 0.18 * (0.3 + f)) { g.globalAlpha = a0 * (1 - f) * (1 - f); g.lineWidth = Math.max(0.5, w0 * (1 - 0.75 * f)); g.beginPath(); g.moveTo(x, y); g.lineTo(nx, ny); g.stroke(); }
+        x = nx; y = ny; }
+      g.globalAlpha = 1;
+    };
+    // hemp fibres: many faint long lines down the fall line of the slope, closer and darker on the shaded side
+    for (let x = bx0 + 0.01 * H; x < bx1 - 0.01 * H; x += H * (0.007 + 0.012 * R())) {
+      const k = col(x), sh = clamp(slope(k) * 1.3, -1, 1), e = env(k), r1 = R(), r2 = R(), r3 = R(), r4 = R();
+      if (r1 > S.cun * 1.5 * (sh > 0 ? 1 : 0.6)) continue;
+      const fall = 1.5708 - sh * 0.8;
+      hair(x, ts[k] + H * (0.004 + 0.07 * r2 * r2), fall + (r3 - 0.5) * 0.9, depth[k] * (0.12 + 0.3 * r4 * r4), H * 0.0026 * (0.5 + R()), (0.2 + 0.25 * R()) * (sh > 0 ? 1 : 0.6) * e, fall + (r3 - 0.5) * 0.3);
+    }
+    for (const k of crests) {   // the spurs running down from a summit, to both sides
+      const way = P[Math.min(n - 1, k + 2)][0] >= P[Math.max(0, k - 2)][0] ? 1 : -1, dc = depth[col(P[k][0])], cnt = Math.round((2 + 3 * R()) * S.cun * 1.6);
+      for (let q = 0; q < cnt; q++) { const side = q === 0 ? (R() < 0.5 ? 1 : -1) * 0.25 : (q % 2 ? 1 : -1), i2 = clamp(k + way * Math.sign(side) * Math.round((q === 0 ? 0 : R()) * 0.03 * H / STEP), 0, n - 1);
+        hair(P[i2][0], P[i2][1] + 0.003 * H, 1.5708 - side * (0.35 + 0.5 * R()), dc * (0.3 + 0.45 * R()), H * 0.0048 * (0.6 + 0.8 * R()), 0.6, 1.5708 - Math.sign(side) * (0.1 + 0.5 * R())); }
+    }
+    // -- nothing above the ridge
+    for (const x of [g, gb]) { x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.fillStyle = '#000'; x.beginPath(); x.moveTo(bx0 - pad - 5, oy - 5); x.lineTo(bx0 - pad - 5, top[0]); for (let k = 0; k < nb; k++) x.lineTo(bx0 + k * BIN, top[k]); x.lineTo(bx1 + pad + 5, top[nb - 1]); x.lineTo(bx1 + pad + 5, oy - 5); x.closePath(); x.fill(); x.globalCompositeOperation = 'source-over'; }
+    // -- the ridge line: a ribbon along the path, a little more of it on the mountain's side
+    const near = (i) => { let b = 1e9; for (const k of crests) b = Math.min(b, Math.abs(cum[k] - cum[i])); return b; };
+    const wAt = [], dryAt = [];
+    for (let i = 0; i < n; i++) {
+      const s = cum[i], slow = 1 - clamp(P[i][2] / 1.5, 0, 1), sh = clamp(slope(col(P[i][0])) * 1.3, -1, 1), press = 0.5 * slow + 0.4 * N(s / (0.09 * H) + 70, 2) + 0.7 * Math.exp(-Math.pow(near(i) / (0.018 * H), 2)) + 0.2 * Math.max(0, sh);
+      const taper = (0.3 + 0.7 * sm(s / (0.02 * H))) * (0.1 + 0.9 * sm((L - s) / (0.09 * H)));
+      wAt.push(H * 0.0105 * taper * (0.5 + 0.65 * press) * (0.8 + 0.4 * N(s / (0.006 * H) + 200, 1)));
+      dryAt.push(clamp(S.dry * (0.2 + 0.9 * clamp(P[i][2] / 1.4, 0, 1) + 0.8 * Math.pow(s / L, 2) * clamp(L / (1.2 * H), 0.3, 1)) - 0.3 * press, 0, 0.95));
+    }
+    // side-brush: the tip leaves a solid dark edge on the sky side, the belly a broad paler band on the mountain side
+    const band = (out, inn, alpha, ph = 300) => { gr.globalAlpha = alpha; gr.fillStyle = `rgb(${INK})`; gr.beginPath();
+      for (let i = 0; i < n; i++) { const x = P[i][0] - nrm[i][0] * wAt[i] * out, y = P[i][1] - nrm[i][1] * wAt[i] * out; if (i) gr.lineTo(x, y); else gr.moveTo(x, y); }
+      for (let i = n - 1; i >= 0; i--) { const v = inn * (0.75 + 0.5 * N(cum[i] / (0.05 * H) + ph, 2)); gr.lineTo(P[i][0] + nrm[i][0] * wAt[i] * v, P[i][1] + nrm[i][1] * wAt[i] * v); }
+      gr.closePath(); gr.fill(); gr.globalAlpha = 1; };
+    band(0.35, 4.2, 0.1, 310); band(0.35, 3.0, 0.13, 340); band(0.35, 2.0, 0.16, 370); band(0.35, 1.2, 0.2, 400);   // paler the further from the tip
+    // flying white: the hairs of a dry or fast brush leave streaks of bare paper along the stroke, in the belly
+    const streaks = (u0, u1, per, gate) => { gr.globalCompositeOperation = 'destination-out'; gr.strokeStyle = '#000'; gr.lineCap = 'butt';
+      for (let q = 0, cnt = Math.round(L / (per * H)); q < cnt; q++) {
+        const i0 = Math.floor(R() * (n - 2)), len = Math.round(H * (0.03 + 0.12 * R()) / STEP), u = u0 + (u1 - u0) * R(), ph = R() * 90; gr.lineWidth = 0.6 + 1.3 * R(); gr.globalAlpha = 0.5 + 0.5 * R(); gr.beginPath(); let on = false;
+        for (let i = i0; i < Math.min(n, i0 + len); i++) { const x = P[i][0] + nrm[i][0] * wAt[i] * u, y = P[i][1] + nrm[i][1] * wAt[i] * u;
+          if (N(cum[i] / (0.03 * H) + ph, 2) < gate + 0.45 * dryAt[i]) { if (on) gr.lineTo(x, y); else { gr.moveTo(x, y); on = true; } } else on = false; }
+        gr.stroke(); }
+      gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1; };
+    streaks(0.5, 4.0, 0.003, 0.3);
+    band(0.4, 0.6, 1);
+    for (const k of crests) { const rr = 0.013 * H, gd = gr.createRadialGradient(P[k][0], P[k][1] + rr * 0.5, 0, P[k][0], P[k][1] + rr * 0.5, rr); gd.addColorStop(0, `rgba(${INK},0.55)`); gd.addColorStop(1, `rgba(${INK},0)`); gr.fillStyle = gd; gr.fillRect(P[k][0] - rr, P[k][1] - rr, 2 * rr, 3 * rr); }   // ink pooled where the brush was pressed and turned
+    streaks(-0.1, 0.6, 0.02, 0.08);
+    gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1;
+    raw(g); g.filter = `blur(${(0.0045 * H * dpr).toFixed(1)}px)`; g.globalAlpha = 0.3; g.drawImage(rib, 0, 0); g.filter = 'none'; g.globalAlpha = 0.93; g.drawImage(rib, 0, 0);   // a soft halo first: wet ink creeping off the line
+    g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
+    // far (high on the paper) pale, near dark
+    const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
+    return { cv, body, ox, oy, bx0, ts, depth, yBase, tone, peaks: crests.length };
   }
-  const PAINT = {
-    // moon: the one painting still used whole, turned and mirrored by the dice. Assembled from the round ink blots of
-    // sheet 5 (a pale blot as the disc, darker blots piled up as seas) it came out as stains on a dish, three tries:
-    // round blots are the wrong material for a moon's markings. Needs a sheet of uneven patches first
-    moon: (x, P, R) => {
-      const B = box(P), im = MOON.im, b = MOON.b; if (!im) return;
-      x.setTransform(dpr, 0, 0, dpr, (B[0] + B[2]) / 2 * dpr, (B[1] + B[3]) / 2 * dpr); x.rotate(R() * 6.2832);
-      x.scale((B[2] - B[0]) / ((b[2] - b[0]) * im.width) * (R() < 0.5 ? -1 : 1), (B[3] - B[1]) / ((b[3] - b[1]) * im.height));
-      x.drawImage(im, -(b[0] + b[2]) / 2 * im.width, -(b[1] + b[3]) / 2 * im.height); plain(x);
-    },
 
-    // mountains: a peak on every crest of the stroke, its summit on the stroke, taller where the stroke climbs higher;
-    // smaller peaks fill the line between; a pale far range behind. Near peaks hide far ones
-    mountain: (x, P, R) => {
-      if (S.vec) return mountainV(x, P, R);
-      const H = D.H, B = box(P), nb = Math.ceil((B[2] - B[0]) / 8) + 1, acc = new Array(nb).fill(0), cnt = new Array(nb).fill(0);
-      for (const p of P) { const k = clamp(Math.round((p[0] - B[0]) / 8), 0, nb - 1); acc[k] += p[1]; cnt[k]++; }
-      let last = P[0][1]; const ys = acc.map((v, k) => (cnt[k] ? (last = v / cnt[k]) : null)); for (let k = nb - 1, nx = last; k >= 0; k--) { if (ys[k] == null) ys[k] = nx; else nx = ys[k]; }
-      const yAt = (cx) => ys[clamp(Math.round((cx - B[0]) / 8), 0, nb - 1)], ym = ys.reduce((a, b) => a + b, 0) / nb, peaks = [];
-      const add = (cx, big, far) => {
-        const p = any(R, PARTS.peak), rise = clamp((ym - yAt(cx)) / H, -0.04, 0.07);
-        const wide = H * (far ? 0.18 + 0.1 * R() : big ? 0.32 + 0.1 * R() : 0.2 + 0.1 * R()) * (1 + 2.2 * rise), tall = H * (far ? 0.13 : big ? 0.27 : 0.17) * (1 + 2.2 * rise);
-        const size = Math.min(wide, tall * p.w / p.h), y = yAt(cx) - (far ? H * (0.015 + 0.035 * R()) : 0);
-        peaks.push({ p, x: cx, y, size, flip: R() < 0.5, far, base: y + (1 - p.ay) * p.h * size / p.w });
-      };
-      const w = 8; for (let k = 1; k < nb - 1; k++) { let top = true; for (let q = Math.max(0, k - w); q <= Math.min(nb - 1, k + w); q++) if (ys[q] < ys[k] - 1e-6 || (ys[q] === ys[k] && q < k)) top = false; if (top && ys[k] < ym) add(B[0] + k * 8, true, false); }
-      const crests = peaks.map((q) => q.x);
-      for (let cx = B[0] + H * 0.03 * R(); cx < B[2]; cx += H * (0.07 + 0.05 * R())) if (!crests.some((c) => Math.abs(c - cx) < 0.06 * H)) add(cx, false, false);
-      for (let i = 0, n = 6 + Math.floor(R() * 3); i < n; i++) add(B[0] + (B[2] - B[0]) * (0.02 + 0.96 * (i + R()) / n), false, true);
-      peaks.sort((a, b) => (b.far - a.far) || (a.base - b.base));
-      for (const q of peaks) stamp(x, q.p, q.x, q.y, q.size, 0, q.flip, q.far ? 0.42 : 1, 'source-over');
-      plain(x);
-    },
-
-    // cloud: puffs strung along the stroke, a swirl in each of the two loops
-    cloud: (x, P, R) => {
-      const H = D.H, B = box(P), mx = (B[0] + B[2]) / 2, A = along(P);
-      for (let d = 0; d < A.L; d += H * (0.05 + 0.03 * R())) { const q = A.at(d); stamp(x, any(R, PARTS.puff), q[0] + H * 0.03 * (R() - 0.5), q[1] + H * 0.03 * (R() - 0.5), H * (0.1 + 0.07 * R()), R() * 6.2832, R() < 0.5, 0.5 + 0.35 * R()); }
-      const used = [];
-      for (const lobe of [P.filter((p) => p[0] < mx), P.filter((p) => p[0] >= mx)]) {
-        if (lobe.length < 3) continue;
-        let p; do { p = any(R, PARTS.swirl); } while (used.includes(p) && used.length < PARTS.swirl.length); used.push(p);
-        const b = box(lobe), tail = p.w > 1.35 * p.h;   // the swirls with a trailing tail are laid flat, the round ones turned freely
-        stamp(x, p, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2, (b[2] - b[0]) * (tail ? 1.05 : 0.72), tail ? 0.5 * (R() - 0.5) : R() * 6.2832, R() < 0.5, 0.92);
-      }
-      plain(x);
-    },
-
-    // pine: a trunk bent along the stroke, thinning upward; branches set on it left and right, long low down, short at
-    // the top. A branch is mirrored to grow away from the trunk and turned only a little, so drooping ones still droop
-    pine: (x, P, R) => {
-      const H = D.H, A = along(P), tr = any(R, PARTS.trunk), thick = (tr.b[3] - tr.b[1]) * tr.h * (A.L / ((tr.b[2] - tr.b[0]) * tr.w));
-      bend(x, tr, P, (t) => H * (0.05 - 0.028 * t) / thick, 0);
-      const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a)), n = 9 + Math.floor(R() * 4), first = R() < 0.5 ? 1 : -1;
-      const grow = (t, side, long, up) => {
-        const q = A.at(t * A.L), p = any(R, PARTS.branch), flip = side * p.dx < 0, phi = Math.atan2(p.dy, flip ? -p.dx : p.dx), lean = q[2] + 1.5708;
-        const want = (side > 0 ? -up : Math.PI + up) + lean, rot = clamp(wrap(want - phi), -0.6, 0.6);
-        stamp(x, p, q[0], q[1], long / (p.len * Math.max(p.w, p.h)) * p.w, rot, flip, 1);
-      };
-      for (let i = 0; i < n; i++) { const t = Math.min(0.96, 0.26 + 0.72 * (i + 0.6 * R()) / n); grow(t, (i % 2 ? 1 : -1) * first, H * (0.25 - 0.13 * t) * (0.8 + 0.4 * R()), -0.1 + 0.4 * R()); }
-      grow(1, first, H * 0.13, 0.5 + 0.4 * R()); grow(1, -first, H * 0.13, 0.5 + 0.4 * R()); grow(0.93, first, H * 0.12, 0.9 + 0.3 * R());
-      plain(x);
-    },
-
-    // river: water streaks bent along the stroke, overlapping, each in its own lane; bank strips, reeds and rocks set
-    // along both edges
-    river: (x, P, R) => {
-      const H = D.H, A = along(P), hw = H * 0.042, things = [];
-      if (scr.width !== ink.width || scr.height !== ink.height) { scr.width = ink.width; scr.height = ink.height; }
-      for (let d = -0.05 * H; d < A.L - 0.08 * H;) {   // each streak is bent on a scratch canvas, then multiplied on: bent straight on, its slices would wipe the streak under it
-        const p = any(R, PARTS.streak), len = Math.min(H * (0.38 + 0.3 * R()), A.L), d0 = clamp(d, 0, A.L - len), off = hw * 0.7 * (R() - 0.5), seg = [];
-        for (let q = d0; q <= d0 + len + 0.5; q += 4) { const a = A.at(q); seg.push([a[0] - Math.sin(a[2]) * off, a[1] + Math.cos(a[2]) * off]); }
-        const thick = (p.b[3] - p.b[1]) * p.h * (len / ((p.b[2] - p.b[0]) * p.w)), want = hw * (1.1 + 0.8 * R());
-        sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, scr.width, scr.height); if (R() < 0.5) seg.reverse(); bend(sc, p, seg, want / thick, 0);
-        x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'multiply'; x.globalAlpha = clamp((0.2 + 0.22 * R()) / p.tone, 0.3, 1); x.drawImage(scr, 0, 0);
-        d += len * (0.45 + 0.3 * R());
-      }
-      plain(x);
-      const put = (kind, t, side, off, size, rot, alpha) => { const q = A.at(t * A.L), nx = -Math.sin(q[2]), ny = Math.cos(q[2]); things.push({ p: any(R, PARTS[kind]), x: q[0] + nx * side * off, y: q[1] + ny * side * off, size, rot: rot + (kind === 'bank' ? q[2] : 0), flip: R() < 0.5, alpha }); };
-      for (const side of [-1, 1]) for (let d = A.L * (0.03 + 0.08 * R()); d < A.L * 0.94;) { const len = H * (0.15 + 0.11 * R()); if (d + len / 2 < A.L * 0.97) put('bank', (d + len / 2) / A.L, side, hw * 1.05, len, 0, side < 0 ? 0.8 : 1); d += len * (0.7 + 0.6 * R()); }
-      for (let i = 0, n = 5 + Math.floor(R() * 5); i < n; i++) put('reed', 0.06 + 0.88 * (i + R()) / n, R() < 0.5 ? -1 : 1, hw * (0.95 + 0.35 * R()), H * (0.07 + 0.06 * R()), 0.25 * (R() - 0.5), 1);
-      for (let i = 0, n = 3 + Math.floor(R() * 4); i < n; i++) put('rock', 0.06 + 0.88 * (i + R()) / n, R() < 0.5 ? -1 : 1, hw * (0.55 + 0.6 * R()), H * (0.03 + 0.035 * R()), 0.2 * (R() - 0.5), 1);
-      things.sort((a, b) => a.y - b.y);   // the far bank first
-      for (const t of things) stamp(x, t.p, t.x, t.y, t.size, t.rot, t.flip, t.alpha);
-      plain(x);
-    },
-  };
-  function picture(d) {   // the finished painting of one figure, on a canvas of its own; null until its images are in
-    const T = TPL[d.i]; if (!partsReady || !MOON.im || d.stroke.length < 4) return null;
-    const cv = document.createElement('canvas'); cv.width = ink.width; cv.height = ink.height; const x = cv.getContext('2d'); x.imageSmoothingQuality = 'high';
-    x.setTransform(dpr, 0, 0, dpr, 0, 0); PAINT[T.id](x, calm(d.stroke, 4, 6), dice(d.seed)); return cv;
-  }
-  const mask = document.createElement('canvas'), mc = mask.getContext('2d');
-  function bleed(d, a) {   // the painting spreading out from the stroke: a is 0..1
-    if (mask.width !== ink.width || mask.height !== ink.height) { mask.width = ink.width; mask.height = ink.height; }
-    const H = D.H, e = a * a * (3 - 2 * a), q = d.stroke;
-    mc.setTransform(1, 0, 0, 1, 0, 0); mc.globalCompositeOperation = 'source-over'; mc.filter = 'none'; mc.clearRect(0, 0, mask.width, mask.height); mc.drawImage(d.pic, 0, 0);
-    mc.globalCompositeOperation = 'destination-in'; mc.filter = `blur(${(0.02 * H * dpr).toFixed(1)}px)`; mc.setTransform(dpr, 0, 0, dpr, 0, 0);
-    mc.lineCap = mc.lineJoin = 'round'; mc.lineWidth = D.rad() * 0.6 + e * TPL[d.i].spread * H; mc.beginPath(); q.forEach((p, k) => (k ? mc.lineTo(p[0], p[1]) : mc.moveTo(p[0], p[1]))); if (TPL[d.i].closed) mc.closePath(); mc.stroke();
-    mc.filter = 'none'; mc.globalCompositeOperation = 'source-over';
-    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'multiply'; c.drawImage(mask, 0, 0); c.restore();
-  }
-  const REVEAL = 2.2;   // seconds a painting takes to bleed in
-  const STROKE_END = 0.1;   // how much of the player's own stroke stays over the finished painting
+  const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
   const bake = document.createElement('canvas'); let bakeKey = '';
+  const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    if (!geo) return;
-    // finished pictures do not change: baked once into a canvas (redrawing three strokes and pictures every frame cost
-    // frame time for nothing). Only one still fading in is drawn live
-    for (const d of st.done) if (!d.pic) d.pic = picture(d);
-    const old = st.done.filter((d) => d.pic && T - d.t0 >= REVEAL).sort((p, q) => TPL[p.i].z - TPL[q.i].z), key = old.map((d) => d.i + ':' + d.t0).join() + '|' + ink.width + 'x' + ink.height;
-    if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; c = bake.getContext('2d');
-      for (const d of old) { c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'multiply'; c.drawImage(d.pic, 0, 0); c.globalCompositeOperation = 'source-over'; c.setTransform(dpr, 0, 0, dpr, 0, 0); strokePath(d.stroke, STROKE_END); }
-      c = cMain; c.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = mountain(d) || false;
+    // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
+    const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), key = old.map((d) => d.seed + ':' + d.t0).join() + '|' + ink.width + 'x' + ink.height;
+    if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
+      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 0.92; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone); } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
-    for (const d of st.done) if (!d.pic || T - d.t0 < REVEAL) { const a = clamp((T - d.t0) / REVEAL, 0, 1); if (d.pic) bleed(d, a); strokePath(d.stroke, 0.85 - (0.85 - STROKE_END) * a); }
-    if (st.fade) { const a = 1 - (T - st.fade.t0) / 0.8; if (a > 0) strokePath(st.fade.s, 0.6 * a); else st.fade = null; }
-    if (st.stroke.length > 1) strokePath(st.stroke, 0.85);
-    if (S.guide && !st.done.some((d) => d.i === st.cur)) {
-      const g = geo[st.cur], tol = S.tol * H, Tp = TPL[st.cur];
-      c.strokeStyle = 'rgba(0,0,0,.22)'; c.lineWidth = 1.5; c.setLineDash([3, 7]); c.beginPath(); g.line.forEach((p, k) => k ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.stroke(); c.setLineDash([]);
-      c.font = 'bold 13px Consolas, monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      g.pts.forEach((p, k) => {
-        const got = st.counting && (k < st.next), nx = k === (st.next >= Tp.n ? 0 : st.next);
-        c.beginPath(); c.arc(p[0], p[1], tol, 0, 6.2832); c.fillStyle = got ? 'rgba(30,150,80,.18)' : nx ? 'rgba(210,40,30,.14)' : 'rgba(0,0,0,.05)'; c.fill();
-        c.lineWidth = nx ? 2 : 1; c.strokeStyle = got ? 'rgba(30,150,80,.8)' : nx ? 'rgba(210,40,30,.9)' : 'rgba(0,0,0,.35)'; c.stroke();
-        c.fillStyle = got ? '#1a7a44' : nx ? '#c22' : '#444'; c.fillText(String(k + 1), p[0], p[1]);
-      });
-      c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
+      const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m, nb = m.ts.length;
+      c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.moveTo(m.bx0 - 0.05 * H, m.ts[0] - 0.12 * H);
+      for (let k = 0; k < nb; k += 4) c.lineTo(m.bx0 + k * BIN, m.ts[k] - 0.12 * H); c.lineTo(m.bx0 + nb * BIN + 0.05 * H, m.ts[nb - 1] - 0.12 * H);
+      for (let k = nb - 1; k >= 0; k -= 4) c.lineTo(m.bx0 + k * BIN + (k > nb - 5 ? 0.05 * H : 0), m.ts[k] + 0.02 * H + e * m.depth[k]); c.lineTo(m.bx0 - 0.05 * H, m.ts[0] + 0.02 * H + e * m.depth[0]); c.closePath(); c.clip();
+      lay(c, m, m.tone * clamp(a * 3, 0, 1)); c.restore();
+      strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1)));
     }
+    if (st.stroke.length > 1) strokePath(st.stroke, 0.85);
     if (T - st.msgT < 3) {
-      c.font = '15px Consolas, monospace'; const tw = c.measureText(st.msg).width, x = freeW() / 2 - tw / 2, y = H * 0.5;
+      c.setTransform(dpr, 0, 0, dpr, 0, 0); c.font = '15px Consolas, monospace'; const tw = c.measureText(st.msg).width, x = freeW() / 2 - tw / 2, y = H * 0.5;
       c.globalAlpha = clamp(3 - (T - st.msgT), 0, 1); c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(x - 10, y - 20, tw + 20, 30); c.fillStyle = '#111'; c.fillText(st.msg, x, y); c.globalAlpha = 1;
     }
   }
@@ -385,41 +215,31 @@
   document.addEventListener('mousedown', (e) => { if (e.button === 0 && Rm.st.locked) penDown(); });
   document.addEventListener('mouseup', (e) => { if (e.button === 0) penUp(); });
   document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) penUp(); });
+  const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô của bút']];
   const pbox = document.createElement('div');
-  pbox.innerHTML = `<h3>Vẽ tranh (bản thử)</h3><div id="p_stat" class="keys"></div>
-    ${TPL.map((T, i) => `<button class="pf" data-i="${i}">${i + 1}. ${T.name.split('→')[0].trim()}</button>`).join('')}<br>
-    <button id="p_clear">Xóa tranh (C)</button><button id="p_guide">Ẩn/hiện mẫu (V)</button><button id="p_vec"></button>
-    <label><span class="row"><span>Độ rộng điểm (màn)</span><b id="p_tolv"></b></span><input type="range" id="p_tol" min="0.02" max="0.1" step="0.005"></label>
-    <div class="keys">Giữ chuột trái: hạ bút
-Qua các điểm theo số, một nét
-Thả chuột giữa chừng: đứt nét
-1–5: chọn hình</div>`;
+  pbox.innerHTML = `<h3>Vẽ núi (tự do)</h3><div id="p_stat" class="keys"></div>
+    <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button>
+    ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
+    <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
+Thả chuột: nét thành núi
+Vẽ cao trên giấy: núi xa, nhạt
+Vẽ thấp: núi gần, đậm</div>`;
   panel.insertBefore(pbox, panel.firstChild);
   const $ = (id) => document.getElementById(id);
-  pbox.querySelectorAll('.pf').forEach((b) => { b.onclick = () => pick(+b.dataset.i); });
-  $('p_clear').onclick = () => reset(true);
-  $('p_guide').onclick = () => { S.guide = !S.guide; save(); };
-  $('p_vec').onclick = flipVec;
-  $('p_tol').addEventListener('input', (e) => { S.tol = +e.target.value; save(); sync(); });
-  // same stroke, same dice, the other way of painting it: so the two can be compared on one picture
-  function flipVec() { S.vec = !S.vec; save(); for (const d of st.done) if (TPL[d.i].id === 'mountain') d.pic = null; bakeKey = ''; say(S.vec ? 'Núi: hình sinh + chất mực' : 'Núi: ráp mảnh'); sync(); }
+  const redo = (reseed) => { for (const d of st.done) { d.m = null; if (reseed) d.seed = (Math.random() * 2147483647) | 0; } bakeKey = ''; };
+  $('p_clear').onclick = reset; $('p_undo').onclick = undo; $('p_again').onclick = () => redo(true);
+  for (const [k] of SL) $('p_' + k).addEventListener('input', (e) => { S[k] = +e.target.value; save(); redo(false); sync(); });
   function sync() {
     if (!$('p_stat')) return;
-    const T = TPL[st.cur], all = st.done.length === TPL.length;
-    $('p_stat').textContent = all ? 'Xong cả tranh. Bấm C để vẽ lại' : `Đang vẽ: ${T.name}\nĐiểm kế: ${st.next >= T.n ? 1 : st.next + 1}/${T.n}` + (st.last ? `\nLần trước: ${st.last.ok ? `lệch TB ${st.last.avgPx} px, ${st.last.grade}` : st.last.why}` : '');
-    pbox.querySelectorAll('.pf').forEach((b) => { const i = +b.dataset.i; b.classList.toggle('on', i === st.cur && !all); b.textContent = `${i + 1}. ${TPL[i].name.split('→')[0].trim()}${st.done.some((d) => d.i === i) ? ' ✓' : ''}`; });
-    $('p_vec').textContent = `Núi: ${S.vec ? 'hình sinh' : 'ráp mảnh'} (N)`;
-    $('p_tol').value = S.tol; $('p_tolv').textContent = S.tol.toFixed(3);
+    $('p_stat').textContent = st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét';
+    for (const [k] of SL) { $('p_' + k).value = S[k]; $('p_' + k + 'v').textContent = S[k].toFixed(2); }
   }
   sync();
   addEventListener('keydown', (e) => {
-    const k = e.key;
-    if (k.length === 1 && k >= '1' && k <= String(TPL.length)) pick(+k - 1);
-    else if (k === 'c' || k === 'C') reset(true);
-    else if (k === 'v' || k === 'V') { S.guide = !S.guide; save(); }
-    else if (k === 'n' || k === 'N') flipVec();
+    const k = e.key.toLowerCase();
+    if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true);
   });
 
-  window.__paint = { S, st, TPL, step, render, pick, reset, ready: () => partsReady && !!MOON.im, pen: (on) => (on ? penDown() : penUp()), geo: () => { if (!geo) { layout(); geo.w = freeW(); geo.H = D.H; } return geo; },
-    info: () => ({ fig: TPL[st.cur].id, next: st.next, pen: st.pen, done: st.done.map((d) => TPL[d.i].id), last: st.last, tol: S.tol, vec: S.vec }) };
+  window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => true, pen: (on) => (on ? penDown() : penUp()),
+    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), S: { ...S } }) };
 })();

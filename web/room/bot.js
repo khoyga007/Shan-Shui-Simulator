@@ -92,50 +92,36 @@
   run('burstCircle', 6, (t) => { const a = t * 0.5 / 0.17, v = (t % 0.5 < 0.25 ? 0.9 : 0.1) * H * dt; return [-Math.sin(a) * v, Math.cos(a) * v]; });
   run('handCircle', 6, (t) => { const a = t * 0.5 / 0.17 + 0.5 * Math.sin(t * 7), v = (0.5 + 0.35 * Math.sin(t * 11)) * H * dt; return [-Math.sin(a) * v, Math.cos(a) * v]; });
   run('infinity', 12, () => [0, 0], null, [420, 540, 700]); Rm.dance(false);
-  // paint prototype (paint.js): fly each figure with the pen down, the mouse point led along it a little ahead of the eye.
-  // Expect done, small deviation. Then two that must fail: pen lifted half way; the circle flown the wrong way round (point 8 comes before point 2)
+  // paint (paint.js, free drawing): fly a few strokes with the pen down, the mouse point led along each a little ahead of
+  // the eye; every stroke must become a mountain. bot-scene.jpg = the painting alone, bot-paint.jpg = with the dragon
   const Pt = window.__paint;
   if (Pt && (!ONLY || ONLY.split(',').includes('paint'))) {
-    const pr = {}, ink = document.getElementById('ink');
-    const fly = (i, mode) => {   // pilot: the mouse point runs along the line, always the first line point 0.09 screens or more from the eye
-      Pt.pick(i); const g = Pt.geo()[i], L = g.line, T = Pt.TPL[i], n = 240, hc = Rm.hc; let s = 0, f = 0, still = 0;
-      const go = (q) => { Rm.target(q[0], q[1]); Rm.tick(dt); dbg.step(1, { dt, noRender: true, noSnap: true }); };
-      let at = (k) => T.closed ? L[((k % n) + n) % n] : k <= n ? L[Math.max(0, k)] : [L[n][0] + (L[n][0] - L[n - 1][0]) * (k - n), L[n][1] + (L[n][1] - L[n - 1][1]) * (k - n)];
-      const at0 = at; if (mode === 'wrongway') at = (k) => at0(-k);
-      const L1 = at(1), tl = Math.hypot(L1[0] - L[0][0], L1[1] - L[0][1]), pd = Math.min(0.3 * H, L[0][0] - 0.06 * H), pre = [L[0][0] - (L1[0] - L[0][0]) / tl * pd, L[0][1] - (L1[1] - L[0][1]) / tl * pd];
-      // come at the run-up point from further back along the same line, so the figure is entered heading the right way
-      const far = [Math.max(0.05 * H, Math.min(W - 0.05 * H, pre[0] - (L1[0] - L[0][0]) / tl * 0.3 * H)), Math.max(0.05 * H, Math.min(0.95 * H, pre[1] - (L1[1] - L[0][1]) / tl * 0.3 * H))];
-      for (let k = 0; k < 900 && Math.hypot(far[0] - hc.x, far[1] - hc.y) > 0.08 * H; k++) go(far);
-      for (let k = 0; k < 900 && Math.hypot(pre[0] - hc.x, pre[1] - hc.y) > 0.06 * H; k++) go(pre);
-      Pt.st.last = null; Pt.pen(true);
-      for (; f < 60 * 20 && !Pt.st.last; f++) {
-        while (s < 2 * n && Math.hypot(at(s)[0] - hc.x, at(s)[1] - hc.y) < 0.09 * H) s++;
-        let q = Pt.st.counting ? at(s) : at(8);   // first straight through point 1
-// (a short cut across the circle was the old must-fail case: the dragon cannot turn that tight, it went round anyway)
-        // parked with the point beside the neck (inside the turning circle, where the room leaves it alone): fly out and come again
-        if (!Pt.st.counting) { still = Rm.st.v < 0.02 ? still + 1 : 0; if (still > 20) { for (let k = 0; k < 50; k++) go([W * 0.4, H * 0.5]); still = 0; } }
-        go(q);
-        if (mode === 'dbg' && f % 12 === 0) (out.dbg = out.dbg || []).push([f, Math.round(hc.x), Math.round(hc.y), Math.round(q[0]), Math.round(q[1]), s, Pt.st.next, +(Rm.st.v).toFixed(2)].join(' '));
-        if (mode === 'lift' && Pt.st.next === 4) Pt.pen(false);
-        Pt.step(dt);
-      }
-      Pt.pen(false);
-      return { ...(Pt.st.last || { ok: false, why: 'timeout' }), secs: +(f / 60).toFixed(1) };
+    const ink = document.getElementById('ink'), fw = Pt.freeW(), hc = Rm.hc, pr = [];
+    const go = (q) => { Rm.target(q[0], q[1]); Rm.tick(dt); dbg.step(1, { dt, noRender: true, noSnap: true }); };
+    const fly = (f, speed) => {   // f(t) -> [x, y], t 0..1
+      const n = 300, Lp = Array.from({ length: n + 1 }, (_, i) => f(i / n)), at = (k) => k <= n ? Lp[Math.max(0, k)] : [Lp[n][0] + (Lp[n][0] - Lp[n - 1][0]) * (k - n), Lp[n][1] + (Lp[n][1] - Lp[n - 1][1]) * (k - n)];
+      const tl = Math.hypot(Lp[1][0] - Lp[0][0], Lp[1][1] - Lp[0][1]), ux = (Lp[1][0] - Lp[0][0]) / tl, uy = (Lp[1][1] - Lp[0][1]) / tl;
+      const pre = [Math.max(0.03 * H, Lp[0][0] - ux * 0.25 * H), clamp01(Lp[0][1] - uy * 0.25 * H)];
+      Rm.S.cap = 1.4; for (let k = 0; k < 900 && Math.hypot(pre[0] - hc.x, pre[1] - hc.y) > 0.06 * H; k++) go(pre);
+      for (let k = 0; k < 600 && Math.hypot(Lp[0][0] - hc.x, Lp[0][1] - hc.y) > 0.035 * H; k++) go(at(6));
+      Rm.S.cap = speed; Pt.pen(true); let s = 0, fN = 0;
+      for (; fN < 60 * 25 && s < n + 12; fN++) { while (s < n + 12 && Math.hypot(at(s)[0] - hc.x, at(s)[1] - hc.y) < 0.085 * H) s++; go(at(s)); Pt.step(dt); if (s >= n && Math.hypot(Lp[n][0] - hc.x, Lp[n][1] - hc.y) < 0.03 * H) break; }
+      Pt.pen(false); pr.push({ secs: +(fN / 60).toFixed(1), endOff: Math.round(Math.hypot(Lp[n][0] - hc.x, Lp[n][1] - hc.y)) });
     };
-    const cap0 = Rm.S.cap; Rm.S.cap = 1.2;   // a hand drawing with care, not the 2 screens a second the bot would fly
-    Pt.reset(true);
-    pr.lift = fly(0, 'lift'); pr.wrongway = fly(0, 'wrongway');
-    Pt.reset(true);
-    for (let i = 0; i < Pt.TPL.length; i++) pr[Pt.TPL[i].id] = fly(i);
+    const clamp01 = (y) => Math.max(0.05 * H, Math.min(0.95 * H, y)), cap0 = Rm.S.cap;
+    Pt.reset();
+    fly((t) => [fw * (0.1 + 0.62 * t), H * (0.34 - 0.09 * Math.sin(t * 9.42) - 0.02 * Math.sin(t * 21))], 0.7);                 // far range, three tops
+    fly((t) => [fw * (0.36 + 0.6 * t), H * (0.66 - 0.24 * Math.sin(t * 3.1416) - 0.06 * Math.sin(t * 9.42))], 0.6);              // near, one big mountain with shoulders
+    fly((t) => [fw * (0.04 + 0.42 * t), H * (0.82 - 0.09 * Math.sin(t * 6.2832) * (t < 0.5 ? 1 : 0.4) - 0.03 * t)], 1.5);          // low hills in front, flown fast (dry)
+    Rm.S.cap = cap0;
     const snap = () => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
       x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };
-    for (let k = 0; k < 200; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 199 && k !== 50, noSnap: true }); if (k === 50) { Rm.G.draw(0); post('bot-paint-mid.jpg', snap()); } }   // the last painting bleeds in (2.2 s)
-    Rm.G.draw(0);
-    Rm.S.cap = cap0;
-    out.paint = pr; out.paintDone = Pt.info().done;
+    for (let k = 0; k < 160; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 159 && k !== 30, noSnap: true }); if (k === 30) { Rm.G.draw(0); post('bot-paint-mid.jpg', snap()); } }   // the last stroke's ink runs down (1.6 s)
+    const t0 = performance.now(); Rm.G.draw(0); const bakeMs = +(performance.now() - t0).toFixed(1);
+    out.paint = { ...Pt.info(), flown: pr, bakeMs };
     post('bot-paint.jpg', snap());
     { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);
-      post('bot-scene.jpg', m.toDataURL('image/jpeg', 0.9)); }   // the painting alone, without the dragon lying on it
+      post('bot-scene.jpg', m.toDataURL('image/jpeg', 0.92)); }
   }
   post('bot-uturn.jpg', strip.toDataURL('image/jpeg', 0.85)).then(() => post('bot.json', json(out)));
 })();
