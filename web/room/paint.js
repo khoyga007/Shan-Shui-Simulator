@@ -153,7 +153,10 @@
     // toward both ends the ink runs less and less far down: the mountain dies out as a wedge along its falling flank.
     // (Its ink only thinned there, column by column, so every mountain began and ended at a plumb edge: r007)
     const tD = Math.min(0.22, (E + 0.22 * H) / Math.max(1, bx1 - bx0)), envD = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / tD) * sm((1 - t) / tD); };
-    const depthAt = (t, x) => ((yBase - t) * 1.0 + 0.17 * H) * (E ? 0.05 + 0.95 * envD(x) : 0.45 + 0.55 * envX(x)), depth = ts.map((t, k) => depthAt(t, bx0 + k * BIN));
+    // (and a wedge of even ink has a lower edge: two mountains ending side by side stood apart by a bent pale streak, each
+    // with a visible rim. So the wedge is blunt, and the lower body also pales toward the ends: mist, with no rim)
+    const depthAt = (t, x) => ((yBase - t) * 1.0 + 0.17 * H) * (E ? 0.3 + 0.7 * envD(x) : 0.45 + 0.55 * envX(x)), wedge = (x) => E ? (0.05 + 0.95 * envD(x)) / (0.3 + 0.7 * envD(x)) : 1,
+       depthFull = ts.map((t, k) => depthAt(t, bx0 + k * BIN)), depth = depthFull.map((v, k) => v * wedge(bx0 + k * BIN));   // depth: how far texture strokes and wash bands reach, the sharp wedge as before
     const folded = runs.length > 1, fields = folded ? runs.map(([a, b]) => field(a, b)) : [F];
     // -- canvases, cropped to the mountain
     const CL = Math.round(cliff * clamp(0.55 * (yBase - yTop), 0.1 * H, 0.3 * H)), extL = side < 0 ? CL : 0, extR = side > 0 ? CL : 0;   // how far a rock face's ink runs sideways
@@ -176,24 +179,29 @@
     const pp = (v, w) => { const a = 0.07 * w, m = 2 * (w - 2 * a); v = ((v % m) + m) % m; return a + (v < m / 2 ? v : m - v); };   // over its middle only: a band thins at both ends, and turning there cut a white notch into the body   // there and back along a band: no seam where it runs out
     const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body;   // body: how much ink the mountain's flank holds, and how far down it stays dark
     for (const f of fields) for (let k = 0; k < f.m; k++) {
-      const x = f.x0 + k * BIN, t = f.ts[k], ee = envX(x), dd = depthAt(t, x), sh = f.shade[k], y0 = Math.min(f.top[k], t) - 1,
+      const x = f.x0 + k * BIN, t = f.ts[k], ee = envX(x), dd = depthAt(t, x), ed = E ? envD(x) : 1, dw = dd * wedge(x), sh = f.shade[k], y0 = Math.min(f.top[k], t) - 1,
          e = ee * (1 - cliff) * (folded ? sm(Math.min(k, f.m - 1 - k) / fr) : 1),   // a stretch's ink thins toward the turn, or its end stood as a plumb edge in the body
          X = DX(x), Wd = DX(x + BIN) - X, Y0 = DY(y0), T = DY(t);
       const a0 = Math.min(0.95, 0.56 * bm * (0.85 + 0.3 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2)));
       // past the end of the stroke there is no line: the ink has no upper edge there, it comes up out of nothing (mist)
       const soft = E ? 1 - sm(clamp(Math.max(bx0 + E - x, x - (bx1 - E)) / E, 0, 1) * 1.4) : 1;
-      let gd = g.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(${INK},${(a0 * soft).toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7 * (0.3 + 0.7 * soft)).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * (0.34 + mid)).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * (0.1 + mid)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
+      let gd = g.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(${INK},${(a0 * soft).toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7 * (0.3 + 0.7 * soft)).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * (0.34 + mid) * ed).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * (0.1 + mid) * ed).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
-      const d2 = Math.min(dd * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
+      const d2 = Math.min(dw * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
          a2 = Math.min(0.9, 0.34 * bm * clamp(0.5 + 0.7 * sh, 0.12, 1) * e);
       gd = g.createLinearGradient(0, T, 0, DY(t + d2)); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       if (qc) {   // a real band of wash, its dark wet edge under the ridge; a second one drawn long and faint down the body
-        const h1 = Math.min(dd * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), w1 = Math.max(1, BIN * sc1), w2 = Math.max(1, BIN * sc2);
+        const h1 = Math.min(dw * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), w1 = Math.max(1, BIN * sc1), w2 = Math.max(1, BIN * sc2);
         g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e) * soft * soft; g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
-        g.globalAlpha = Math.min(1, 0.26 * bm * e) * soft * soft; g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dd * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
+        g.globalAlpha = Math.min(1, 0.26 * bm * e) * soft * soft; g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dw * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
       } else if (soft > 0.98) { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
-      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${(hm * soft).toFixed(3)})`); gd.addColorStop(0.15, `rgba(0,0,0,${hm})`); gd.addColorStop(0.6, `rgba(0,0,0,${hm})`);   // and a little less: where its ink is thin the two lie over each other, or a pale sliver stood between them   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
-      gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
+      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${(hm * soft).toFixed(3)})`); gd.addColorStop(0.15, `rgba(0,0,0,${hm})`); gd.addColorStop(0.45, `rgba(0,0,0,${hm})`); gd.addColorStop(1, `rgba(0,0,0,${(hm * (E ? sm((envD(x) - 0.35) / 0.5) : 1)).toFixed(3)})`);
+      // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007)
+      // over its middle it hides all the way down: under its foot lies mist, not the mountain behind. (Stopped where its
+      // own ink ends, the mountain behind came back along a line the shape of this ridge; faded out there, it showed
+      // through as a ghost.) Toward its ends, where it dies out as a wedge, it lets go with its own ink, or the mountain
+      // behind was wiped in an upright pale band beside it
+      gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, chh - Y0);
     }
     home(g); home(gb);
     // -- cun: texture strokes, each a thin line of a drying brush that bends toward the fall line and fades out
@@ -324,7 +332,7 @@
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
-    return { cv, body, ox, oy, bx0, ts, depth, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
+    return { cv, body, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
   }
 
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
