@@ -166,9 +166,10 @@
     // the other sheets of the brush in use (Muse's stand in where a source has none, as GPT): _a long dry strokes,
     // _b axe-cut strokes, _d moss dots, _c bands of wash
     const aux = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
-    const kitA = aux('_a'), kitB = aux('_b'), kitD = aux('_d'), kitC = aux('_c'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
-    const qc = kitC.length ? pick(kitC) : null, qc2 = kitC.length ? pick(kitC) : null, sc1 = qc ? qc.h / (0.085 * H) : 1, sc2 = qc2 ? qc2.h / (0.3 * H) : 1, uo1 = R() * 4000, uo2 = R() * 4000;
-    const pp = (v, w) => { const m = 2 * w - 2; v = ((v % m) + m) % m; return v < w ? v : m - v; };   // there and back along a band: no seam where it runs out
+    const kitA = aux('_a'), kitB = aux('_b'), kitC = aux('_c'), kitD = S.tex === 'code' ? [] : Object.keys(STROKES).filter((k) => k.endsWith('_d')).flatMap((k) => STROKES[k].filter((q) => q.im)),   // moss dots: every source's in one pool (Muse's are one shape repeated)
+       pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    const qc = kitC.length ? pick(kitC) : null, qc2 = kitC.length ? pick(kitC) : null, sc1 = qc ? qc.h / (0.085 * H) : 1, sc2 = qc2 ? qc2.h / (0.2 * H) : 1, uo1 = R() * 4000, uo2 = R() * 4000;
+    const pp = (v, w) => { const a = 0.07 * w, m = 2 * (w - 2 * a); v = ((v % m) + m) % m; return a + (v < m / 2 ? v : m - v); };   // over its middle only: a band thins at both ends, and turning there cut a white notch into the body   // there and back along a band: no seam where it runs out
     const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body;   // body: how much ink the mountain's flank holds, and how far down it stays dark
     for (const f of fields) for (let k = 0; k < f.m; k++) {
       const x = f.x0 + k * BIN, t = f.ts[k], ee = envX(x), dd = depthAt(t, x), sh = f.shade[k], y0 = Math.min(f.top[k], t) - 1,
@@ -183,9 +184,9 @@
       if (qc) {   // a real band of wash, its dark wet edge under the ridge; a second one drawn long and faint down the body
         const h1 = Math.min(dd * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), w1 = Math.max(1, BIN * sc1), w2 = Math.max(1, BIN * sc2);
         g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e); g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
-        g.globalAlpha = Math.min(1, 0.26 * bm * e); g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dd * 0.7, 0.4 * H) * dpr); g.globalAlpha = 1;
+        g.globalAlpha = Math.min(1, 0.26 * bm * e); g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dd * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
       } else { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
-      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(0,0,0,${sm(e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${sm(e).toFixed(3)})`);   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
+      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = Math.pow(sm(e), 2.5).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${hm})`); gd.addColorStop(0.6, `rgba(0,0,0,${hm})`);   // and a little less: where its ink is thin the two lie over each other, or a pale sliver stood between them   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
     }
     home(g); home(gb);
@@ -210,14 +211,15 @@
       g.globalAlpha = 1; home(g);
     };
     // a whole small piece, turned: an axe-cut stroke (its heavy head at x, y), a cluster of moss dots
-    const stamp = (q, x, y, ang, len, a0) => { const c0 = Math.cos(ang), s0 = Math.sin(ang), hh = len * q.h / q.w;
-      g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = a0; g.drawImage(q.im, 0, -hh / 2, len, hh); g.globalAlpha = 1; home(g); };
+    const stamp = (q, x, y, ang, len, a0, fat = 1) => { const c0 = Math.cos(ang), s0 = Math.sin(ang), hh = len * q.h / q.w * fat, fl = R() < 0.5 ? -1 : 1;   // mirrored across at random
+      g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = a0; g.drawImage(q.im, 0, -hh / 2, len, hh); g.globalAlpha = 1; home(g); };
     // axe cuts: short broad strokes hanging on the slope under the ridge, mostly on the shaded side
     if (kitB.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.02 + 0.05 * R())) {
       const k = col(x), sh = shAt(k), r1 = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R();
       if (r1 > S.cun * (sh > 0 ? 0.9 : 0.35)) continue;
-      const an = 1.5708 - sh * 0.8 + (r4 - 0.5) * 0.6, ln = H * (0.018 + 0.022 * r5), y = ts[k] + H * 0.014 + depth[k] * 0.3 * r3 * r3, cnt = 2 + Math.floor(R() * 3);   // cut in twos and threes, side by side
-      for (let j = 0; j < cnt; j++) stamp(kitB[Math.floor(r2 * kitB.length + j) % kitB.length], x - Math.sin(an) * j * ln * 0.38 + (R() - 0.5) * ln * 0.2, y + Math.cos(an) * j * ln * 0.38 + (R() - 0.5) * ln * 0.3, an + (R() - 0.5) * 0.25, ln * (0.75 + 0.5 * R()), (0.45 + 0.3 * R()) * env(k));
+      const big = r5 * r5, an = 1.5708 - sh * 0.8 + (r4 - 0.5) * 0.7, ln = H * (0.014 + 0.05 * big), y = ts[k] + H * 0.012 + depth[k] * 0.32 * r3 * r3, cnt = 1 + Math.floor(R() * 4);   // a few large, many small; cut in ones to fours, side by side, each shorter than the last
+      for (let j = 0; j < cnt; j++) { const l2 = ln * (1 - 0.16 * j) * (0.8 + 0.4 * R());
+        stamp(kitB[Math.floor(r2 * kitB.length + j * 3) % kitB.length], x - Math.sin(an) * j * ln * 0.36 + (R() - 0.5) * ln * 0.25, y + Math.cos(an) * j * ln * 0.36 + (R() - 0.5) * ln * 0.35, an + (R() - 0.5) * 0.3, l2, (0.3 + 0.45 * R()) * (1 - 0.3 * big) * env(k), 0.7 + 0.6 * R()); }
     }
     // hemp fibres: many faint long lines down the fall line of the slope, closer and darker on the shaded side
     for (let x = bx0 + 0.01 * H; x < bx1 - 0.01 * H; x += H * (0.007 + 0.012 * R())) {
@@ -242,18 +244,21 @@
     else for (const x of [g, gb]) { x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.fillStyle = '#000'; x.beginPath(); x.moveTo(bx0 - pad - 5, oy - 5); x.lineTo(bx0 - pad - 5, top[0]); for (let k = 0; k < nb; k++) x.lineTo(bx0 + k * BIN, top[k]); x.lineTo(bx1 + pad + 5, top[nb - 1]); x.lineTo(bx1 + pad + 5, oy - 5); x.closePath(); x.fill(); x.globalCompositeOperation = 'source-over'; }
     // moss dots: a few clusters set on the ridge, just inside it
     if (kitD.length) for (let sd = (0.08 + 0.3 * R()) * H, i = 0; sd < L - 0.06 * H; sd += H * (0.12 + 0.5 * R()) / Math.max(0.2, S.cun / 0.6)) {
-      while (i < n - 1 && cum[i] < sd) i++; const sz = H * (0.016 + 0.02 * R()), an = R() * 6.2832, cx = P[i][0] + nrm[i][0] * sz * 0.9, cy = P[i][1] + nrm[i][1] * sz * 0.9;
-      stamp(pick(kitD), cx - Math.cos(an) * sz / 2, cy - Math.sin(an) * sz / 2, an, sz, 0.55 + 0.35 * R()); }
+      while (i < n - 1 && cum[i] < sd) i++;
+      for (let j = 0, c2 = R() < 0.4 ? 2 : 1; j < c2; j++) { const r = R(), sz = H * (0.01 + 0.03 * r * r), an = R() * 6.2832, off = sz * (0.7 + 0.8 * R()), al = (R() - 0.5) * 0.05 * H * j, cx = P[i][0] + nrm[i][0] * off + nrm[i][1] * al, cy = P[i][1] + nrm[i][1] * off - nrm[i][0] * al;
+        stamp(pick(kitD), cx - Math.cos(an) * sz / 2, cy - Math.sin(an) * sz / 2, an, sz, 0.35 + 0.55 * R(), 0.7 + 0.5 * R()); } }
     // -- a rock face: ink running sideways from the stroke into the body, row by row, widening from the top into a
     //    shoulder and thinning toward the foot; texture strokes leaning down off the face
     if (CL > 2) { raw(g); raw(gb); const rise = yBase - yTop, rowsN = Math.max(2, Math.ceil(rise / BIN)), xs = new Array(rowsN).fill(null);
       for (let i = 1; i < n; i++) { const a = P[i - 1], b = P[i];
         for (let r = Math.max(0, Math.floor((Math.min(a[1], b[1]) - yTop) / BIN)); r <= Math.min(rowsN - 1, Math.ceil((Math.max(a[1], b[1]) - yTop) / BIN)); r++) { const y = yTop + r * BIN, f = b[1] === a[1] ? 0 : clamp((y - a[1]) / (b[1] - a[1]), 0, 1), x = a[0] + (b[0] - a[0]) * f; if (xs[r] === null || (x - xs[r]) * side < 0) xs[r] = x; } }
+      const scr = qc ? qc.h / (0.55 * CL) : 1, wr = Math.max(1, BIN * scr);
       for (let r = 0; r < rowsN; r++) { if (xs[r] === null) continue;
-        const y = yTop + r * BIN, f = r / rowsN, len = CL * sm(f / 0.3) * (0.6 + 0.8 * N(y / (0.1 * H) + 11, 2)), a = Math.min(0.95, 0.5 * bm * cliff * sm(f / 0.12) * (1 - sm((f - 0.35) / 0.65)) * (0.8 + 0.4 * N(y / (0.05 * H) + 5, 2)));
+        const y = yTop + r * BIN, f = r / rowsN, len = CL * sm(f / 0.3) * (0.6 + 0.8 * N(y / (0.1 * H) + 11, 2)), a = Math.min(0.95, 0.62 * bm * cliff * sm(f / 0.12) * (1 - sm((f - 0.35) / 0.65)) * (0.8 + 0.4 * N(y / (0.05 * H) + 5, 2)));
         if (len < 2) continue; const Y = Math.round((y - oy) * dpr), Hd = Math.round((y + BIN - oy) * dpr) - Y, X0 = (xs[r] - ox) * dpr, X1 = (xs[r] + side * len - ox) * dpr;
         let gd = g.createLinearGradient(X0, 0, X1, 0); gd.addColorStop(0, `rgba(${INK},${a.toFixed(3)})`); gd.addColorStop(0.15, `rgba(${INK},${(a * 0.7).toFixed(3)})`); gd.addColorStop(0.45, `rgba(${INK},${(a * (0.3 + mid)).toFixed(3)})`); gd.addColorStop(0.75, `rgba(${INK},${(a * (0.08 + mid * 0.6)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
         g.fillStyle = gd; g.fillRect(Math.min(X0, X1), Y, Math.abs(X1 - X0), Hd);
+        if (qc) { g.setTransform(0, 1, side, 0, X0, Y); g.globalAlpha = Math.min(1, a * 1.5); g.drawImage(qc.im, Math.min(qc.w - wr, pp((y - yTop) * scr + uo1, qc.w)), 0, wr, qc.h, 0, 0, Hd, len * 0.6 * dpr); g.globalAlpha = 1; raw(g); }   // a real band of wash turned on its side, its wet edge on the stroke
         const fb = 1 - sm((f - 0.5) / 0.5); gd = gb.createLinearGradient(X0, 0, X1, 0); gd.addColorStop(0, `rgba(0,0,0,${Math.min(1, 1.6 * cliff * fb).toFixed(3)})`); gd.addColorStop(0.5, `rgba(0,0,0,${Math.min(1, 1.3 * cliff * fb).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
         gb.fillStyle = gd; gb.fillRect(Math.min(X0, X1), Y, Math.abs(X1 - X0), Hd); }
       home(g); home(gb); g.globalCompositeOperation = 'source-atop';
