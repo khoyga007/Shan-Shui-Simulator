@@ -279,12 +279,15 @@
     const n = ++st.nRep; try { localStorage.setItem('room.rep', n); } catch { /* ok */ }
     const id = 'r' + String(n).padStart(3, '0'), dg = D.dg, wv = dg.wv;
     const m = document.createElement('canvas'); m.width = ov.width; m.height = ov.height;
-    const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, m.width, m.height); x.drawImage(cv, 0, 0, m.width, m.height); x.drawImage(ov, 0, 0);
+    const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, m.width, m.height); x.drawImage(cv, 0, 0, m.width, m.height);
+    if ($('ink')) { x.globalCompositeOperation = 'multiply'; x.drawImage($('ink'), 0, 0, m.width, m.height); x.globalCompositeOperation = 'source-over'; }
+    x.drawImage(ov, 0, 0);
     const info = {
       id, when: new Date().toISOString(), screen: [D.W, D.H], T: +D.T.toFixed(2), settings: S, time: { paused: st.paused, scale: st.scale },
       fps: +st.fps.toFixed(1), speed: +st.v.toFixed(3), speedPeak: +st.vMax.toFixed(3), bendMax: +st.bend.toFixed(3), wave: wv ? +wv.w.toFixed(3) : null,
       head: [+hc.x.toFixed(1), +hc.y.toFixed(1)], neck: [+dg.hx.toFixed(1), +dg.hy.toFixed(1)], ang: +dg.ang.toFixed(3), turnRate: +(st.w || 0).toFixed(2), neckSpeed: +(sv / D.H).toFixed(3), bendLimit: +G.bend.toFixed(3), mouse: [+tx.toFixed(1), +ty.toFixed(1)],
       pts: dg.pts.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1)]), base: wv ? Array.from(wv.bx, (v, i) => [+v.toFixed(1), +wv.by[i].toFixed(1)]) : null,
+      paint: window.__paint ? window.__paint.info() : null,
       trail: trail.map((t) => [+t[0].toFixed(0), +t[1].toFixed(0)]),
     };
     const post = (name, url) => fetch('/report', { method: 'POST', body: name + '|' + url });

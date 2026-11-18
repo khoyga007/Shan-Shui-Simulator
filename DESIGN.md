@@ -1,3 +1,16 @@
+# Gameplay direction 2026-11-18 (Yang): dragon = brush
+
+Supersedes combat/horde below unless Yang revives it. Prototype live in white room: `web/room/paint.js`.
+- Figure = numbered points on white paper. Fly head through them in order, left button held = pen down, one stroke.
+- Done -> scenery appears. circle=moon, S=river, infinity=cloud (down-stroke=waterfall/pine: not built).
+- Fail: pen lifted early (broken stroke); any later point reached before the next one (missed: dragon swung wide).
+- Dragon turning circle (rho) is the difficulty knob. Point tolerance `tol` 0.055 H ~ 1 body radius (R = 60 px at 1080p).
+- Settled by Yang: live steering (head = cursor), hold-to-ink, placeholder art first.
+- Not built: no-retrace rule, score, levels, real art. Keys 1/2/3 figure, C clear, V guide.
+- Bot (`tools/roomtest.py "" paint`): pilot leads 0.09 H at cap 1.2 H/s; deviation moon 18 px, river 9, cloud 20.
+  Lead 0.13 H cuts inside and misses; cap 2.5 runs wide on the cloud. Flight line is sensitive to lead distance.
+- Known control flaw hit by bot: point beside the neck (inside turning circle) = dragon parks. Player must fly out and back.
+
 # InkDragon — design (Go 2026-11-17)
 
 Working title. 2D side-view action-adventure, **WebGL** (browser; Electron/Tauri wrap if Steam). Player = the ink-wash dragon from DragonWallpaper; game code = `web/dragon.js` (copy, `?game=1`). Godot spike D:\Projects\InkDragonSpike frozen, reference only.

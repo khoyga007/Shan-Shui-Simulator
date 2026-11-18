@@ -73,5 +73,44 @@
   run('nudgeBack150', 1.5, (t, f) => f === 0 ? [-150, 0] : [0, 0]);
   run('nudgeSide100', 1, (t, f) => f === 0 ? [0, 100] : [0, 0]);
   run('infinity', 12, () => [0, 0], null, [420, 540, 700]); Rm.dance(false);
+  // paint prototype (paint.js): fly each figure with the pen down, the mouse point led along it a little ahead of the eye.
+  // Expect done, small deviation. Then two that must fail: pen lifted half way; a hairpin back from point 3 to point 5
+  const Pt = window.__paint;
+  if (Pt && (!ONLY || ONLY.split(',').includes('paint'))) {
+    const pr = {}, ink = document.getElementById('ink');
+    const fly = (i, mode) => {   // pilot: the mouse point runs along the line, always the first line point 0.09 screens or more from the eye
+      Pt.pick(i); const g = Pt.geo()[i], L = g.line, T = Pt.TPL[i], n = 240, hc = Rm.hc; let s = 0, f = 0, still = 0;
+      const go = (q) => { Rm.target(q[0], q[1]); Rm.tick(dt); dbg.step(1, { dt, noRender: true, noSnap: true }); };
+      const at = (k) => T.closed ? L[((k % n) + n) % n] : k <= n ? L[Math.max(0, k)] : [L[n][0] + (L[n][0] - L[n - 1][0]) * (k - n), L[n][1] + (L[n][1] - L[n - 1][1]) * (k - n)];
+      const tl = Math.hypot(L[1][0] - L[0][0], L[1][1] - L[0][1]), pd = Math.min(0.3 * H, L[0][0] - 0.06 * H), pre = [L[0][0] - (L[1][0] - L[0][0]) / tl * pd, L[0][1] - (L[1][1] - L[0][1]) / tl * pd];
+      for (let k = 0; k < 900 && Math.hypot(pre[0] - hc.x, pre[1] - hc.y) > 0.06 * H; k++) go(pre);
+      Pt.st.last = null; Pt.pen(true);
+      for (; f < 60 * 20 && !Pt.st.last; f++) {
+        while (s < 2 * n && Math.hypot(at(s)[0] - hc.x, at(s)[1] - hc.y) < 0.09 * H) s++;
+        let q = Pt.st.counting ? at(s) : at(8);   // first straight through point 1
+        if (mode === 'hairpin' && Pt.st.next === 3) q = g.pts[5];   // straight across the circle, past point 4
+        // parked with the point beside the neck (inside the turning circle, where the room leaves it alone): fly out and come again
+        if (!Pt.st.counting) { still = Rm.st.v < 0.02 ? still + 1 : 0; if (still > 20) { for (let k = 0; k < 50; k++) go([W * 0.4, H * 0.5]); still = 0; } }
+        go(q);
+        if (mode === 'dbg' && f % 12 === 0) (out.dbg = out.dbg || []).push([f, Math.round(hc.x), Math.round(hc.y), Math.round(q[0]), Math.round(q[1]), s, Pt.st.next, +(Rm.st.v).toFixed(2)].join(' '));
+        if (mode === 'lift' && Pt.st.next === 4) Pt.pen(false);
+        Pt.step(dt);
+      }
+      Pt.pen(false);
+      return { ...(Pt.st.last || { ok: false, why: 'timeout' }), secs: +(f / 60).toFixed(1) };
+    };
+    const cap0 = Rm.S.cap; Rm.S.cap = 1.2;   // a hand drawing with care, not the 2 screens a second the bot would fly
+    Pt.reset(true);
+    pr.lift = fly(0, 'lift'); pr.hairpin = fly(0, 'hairpin');
+    Pt.reset(true);
+    for (let i = 0; i < 3; i++) pr[Pt.TPL[i].id] = fly(i);
+    for (let k = 0; k < 120; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k < 119, noSnap: true }); }
+    Rm.G.draw(0);
+    const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
+    x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720);
+    Rm.S.cap = cap0;
+    out.paint = pr; out.paintDone = Pt.info().done;
+    post('bot-paint.jpg', m.toDataURL('image/jpeg', 0.88));
+  }
   post('bot-uturn.jpg', strip.toDataURL('image/jpeg', 0.85)).then(() => post('bot.json', json(out)));
 })();

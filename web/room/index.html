@@ -8,6 +8,7 @@
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; user-select: none; }
     #dragon-canvas { display: block; width: 100%; height: 100%; }
     #ov { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #ink { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: multiply; }
     #panel { position: fixed; top: 10px; right: 10px; width: 270px; max-height: calc(100% - 20px); overflow: auto; box-sizing: border-box;
       padding: 10px 12px; background: rgba(250, 250, 250, .94); border: 1px solid #bbb; border-radius: 6px;
       font: 12px/1.45 Consolas, 'Cascadia Mono', monospace; color: #222; }
@@ -30,11 +31,13 @@
 </head>
 <body>
   <canvas id="dragon-canvas"></canvas>
+  <canvas id="ink"></canvas>
   <canvas id="ov"></canvas>
   <div id="panel"></div>
   <div id="hint">Bấm vào màn hình để cầm đầu rồng · Esc để thả chuột</div>
   <div id="toast"></div>
   <script src="dragon.js"></script>
   <script src="room.js"></script>
+  <script src="paint.js"></script>
 </body>
 </html>
