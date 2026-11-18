@@ -70,3 +70,10 @@ Known/open:
 - run.bat: own Chrome instance (`--user-data-dir` %LOCALAPPDATA%\InkDragon\chrome, `--app`) with `--force_high_performance_gpu` (verified: flag switches ANGLE renderer Intel→GTX). HUD shows `gpu GTX` / `INTEL (iGPU!)`.
 - Profile hooks: `__game.prof(n)` per pass/phase; `?bench=1` writes JSON to `<pre id=bench>`.
 - Fixed on the way: cocoon radial gradient r<0 (kg.coc negative when T < kg.t) threw in drawClouds.
+
+## Wash-out at high fps (2026-11-18)
+- Symptom (Yang, GTX 126 fps): whole screen hazy, dragon lost in grey while breathing.
+- Cause: ink/stir/vsm/smear passes tuned per step at wallpaper 30 fps; at 126 steps/s ink spread ~4x faster. Bisect: inputs every frame + step every 4th frame = sharp → sim step is the fps-dependent part.
+- Fix: game sim capped ~60 steps/s (`tick()`: SIM_DT 1/60, threshold 0.9, step takes accumulated dt). Inputs/splats/camera stay per frame. Per-frame splat strengths scaled by `dt*30` (wakeK) so per-second push matches any fps.
+- Head contrast (ring lum − head lum, breath scenario): 30 Hz 63–67 | before fix 124 Hz 28–45 | after 124 Hz 61–63, 144 Hz 65.
+- Tried, no gain, removed: MacCormack advection for dye and velocity (62.3 vs 62.9; 2 extra full-res passes).

@@ -175,13 +175,13 @@ void main(){
     vec2 o1 = vec2(cos(a), sin(a)) * rr * uDyeTx, o2 = vec2(-sin(a), cos(a)) * rr * uDyeTx;
     vec4 dn4 = (texture2D(t0, v + o1) + texture2D(t0, v - o1) + texture2D(t0, v + o2) + texture2D(t0, v - o2)) * .25;
     float fn = fireOf(dn4.rgb) * (1. - goldM);
-    d.rgb = mix(d.rgb, dn4.rgb, max(fire, fn) * clamp(uK * uDiff, 0., .45));
+    d.rgb = mix(d.rgb, dn4.rgb, max(fire, fn) * (1. - pow(1. - clamp(uDiff / 7.5, 0., .45), clamp(uK * 7.5, 0., 2.))));   // per-second rate of the 30 fps tuning
     float ea_n = clamp(max(d.a, dn4.a) * 1.2, 0., 1.);
     if (ea_n > .005) {
       vec2 v_dir = texture2D(t2, v).xy * uVelTx;
       vec2 v_smear = clamp(v_dir * .024, vec2(-.015), vec2(.015));
       float a_smear = (dn4.a + texture2D(t0, v - v_smear * .5).a + texture2D(t0, v - v_smear).a + texture2D(t0, v - v_smear * 1.5).a + texture2D(t0, v + v_smear * .5).a) * .2;
-      d.a = mix(d.a, a_smear, clamp(.65 + ea_n * .30, 0., .92));
+      d.a = mix(d.a, a_smear, 1. - pow(1. - clamp(.65 + ea_n * .30, 0., .92), clamp(uK * 7.5, 0., 2.)));   // tuned per 1/30 s step: same per second at any fps
     }
     ds = max(d.r, max(d.g, d.b));
     // burn-out goes by the fire round the pixel, not in it: judged per pixel it ate the fire-rich layers of a fire/ink mix and
@@ -1739,9 +1739,12 @@ void main(){
   function inputs(dt) {
     dragonUpdate(dt);
     const kx = simW / Math.max(1, W), ky = simH / Math.max(1, Hh);
+    // body wake: velocity added every frame, tuned at the wallpaper's ~30 fps. Scaled by dt * 30 so the push per second is the
+    // same at any fps: unscaled, 126 fps stirred 4x the momentum into the ink and the body churned into a blob (Yang 11-18)
+    const wakeK = clamp(dt * 30, 0.05, 1.5);
     if (cl.ph !== 'hidden') for (let i = 0; i < N; i += 3) {
       const p = dg.pts[i], q = dg.prev[i], vx = (p.x - q.x) / dt, vy = (p.y - q.y) / dt;
-      splatVel(p.x / W, 1 - p.y / Hh, vx * kx * 0.5, -vy * ky * 0.5, 0.0006);
+      splatVel(p.x / W, 1 - p.y / Hh, vx * kx * 0.5 * wakeK, -vy * ky * 0.5 * wakeK, 0.0006);
     }
     cloudFeed(kx, ky, dt);
     {
@@ -1765,7 +1768,7 @@ void main(){
       const eyeVis = visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true);
       if (cl.ph !== 'hidden' && dg.pts.length >= 3 && eyeVis > 0.05) {
         const epNow = eye();
-        const rate = clamp(dt * 30, 0.25, 1.5);
+        const rate = clamp(dt * 30, 0.05, 1.5);
         const fNorm = dark ? [1.0, 0.50, 0.096] : [0.03, 1.05, 1.75];
         const fKing = dark ? [1.0, 0.78, 0.16] : [0.02, 0.45, 1.65];
         const eyeSmk = [0, 1, 2].map((i) => fNorm[i] + (fKing[i] - fNorm[i]) * kg.amt);
@@ -1802,12 +1805,12 @@ void main(){
     }
     {
       const p = dg.pts[N - 1], q = dg.pts[N - 4], ex = p.x - q.x, ey = p.y - q.y, l = Math.hypot(ex, ey) || 1;
-      const b = dark ? BODY.dark : BODY.light, sp = Hh * 0.25;
-      splat(p.x / W, 1 - p.y / Hh, ex / l * sp * kx, -ey / l * sp * ky, b.map(v => v * 0.22), 0.00035);
+      const b = dark ? BODY.dark : BODY.light, sp = Hh * 0.25 * wakeK;   // per frame: scaled to the 30 fps tuning (see wakeK)
+      splat(p.x / W, 1 - p.y / Hh, ex / l * sp * kx, -ey / l * sp * ky, b.map(v => v * 0.22 * wakeK), 0.00035);
     }
     {
       const v = Math.hypot(dg.pts[0].x - dg.prev[0].x, dg.pts[0].y - dg.prev[0].y) / Math.max(dt, 1e-3) / Hh, b = dark ? BODY.dark : BODY.light;
-      if (cl.ph === 'off' && kg.coc <= 0 && Math.random() < 0.06 + v * 0.5) {
+      if (cl.ph === 'off' && kg.coc <= 0 && Math.random() < (0.06 + v * 0.5) * wakeK) {   // chance per frame: x wakeK = same puffs per second at any fps
         const i = 3 + Math.floor(Math.random() * (N * 0.6)), p = dg.pts[i], q = dg.pts[i + 1], dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1;
         const side = Math.random() < 0.5 ? -1 : 1, r = radAt(i / (N - 1));
         for (let j = 0, n = 1 + (Math.random() * 3 | 0); j < n; j++) {
@@ -1840,7 +1843,7 @@ void main(){
     }
     if (dg.breath > 0 && dg.jaw > 0.4) {
       const m = mouth(), pal = kg.amt > 0.5 ? (dark ? FIRE.kingDark : FIRE.kingLight) : dark ? FIRE.dark : FIRE.light;
-      const KB = kg.amt > 0.5, rateF = clamp(dt * 30, 0.25, 1.5), sp = Hh * 3.2 * (KB ? 1.3 : 1) * 1.2 * rateF;
+      const KB = kg.amt > 0.5, rateF = clamp(dt * 30, 0.05, 1.5), sp = Hh * 3.2 * (KB ? 1.3 : 1) * 1.2 * rateF;
       const a0 = m.a + Math.sin(T * 10) * 0.11 + Math.sin(T * 23) * 0.04, R = rad();
       const ca = Math.cos(a0), sa = Math.sin(a0);
       const JW = (KB ? 1.8 : 1) * 1.45, CL = (KB ? 6 : 4) * 1.45;
@@ -1994,6 +1997,19 @@ void main(){
     if (T < coilUntil || dg.breath > 0 || dg.roar) lastAct = T;
   }
 
+  // game: the fluid steps at most ~60 times a second, whatever the display rate. Its passes were tuned at the wallpaper's 30 fps
+  // and several act per step, not per second (cross-blurs, smear, burn-out): at 126 fps the ink spread ~4x faster and the dragon
+  // washed out into grey, worst while breathing fire (Yang 11-18). Measured head contrast: 30 Hz 63-67, 60 Hz 62-64, 124 Hz 28-45.
+  // Inputs, splats and the camera still run every frame; a step takes the time gathered since the last one
+  const SIM_DT = 1 / 60;
+  let simAcc = 0;
+  function tick(dt) {
+    inputs(dt); flushDye(); drawMask(); uploadMask();
+    if (!G.on) { step(Math.min(dt, 1 / 15)); return; }
+    simAcc += dt;
+    if (simAcc < SIM_DT * 0.9) return;   // 0.9: a 60 Hz display's vsync jitter must not skip steps; 120-144 Hz -> every 2nd/3rd frame
+    step(Math.min(simAcc, 1 / 15)); simAcc = 0;
+  }
   function frame(now) {
     raf = requestAnimationFrame(frame);
     if (G.pause) { last = now; return; }   // test hook holds the last frame on screen
@@ -2003,7 +2019,7 @@ void main(){
     const dt = Math.min(el / 1000, 0.1);
     T += dt; last = now;
     if (G.on) gameFrame(dt);
-    inputs(dt); flushDye(); drawMask(); uploadMask(); step(Math.min(dt, 1 / 15)); render();
+    tick(dt); render();
     if (G.on) gameHud(now);
   }
   function resize() {
@@ -2095,8 +2111,8 @@ void main(){
       }
     }
     if (T - G.whip < 0.45) {   // whip: the tail's own motion pushes the fluid already; ink off the tip makes the sweep read
-      const p = dg.pts[N - 1], q = dg.prev[N - 1], b = dark ? BODY.dark : BODY.light, id = 1 / Math.max(dt, 1e-3);
-      splat(p.x / W, 1 - p.y / Hh, (p.x - q.x) * id * kx * 0.8, -(p.y - q.y) * id * ky * 0.8, b.map((c) => c * 0.3), 0.0005);
+      const p = dg.pts[N - 1], q = dg.prev[N - 1], b = dark ? BODY.dark : BODY.light, id = 1 / Math.max(dt, 1e-3), wk = clamp(dt * 30, 0.05, 1.5);
+      splat(p.x / W, 1 - p.y / Hh, (p.x - q.x) * id * kx * 0.8 * wk, -(p.y - q.y) * id * ky * 0.8 * wk, b.map((c) => c * 0.3 * wk), 0.0005);
     }
   }
   function gameDive() {   // R: into a cloud just ahead, out of one at the cursor
@@ -2491,7 +2507,7 @@ void main(){
       frames(n, dt = 1 / 60, each = null, snap = true) {
         for (let i = 0; i < n; i++) {
           T += dt; if (each) each(i, T);
-          gameFrame(dt); inputs(dt); flushDye(); drawMask(); uploadMask(); step(Math.min(dt, 1 / 15));
+          gameFrame(dt); tick(dt);
         }
         render();
         return snap ? cv.toDataURL('image/png') : null;
