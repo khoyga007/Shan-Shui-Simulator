@@ -71,6 +71,7 @@
   const TURT = (x, y) => ({ k: 'turtle', x, y, vx: 0, vy: 0, hx: x, hy: y, r: 0.13, hp: 80, max: 80, face: -1, lungeT: rnd(2, 4), tell: 0, lunge: 0, hitCd: 0, flash: 0, spin: 0 });
   function spawnAll() {
     ens = []; darts = [];
+    A().G.steer = !!H.n;   // horde test flies with the new controls (mouse steers the head, fire goes forward)
     if (H.n) { H.t = 0; H.acc = 0; S.total = Infinity; S.kills = 0; return; }   // horde test: hordeStep feeds them in
     const swarm = (cx, cy, n) => { for (let i = 0; i < n; i++) ens.push(WISP(cx + rnd(-0.35, 0.35), cy + rnd(-0.25, 0.25))); };
     // the dragon starts ~2 U long, tail trailing right of the first screen: zone 1 sits past it
@@ -371,6 +372,7 @@
         const hp = q('ig-hp'), left = q('ig-left'); if (!hp) return;
         hp.style.width = S.hp.toFixed(1) + '%';
         left.textContent = H.n ? `Thử bầy đàn · ${H.alive}/${H.n} con · diệt ${S.kills} · ${A().G.fps.toFixed(0)} fps
+chuột lái · Q lửa · W đuôi · E cuộn · R lặn · Shift tăng tốc
 [ ] số quái · , . cỡ quái (${(H.r / 0.032 * 100).toFixed(0)}%) · F4 tắt` : `Vân Sơn · còn ${S.total - S.kills}/${S.total} quái mực`;
         const dv = A().diveSt(), row = q('ig-dive'); row.style.opacity = dv.ok ? 1 : 0.4;
         dv.ch.forEach((f, i) => { const k = Math.round(f * 50) * 2, el = row.children[i + 1];

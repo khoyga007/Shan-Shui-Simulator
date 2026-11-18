@@ -29,7 +29,7 @@
   // blur). What is left over (< 1 cell) is a CSS translate of the oversized canvas, rounded to device pixels.
   const G = { on: /[?&]game=1(&|$)/.test(location.search), follow: true, mx: 0, my: 0,
     accX: 0, accY: 0, remX: 0, remY: 0, leadX: 0, leadY: 0, camX: 0, camY: 0, cx: 0, cy: 0, ptr: false,
-    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, cw: null, coilK: 0, dive: false, emer: false, away: false, safe: false, dvC: [0, 0], dvG: 0,
+    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, cw: null, coilK: 0, dive: false, emer: false, away: false, safe: false, steer: false, dvC: [0, 0], dvG: 0,
     fps: 0, fpsN: 0, fpsT: 0, hud: null, shifts: 0 };
   const mq = matchMedia('(prefers-color-scheme: dark)');
   const resolveDark = () => (cfg.theme === 'dark' ? true : cfg.theme === 'light' ? false : mq.matches);
@@ -1239,18 +1239,18 @@ void main(){
         dg.roarPearl = false;
       }
     }
-    if (dg.breath > 0 || dg.wind > 0) want = Math.atan2(dg.by - dg.hy, dg.bx - dg.hx);
+    if ((dg.breath > 0 || dg.wind > 0) && !(G.steer && mode === 'chase')) want = Math.atan2(dg.by - dg.hy, dg.bx - dg.hx);   // steer: the head stays on the cursor, the fire follows the head
     const turn = (G.on && mode !== 'kdive' && mode !== 'cloud' ? gameTurn(mode) : dg.breath > 0 || dg.roar ? 2.6 : mode === 'kdive' ? 4.8 : mode === 'sniff' ? (near ? 1.4 : 0.9) : mode === 'chase' ? 0.9 : mode === 'fetch' ? 1.6 : mode === 'think' ? 0.7 : mode === 'cloud' ? 1.0 : mode === 'coil' ? 2.4 : mode === 'king' ? 0.6 : mode === 'dance' ? 0.75 : 0.85) * dt;
     {   // turns ease in and out (Yang 11-17: tight turns are fine, sudden ones are not): in relaxed modes the turn rate
         // itself is smoothed, so the head rolls into a curve instead of snapping onto it; urgent modes (breath aim, dives,
         // coil) keep the direct clamp
       const dA = clamp(wrapA(want - dg.ang), -turn, turn);
-      const relaxed = dg.breath <= 0 && !dg.roar && (mode === 'pearl' || mode === 'dance' || mode === 'hold' || mode === 'king' || mode === 'fetch' || mode === 'chase');
+      const relaxed = (dg.breath <= 0 || G.steer) && !dg.roar && (mode === 'pearl' || mode === 'dance' || mode === 'hold' || mode === 'king' || mode === 'fetch' || mode === 'chase');
       if (relaxed) { dg.angV += (dA / Math.max(dt, 1e-3) - dg.angV) * Math.min(1, dt * 3.5); dg.ang += dg.angV * dt; }
       else { dg.angV = dA / Math.max(dt, 1e-3); dg.ang += dA; }
     }
     if (mode === 'dance') dg.ang += Math.sin(dn.ph4) * (0.55 + 0.35 * danceE) * dn.amt * dt;   // slow side-to-side head swing, one cycle per 4 beats
-    dg.ang += Math.sin(T * 1.05) * (mode === 'kdive' ? 0.22 : mode === 'sniff' && near ? 0.3 : (dg.breath > 0 && dg.breathPearl) ? 0.2 : 1.15) * (1 - 0.45 * kg.amt) * dt;
+    dg.ang += Math.sin(T * 1.05) * (mode === 'kdive' ? 0.22 : mode === 'sniff' && near ? 0.3 : (dg.breath > 0 && dg.breathPearl) ? 0.2 : G.steer && (dg.breath > 0 || dg.wind > 0) ? STEER.sway : 1.15) * (1 - 0.45 * kg.amt) * dt;
     const calm = !autoCoil && T - lastAct > 20 && mode === 'pearl';
     const aimOff = Math.abs(wrapA(want - headA));
     const sp = Hh * (
@@ -2207,10 +2207,12 @@ void main(){
   function gameMode(R) { const m = gameMode0(R); window.InkGame?.bound(dg); return m; }   // game.js keeps the target in the world
   function gameMode0(R) {
     if (G.cw) { dg.tx = G.ccx; dg.ty = G.ccy; return 'coil'; }   // E: coilHead() moves the head, this only names the mode
-    if (G.rmb && G.ptr) G.tgt = { x: G.cx, y: G.cy };   // RMB held: follow the cursor
+    // G.steer ("lái đầu rồng", Yang 11-18, horde test): the mouse steers the head, always, no button. The fire goes where the
+    // head points while it keeps flying; cursor near the head = slow tight circling (throttle by distance)
+    if ((G.rmb || G.steer) && G.ptr) G.tgt = { x: G.cx, y: G.cy };   // RMB held: follow the cursor
     if (G.tgt) {
       dg.tx = G.tgt.x; dg.ty = G.tgt.y;
-      if (G.rmb || Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy) > R * 1.6) return 'chase';
+      if (G.rmb || G.steer || Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy) > R * 1.6) return 'chase';
       G.hover = { x: G.tgt.x, y: G.tgt.y }; G.tgt = null;   // arrived
     }
     const h = G.hover || (G.hover = { x: dg.hx, y: dg.hy });   // idle: slow loop round the last stop, never stands still
@@ -2273,12 +2275,14 @@ void main(){
     }
     if (k + 2 < P.length) P.length = k + 2;
   }
-  const gameTurn = (mode) => dg.wind > 0 ? 3.4 : dg.breath > 0 ? 2.2 : mode === 'coil' ? 2.4 : mode === 'chase' ? (G.boosting ? 1.5 : 1.9) : 0.9;
+  const STEER = { sp: 0.26, turn: 1.25, sway: 0.3 };   // while breathing: speed (screen heights / s), turn rate (rad / s), head sway
+  const gameTurn = (mode) => G.steer && !G.cw && (dg.wind > 0 || dg.breath > 0) ? STEER.turn : dg.wind > 0 ? 3.4 : dg.breath > 0 ? 2.2 : mode === 'coil' ? 2.4 : mode === 'chase' ? (G.boosting ? 1.5 : 1.9) : 0.9;
   function gameSpeed(mode, R) {   // fraction of screen height per second
+    if (G.steer && mode === 'chase' && (dg.breath > 0 || dg.wind > 0)) return STEER.sp * clamp(Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy) / (R * 5), 0.45, 1);   // strafing run
     if (dg.breath > 0 || dg.wind > 0) return 0.07;
     if (mode === 'coil') return 0.2;
     if (dg.reel && mode !== 'chase') return 0.3;   // tail still in the exit cloud: an idle head keeps drawing it out (0.12 left it in there 4 s)
-    if (mode === 'chase') { const d = Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy); return (G.boosting ? 0.75 : 0.36) * (G.rmb ? 1 : clamp(d / (R * 5), 0.45, 1)); }
+    if (mode === 'chase') { const d = Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy); return (G.boosting ? 0.75 : 0.36) * (G.rmb || (G.steer && G.boosting) ? 1 : clamp(d / (R * 5), 0.45, 1)); }
     return 0.12;
   }
   function worldShift(nx, ny) {   // camera moved by (nx, ny) sim cells: move everything back by that much
@@ -2316,7 +2320,8 @@ void main(){
     if (G.away && (kd.ph !== 'dive' || (cl.ph === 'emerge' && (!cl.B || T - cl.t > 0.8 || Math.hypot(dg.hx - cl.B.x, dg.hy - cl.B.y) > cloudR() * 0.9)))) G.away = false;
     G.safe = G.away || kd.ph === 'dive';
     if (G.q && cl.ph === 'off' && kd.ph === 'off' && !(G.cw && !G.cw.wound)) {   // Q held: breathe at the cursor (not while still winding up)
-      dg.bx = G.cx; dg.by = G.cy; dg.breathPearl = false; dg.roar = 0;
+      if (G.steer && !G.cw) { dg.bx = dg.hx + Math.cos(dg.ang) * Hh; dg.by = dg.hy + Math.sin(dg.ang) * Hh; } else { dg.bx = G.cx; dg.by = G.cy; }
+      dg.breathPearl = false; dg.roar = 0;
       if (dg.breath > 0) dg.breath = Math.max(dg.breath, 0.2);
       else if (dg.wind <= 0) dg.wind = 1e-3;   // wind-up first (gather beat); the fire follows WIND s later
     }
@@ -2762,7 +2767,7 @@ void main(){
       ink: (x, y, r, a) => dyeQ.push([x / W, 1 - y / Hh, r, (dark ? BODY.dark : BODY.light).map((v) => v * a)]),
       push: (x, y, vx, vy, r) => splatVel(x / W, 1 - y / Hh, vx * simW / W, -vy * simH / Hh, r) };
     // game test hook: drive frames deterministically (each(i) may set G.tgt / G.boost / G.q ...), returns the canvas as PNG
-    window.__game = { QI, COIL, GA, DIVE,
+    window.__game = { QI, COIL, GA, DIVE, STEER,
       G, dg, size: () => [W, Hh, simW, simH, dyeW, dyeH],
       frames(n, dt = 1 / 60, each = null, snap = true) {
         for (let i = 0; i < n; i++) {
