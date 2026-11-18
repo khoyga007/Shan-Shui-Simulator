@@ -19,12 +19,59 @@
   // world (in U): ground line at y = 1 (bottom of the first screen), sky up to -1.4. x from -1.2 to 11.4 (~7 screens at 16:9)
   const WB = { x0: -1.2, x1: 11.4, y0: -1.4, y1: 0.92 };
 
+  // HORDE TEST (/?game=1&horde=150, Yang 11-18: roguelike in the horde-survival mould; this only answers "how many can the
+  // machine draw, and does the picture turn to mud"). Keeps H.n wisps alive: they stream in from off screen, always after the
+  // head, slower than the dragon so it can kite them, and shove each other apart so they crowd instead of stacking into one
+  // dot. No level, no win; the dragon takes no damage unless &dmg=1 (150 biters kill it in a second: a hitbox question for
+  // later)
+  const QS = new URLSearchParams(location.search);
+  // r = wisp radius (U), ink = how black it is painted (1 = as black as the dragon): &hr= and &hink= to compare looks
+  const H = { n: Math.max(0, +QS.get('horde') || 0), dmg: QS.get('dmg') === '1', r: +QS.get('hr') || 0.032, ink: +QS.get('hink') || 1, t: 0, acc: 0, burst: 0, alive: 0 };
+  // in the game window (run.bat has no address bar): F4 = horde test on/off, [ ] = count -/+ 25, , . = wisps smaller / bigger
+  addEventListener('keydown', (e) => {
+    if (e.code === 'F4') { e.preventDefault(); H.n = H.n ? 0 : 150; if (H.n && !QS.get('hr')) H.r = 0.016; if (U) reset(); return; }
+    if (!H.n) return;
+    if (e.code === 'BracketLeft') H.n = Math.max(25, H.n - 25); else if (e.code === 'BracketRight') H.n = Math.min(800, H.n + 25);
+    else if (e.code === 'Comma' || e.code === 'Period') { H.r = clamp(H.r * (e.code === 'Comma' ? 0.85 : 1 / 0.85), 0.008, 0.04); for (const w of ens) if (w.horde) w.r = H.r; }
+  });
+  function hordeStep(dt, a, G) {
+    H.t += dt; H.burst = 0;
+    if (ens.some((e) => e.hp <= 0)) ens = ens.filter((e) => e.hp > 0);
+    const want = Math.min(H.n, 30 + H.t * H.n / 12);   // fills over ~12 s, then the dead are replaced
+    H.acc = Math.min(6, H.acc + dt * Math.max(25, H.n / 3));
+    const cx = G.camX + a.W / 2, cy = G.camY + a.H / 2, rad = hyp(a.W, a.H) / 2 + 0.12 * U;
+    const place = (e) => {   // a spot on a ring just off screen; near a world wall the clamp can land it in view: try again
+      for (let k = 0; k < 6; k++) {
+        const t = rnd(0, TAU); e.x = clamp(cx + Math.cos(t) * rad, WB.x0 * U, WB.x1 * U); e.y = clamp(cy + Math.sin(t) * rad, WB.y0 * U, WB.y1 * U);
+        if (Math.abs(e.x - cx) > a.W / 2 || Math.abs(e.y - cy) > a.H / 2) break;
+      }
+      e.hx = e.x; e.hy = e.y; e.vx = e.vy = 0;
+    };
+    while (ens.length < want && H.acc >= 1 && !S.dead) {
+      H.acc -= 1;
+      const e = WISP(0, 0); e.horde = true; e.r = H.r; e.sp = rnd(0.22, 0.32); place(e); ens.push(e);
+    }
+    // left far behind (the dragon outruns them): back onto the ring ahead, or the horde thins out for good
+    for (const e of ens) if (e.horde && hyp(e.x - cx, e.y - cy) > rad * 1.5) place(e);
+    // crowding: wisps closer than ~2 radii push each other apart (all pairs: 300 wisps = 45k checks, ~0.3 ms)
+    const m = 2.4 * H.r * U, m2 = m * m;
+    for (let i = 0; i < ens.length; i++) { const p = ens[i]; if (!p.horde) continue;
+      for (let j = i + 1; j < ens.length; j++) { const q = ens[j], dx = q.x - p.x, dy = q.y - p.y, d2 = dx * dx + dy * dy;
+        if (d2 < m2 && d2 > 1e-6) { const d = Math.sqrt(d2), f = (m - d) / d * 6 * dt; p.x -= dx * f; p.y -= dy * f; q.x += dx * f; q.y += dy * f; } } }
+    H.alive = ens.length;
+  }
+  H.fill = () => {   // bench: the whole horde on screen at once, unkillable, so the count holds while it is timed
+    const a = A(), G = a.G; H.t = 1e3;
+    while (ens.length < H.n) { const e = WISP(0, 0); e.horde = true; e.r = H.r; e.sp = rnd(0.22, 0.32); e.x = e.hx = G.camX + rnd(0.05, 0.95) * a.W; e.y = e.hy = G.camY + rnd(0.05, 0.95) * a.H; e.hp = e.max = 1e6; ens.push(e); }
+  };
+
   // ---- spawn ---------------------------------------------------------------------------------------------------------------
   const WISP = (x, y) => ({ k: 'wisp', x, y, vx: 0, vy: 0, hx: x, hy: y, r: 0.032, hp: 10, max: 10, ph: rnd(0, TAU), hitCd: 0, flash: 0 });
   const CROW = (x, y) => ({ k: 'crow', x, y, vx: 0, vy: 0, hx: x, hy: y, r: 0.07, hp: 30, max: 30, ph: rnd(0, TAU), shotT: rnd(1, 2.5), wind: 0, side: Math.random() < 0.5 ? -1 : 1, flash: 0 });
   const TURT = (x, y) => ({ k: 'turtle', x, y, vx: 0, vy: 0, hx: x, hy: y, r: 0.13, hp: 80, max: 80, face: -1, lungeT: rnd(2, 4), tell: 0, lunge: 0, hitCd: 0, flash: 0, spin: 0 });
   function spawnAll() {
     ens = []; darts = [];
+    if (H.n) { H.t = 0; H.acc = 0; S.total = Infinity; S.kills = 0; return; }   // horde test: hordeStep feeds them in
     const swarm = (cx, cy, n) => { for (let i = 0; i < n; i++) ens.push(WISP(cx + rnd(-0.35, 0.35), cy + rnd(-0.25, 0.25))); };
     // the dragon starts ~2 U long, tail trailing right of the first screen: zone 1 sits past it
     swarm(3.6, 0.1, 7);                                                     // zone 1: wisps only
@@ -70,7 +117,7 @@
 
   // ---- damage -------------------------------------------------------------------------------------------------------------
   function hurtDragon(n, sx, sy) {
-    if (S.dead || S.won || A().G.safe) return;   // cloud dive (R): nothing lands
+    if (S.dead || S.won || A().G.safe || (H.n && !H.dmg)) return;   // cloud dive (R): nothing lands. Horde test: off unless &dmg=1
     S.hp = Math.max(0, S.hp - n); S.hurtT = A().T; ui.flash();
     const a = A(); a.ink(sx, sy, 0.0009, 0.6);   // a dab of ink where it hit
     if (S.hp <= 0) die();
@@ -84,8 +131,11 @@
   function kill(e) {   // dissolve: stop painting it, its ink bursts out as smoke
     const a = A(), s = scr(e), R = e.r * U;
     // gentle: ~the dragon's own wake. A strong burst (1.6 U/s) blew the surrounding fire into a hard-edged bubble
-    for (let i = 0; i < 6; i++) {
-      const t = i / 6 * TAU + rnd(-0.4, 0.4), sp = rnd(0.15, 0.3) * U;
+    // horde: a sweep of fire kills a dozen in one frame, and every 4 ink dabs cost a full-size pass over the dye. 2 dabs a
+    // kill, at most 8 a frame
+    const nb = !H.n ? 6 : (H.burst += 2) <= 8 ? 2 : 0;
+    for (let i = 0; i < nb; i++) {
+      const t = i / nb * TAU + rnd(-0.4, 0.4), sp = rnd(0.15, 0.3) * U;
       a.push(s.x + Math.cos(t) * R * 0.5, s.y + Math.sin(t) * R * 0.5, Math.cos(t) * sp, Math.sin(t) * sp, 0.0004 * (e.r / 0.05));
       a.ink(s.x + Math.cos(t) * R * 0.6, s.y + Math.sin(t) * R * 0.6, 0.0005 * (e.r / 0.05), 0.45);
     }
@@ -105,6 +155,7 @@
     const G = a.G, T = a.T, dg = a.dg, head = { x: dg.hx + G.camX, y: dg.hy + G.camY };   // head in world
     if (!S.dead && T - S.hurtT > 4) S.hp = Math.min(100, S.hp + dt * 3);
     const cone = S.dead ? null : breathCone();
+    if (H.n) hordeStep(dt, a, G);
     // R cloud dive. gone = in the cloud: enemies lose it (no chase, no aim, no wind-up) and pass through it. Out of the cloud
     // it is still safe (G.safe, hurtDragon) till the player steers again: bites and darts bounce off. Skipped instead, the
     // wisps sat on the head through that time and all bit in the frame it ended (30 HP at once)
@@ -123,14 +174,14 @@
       const dx = head.x - e.x, dy = head.y - e.y, d = hyp(dx, dy) || 1, R = e.r * U;
       if (e.k === 'wisp') {   // swarm: orbit home; dive at the head when close, bite, fall back (the window to burn it), dive again
         e.ph += dt * 2.2; e.back = Math.max(0, (e.back || 0) - dt);
-        const chase = d < 1.3 * U && !S.dead && !gone;
+        const chase = (e.horde || d < 1.3 * U) && !S.dead && !gone;
         let tx, ty;
         if (chase && e.back > 0) { tx = head.x - dx / d * 0.6 * U; ty = head.y - dy / d * 0.6 * U; }   // hover off, out of bite range
         else if (chase) { tx = head.x; ty = head.y; }   // straight dive: was an orbit round the head, inside it, so it sat on the head where the fire can't reach
         else { tx = e.hx + Math.cos(e.ph) * 0.22 * U; ty = e.hy + Math.sin(e.ph * 1.4) * 0.16 * U; }
         const acc = chase ? 3.2 : 2.0;
         e.vx += ((tx - e.x) * acc - e.vx) * Math.min(1, dt * 2.5); e.vy += ((ty - e.y) * acc - e.vy) * Math.min(1, dt * 2.5);
-        const sp = hyp(e.vx, e.vy), mx = (chase ? 0.75 : 0.4) * U; if (sp > mx) { e.vx *= mx / sp; e.vy *= mx / sp; }
+        const sp = hyp(e.vx, e.vy), mx = (e.horde ? e.sp : chase ? 0.75 : 0.4) * U; if (sp > mx) { e.vx *= mx / sp; e.vy *= mx / sp; }
       } else if (e.k === 'crow') {   // hover off the dragon's flank, wind up (tell), throw an ink dart at the head
         e.ph += dt * 9;
         const want = 0.75 * U, ang = Math.atan2(-dy, -dx) + e.side * 0.5;
@@ -223,7 +274,7 @@
       if (sx > mg && sx < innerWidth - mg && sy > mg && sy < innerHeight - mg) { seen = true; break; }
       const d = hyp(e.x - head.x, e.y - head.y); if (d < nd) { nd = d; near = { sx, sy }; }
     }
-    ui.update(seen || S.dead || S.won ? null : near);
+    ui.update(seen || S.dead || S.won || H.n ? null : near);
   }
 
   // ---- painting (mask: red = ink shape, blue = cloud wash) -----------------------------------------------------------------
@@ -246,7 +297,7 @@
       const s = scr(e); if (s.x < x0 || s.x > x1 || s.y < y0 || s.y > y1) continue;
       const R = e.r * U, j = e.flash > 0 ? R * 0.15 : 0;   // hit: shape shudders
       const x = s.x + rnd(-j, j), y = s.y + rnd(-j, j);
-      c.globalAlpha = 0.55 + 0.45 * clamp(e.hp / e.max * 1.5, 0, 1);   // worn down = thinner ink
+      c.globalAlpha = (0.55 + 0.45 * clamp(e.hp / e.max * 1.5, 0, 1)) * (e.horde ? H.ink : 1);   // worn down = thinner ink
       if (e.k === 'wisp') {   // tadpole: head blob + tail streaming back along its motion
         const v = hyp(e.vx, e.vy) || 1, ux = -e.vx / v, uy = -e.vy / v;
         c.beginPath(); c.arc(x, y, R, 0, TAU); c.fill();
@@ -290,7 +341,7 @@
   const ui = (() => {
     const box = document.createElement('div');
     Object.assign(box.style, { position: 'fixed', left: '50%', top: '14px', transform: 'translateX(-50%)', width: '320px', pointerEvents: 'none', zIndex: 3, font: '13px/1.3 Georgia, serif', color: '#2a2622', textAlign: 'center' });
-    box.innerHTML = '<div style="height:10px;background:rgba(40,36,32,.12);border-radius:5px;overflow:hidden"><div id="ig-hp" style="height:100%;width:100%;background:#2a2622;border-radius:5px;transition:width .15s"></div></div><div id="ig-left" style="margin-top:4px;opacity:.75"></div>' +
+    box.innerHTML = '<div style="height:10px;background:rgba(40,36,32,.12);border-radius:5px;overflow:hidden"><div id="ig-hp" style="height:100%;width:100%;background:#2a2622;border-radius:5px;transition:width .15s"></div></div><div id="ig-left" style="margin-top:4px;opacity:.75;white-space:pre-line"></div>' +
       // R cloud dive: two ink dots = the two charges, each fills like a pie while it comes back; the row is pale while R can't be used
       '<div id="ig-dive" style="margin-top:7px;display:flex;gap:7px;justify-content:center;align-items:center;transition:opacity .2s"><span style="opacity:.75">R</span>' +
       '<i style="width:13px;height:13px;border-radius:50%;border:1.5px solid #2a2622"></i>'.repeat(2) + '</div>';
@@ -319,7 +370,8 @@
       update(near) {
         const hp = q('ig-hp'), left = q('ig-left'); if (!hp) return;
         hp.style.width = S.hp.toFixed(1) + '%';
-        left.textContent = `Vân Sơn · còn ${S.total - S.kills}/${S.total} quái mực`;
+        left.textContent = H.n ? `Thử bầy đàn · ${H.alive}/${H.n} con · diệt ${S.kills} · ${A().G.fps.toFixed(0)} fps
+[ ] số quái · , . cỡ quái (${(H.r / 0.032 * 100).toFixed(0)}%) · F4 tắt` : `Vân Sơn · còn ${S.total - S.kills}/${S.total} quái mực`;
         const dv = A().diveSt(), row = q('ig-dive'); row.style.opacity = dv.ok ? 1 : 0.4;
         dv.ch.forEach((f, i) => { const k = Math.round(f * 50) * 2, el = row.children[i + 1];
           if (el._k !== k) { el._k = k; el.style.background = k >= 100 ? '#2a2622' : `conic-gradient(rgba(42,38,34,.5) ${k}%, transparent 0)`; } });
@@ -337,5 +389,5 @@
     };
   })();
 
-  window.InkGame = { update, mask, bound, reset, state: S, get enemies() { return ens; }, get darts() { return darts; }, get U() { return U; } };
+  window.InkGame = { update, mask, bound, reset, state: S, horde: H, get enemies() { return ens; }, get darts() { return darts; }, get U() { return U; } };
 })();

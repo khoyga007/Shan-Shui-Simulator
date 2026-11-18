@@ -2796,13 +2796,14 @@ void main(){
     if (/[?&]bench=1/.test(location.search)) addEventListener('DOMContentLoaded', () => {
       const g = window.__game, IG = window.InkGame; G.pause = true; G.ptr = true; G.rmb = true; G.clX = innerWidth * 0.9; G.clY = innerHeight * 0.5;
       g.frames(90, 1 / 60, null, false);
-      if (IG) { let i = 0; for (const e of IG.enemies) if (i < 12) { e.x = G.camX + W * (0.2 + 0.6 * (i % 4) / 3); e.y = G.camY + Hh * (0.25 + 0.2 * Math.floor(i / 4)); e.hx = e.x; e.hy = e.y; e.hp = 1e6; e.max = 1e6; i++; } else e.hp = 0; }
+      if (IG?.horde.n) IG.horde.fill();   // &horde=N: N wisps on screen instead
+      else if (IG) { let i = 0; for (const e of IG.enemies) if (i < 12) { e.x = G.camX + W * (0.2 + 0.6 * (i % 4) / 3); e.y = G.camY + Hh * (0.25 + 0.2 * Math.floor(i / 4)); e.hx = e.x; e.hy = e.y; e.hp = 1e6; e.max = 1e6; i++; } else e.hp = 0; }
       G.rmb = false; G.q = true; G.clX = innerWidth * 0.5; G.clY = innerHeight * 0.3;
       const thr = (n) => { const b = new Uint8Array(4), t0 = performance.now();   // throughput: CPU and GPU overlap, one sync at the end
         for (let i = 0; i < n; i++) { T += 1 / 60; gameFrame(1 / 60); inputs(1 / 60); flushDye(); drawMask(); uploadMask(); step(1 / 60); render(); }
         gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return +((performance.now() - t0) / n).toFixed(2); };
       thr(30);
-      const out = { thrMs: thr(120), perf: g.perf(60), prof: g.prof(30), gpu: (() => { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d && gl.getParameter(d.UNMASKED_RENDERER_WEBGL); })() };
+      const out = { horde: IG?.horde.n ? IG.enemies.length : 0, thrMs: thr(120), perf: g.perf(60), prof: g.prof(30), gpu: (() => { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d && gl.getParameter(d.UNMASKED_RENDERER_WEBGL); })() };
       // the gathering beat held open (wind-up frozen mid-way, twice the wisps): its dye passes run for 0.3 s a breath only
       G.q = false; dg.breath = 0; const r0 = GA.rate; GA.rate = r0 * 2; const b4 = new Uint8Array(4); let tg = performance.now();
       for (let i = 0; i < 150; i++) { if (i === 30) tg = performance.now(); dg.wind = 0.1; T += 1 / 60; gameFrame(1 / 60); inputs(1 / 60); flushDye(); drawMask(); uploadMask(); step(1 / 60); render(); }
