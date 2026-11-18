@@ -623,8 +623,11 @@ void main(){
   const N = 76;
   const HS = 1.0;
   const dg = { roll: 0, rollT: 0, pts: [], prev: [], hx: 0, hy: 0, ang: 0, tx: 0, ty: 0, nextWander: 0, breath: 0, after: 0, angV: 0, bx: 0, by: 0, roar: 0, roarPearl: false, breathPearl: false, jaw: 0, fire: 0, mode: '', prevEyeX: 0, prevEyeY: 0, hasPrevEye: false };
-  const segLen = () => Math.max(12, Hh * 0.03) * (1 + 0.3 * kg.amt);
-  const rad = () => Math.max(14, Hh * 0.056) * (1 + 0.3 * kg.amt);
+  // game: camera pulled back (DESIGN: dragon spans 1/3-1/2 of the screen; at wallpaper scale it was ~2 screens long and the
+  // enemies had nowhere to be). One factor for body size, spacing and clouds
+  const GZ = G.on ? 0.5 : 1;
+  const segLen = () => Math.max(12, Hh * 0.03 * GZ) * (1 + 0.3 * kg.amt);
+  const rad = () => Math.max(14, Hh * 0.056 * GZ) * (1 + 0.3 * kg.amt);
   function dragonInit() {
     dg.hx = W * 0.62; dg.hy = Hh * 0.42; dg.ang = Math.PI * 0.85;
     dg.hasPrevEye = false; dg.prevEyeX = 0; dg.prevEyeY = 0;
@@ -701,7 +704,7 @@ void main(){
 
   // ---- cloud & Long Vương ---------------------------------------------------------------
   const cl = { ph: 'off', next: 25, t: 0, headIn: 0, A: null, B: null, fade: 1, out: 0 };
-  const cloudR = () => Hh * 0.2;
+  const cloudR = () => Hh * 0.2 * (G.on ? 0.7 : 1);
   const KING_T = 60;
   const kg = { ph: 'off', t: 0, amt: 0, storm: 0, rain: 0, bolt: 0, nextBolt: 0, bx: 0.5, bs: 0, by: 0.3, last: -1e9, coc: 0, cx: 0, cy: 0, burst: false, puffs: [], nextPuff: 0 };
   const kd = { ph: 'off', hop: 0, total: 0, tx: 0, ty: 0, arc: 0, t: 0, bursts: [] };
@@ -1528,6 +1531,7 @@ void main(){
       for (let j = Math.min(N - 1, 15); j >= 1; j--) { const tj = j / (N - 1); seg(j, radAt(tj) * 2, segA(tj, j)); }
       c.globalAlpha = 1;
       c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(hcv, 0, 0); c.restore(); }
+    if (G.on) window.InkGame?.mask(c);   // game.js: enemies (ink), landmark clouds
     drawClouds(c);
   }
   let hcv = null, hx = null;   // head layer
@@ -2041,7 +2045,8 @@ void main(){
     G.mx = Math.round(innerWidth * 0.04); G.my = Math.round(innerHeight * 0.04);
     Object.assign(cv.style, { position: 'fixed', left: -G.mx + 'px', top: -G.my + 'px', width: innerWidth + 2 * G.mx + 'px', height: innerHeight + 2 * G.my + 'px', willChange: 'transform' });
   }
-  function gameMode(R) {
+  function gameMode(R) { const m = gameMode0(R); window.InkGame?.bound(dg); return m; }   // game.js keeps the target in the world
+  function gameMode0(R) {
     if (T < G.coil) {   // E: circle a fixed centre (the wallpaper's cocoon orbit)
       const oa = Math.atan2(dg.hy - G.ccy, dg.hx - G.ccx) + 1.0, r = Hh * 0.1;
       dg.tx = G.ccx + Math.cos(oa) * r; dg.ty = G.ccy + Math.sin(oa) * r; return 'coil';
@@ -2079,7 +2084,7 @@ void main(){
     G.camX += dx; G.camY += dy; G.shifts++;
   }
   function gameFrame(dt) {
-    const dpr = window.devicePixelRatio || 1;
+    if (G.dead) { G.q = G.rmb = G.boost = false; G.tgt = null; }   // game.js: dead until restart
     G.cx = (G.clX ?? innerWidth / 2) + G.mx + G.remX; G.cy = (G.clY ?? innerHeight / 2) + G.my + G.remY;   // cursor in canvas px
     const moving = !!G.tgt || (G.rmb && G.ptr);
     G.boosting = G.boost && G.stam > 0.02 && moving && T >= G.coil && kd.ph === 'off';
@@ -2103,6 +2108,7 @@ void main(){
     // Was a CSS translate of the canvas: it moved the paper/hills too and could land a frame apart from the GL shift -> shake
     const tX = W / dyeW, tY = Hh / dyeH;
     G.remX = Math.round(G.accX / tX) * tX; G.remY = Math.round(G.accY / tY) * tY;
+    window.InkGame?.update(dt);
   }
   function gameFx(dt, kx, ky) {
     if (T < G.coil) {   // coil vortex: tangential pushes round the centre plus a slight inward pull, smoke there spins in
@@ -2504,6 +2510,10 @@ void main(){
     addEventListener('resize', resize);
     start();
 
+    // game.js API (screen px in, like dg.pts): ink(x, y, r, strength) dye dab, push(x, y, vx, vy, r) velocity in px/s
+    window.InkAPI = { G, dg, rad, radAt, mouth, get T() { return T; }, get W() { return W; }, get H() { return Hh; },
+      ink: (x, y, r, a) => dyeQ.push([x / W, 1 - y / Hh, r, (dark ? BODY.dark : BODY.light).map((v) => v * a)]),
+      push: (x, y, vx, vy, r) => splatVel(x / W, 1 - y / Hh, vx * simW / W, -vy * simH / Hh, r) };
     // game test hook: drive frames deterministically (each(i) may set G.tgt / G.boost / G.q ...), returns the canvas as PNG
     window.__game = {
       G, dg, size: () => [W, Hh, simW, simH, dyeW, dyeH],
@@ -2536,16 +2546,20 @@ void main(){
         return { ms: +ms.toFixed(2), fps: +(1000 / ms).toFixed(1), w: cv.width, h: cv.height, sim: [simW, simH], dye: [dyeW, dyeH], shifts: G.shifts };
       },
     };
-    if (/[?&]bench=1/.test(location.search)) (() => {   // headless bench (sync, before load: --dump-dom sees it): results into <pre id=bench> (run.bat-free perf check)
-      const g = window.__game; G.pause = true; G.ptr = true; G.rmb = true; G.clX = innerWidth * 0.9; G.clY = innerHeight * 0.5;
+    // headless bench: results into <pre id=bench> (run.bat-free perf check). On DOMContentLoaded: game.js has run by then, and
+    // --dump-dom still waits for it (before load). Worst case on screen: 12 enemies + breath
+    if (/[?&]bench=1/.test(location.search)) addEventListener('DOMContentLoaded', () => {
+      const g = window.__game, IG = window.InkGame; G.pause = true; G.ptr = true; G.rmb = true; G.clX = innerWidth * 0.9; G.clY = innerHeight * 0.5;
       g.frames(90, 1 / 60, null, false);
+      if (IG) { let i = 0; for (const e of IG.enemies) if (i < 12) { e.x = G.camX + W * (0.2 + 0.6 * (i % 4) / 3); e.y = G.camY + Hh * (0.25 + 0.2 * Math.floor(i / 4)); e.hx = e.x; e.hy = e.y; e.hp = 1e6; e.max = 1e6; i++; } else e.hp = 0; }
+      G.rmb = false; G.q = true; G.clX = innerWidth * 0.5; G.clY = innerHeight * 0.3;
       const thr = (n) => { const b = new Uint8Array(4), t0 = performance.now();   // throughput: CPU and GPU overlap, one sync at the end
         for (let i = 0; i < n; i++) { T += 1 / 60; gameFrame(1 / 60); inputs(1 / 60); flushDye(); drawMask(); uploadMask(); step(1 / 60); render(); }
         gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return +((performance.now() - t0) / n).toFixed(2); };
       thr(30);
       const out = { thrMs: thr(120), perf: g.perf(60), prof: g.prof(30), gpu: (() => { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d && gl.getParameter(d.UNMASKED_RENDERER_WEBGL); })() };
       const pre = document.createElement('pre'); pre.id = 'bench'; pre.textContent = JSON.stringify(out); document.body.appendChild(pre);
-    })();
+    });
     window.__dragonDebug = {
       step(n = 1, opts = {}) {
         const dt = opts.dt > 0 ? opts.dt : 1 / 30;
