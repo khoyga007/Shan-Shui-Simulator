@@ -127,7 +127,8 @@
         for (let k = Math.max(0, lo); k <= Math.min(m - 1, hi); k++) { const f = k1 === k0 ? 0 : clamp((k - k0) / (k1 - k0), 0, 1), y = a[1] + (b[1] - a[1]) * f; if (y < top[k]) top[k] = y; } }
       if (E) { let kA = 0, kB = m - 1; while (kA < m - 1 && top[kA] > 1e8) kA++; while (kB > kA && top[kB] > 1e8) kB--;
         const q = Math.min(8, kB - kA), gA = clamp((top[kA] - top[kA + q]) / Math.max(1, q * BIN), 0.55, 2.5), gB = clamp((top[kB] - top[kB - q]) / Math.max(1, q * BIN), 0.55, 2.5);   // falling at least a little, whatever way the stroke ended
-        for (let k = 0; k < kA; k++) top[k] = top[kA] + gA * (kA - k) * BIN; for (let k = kB + 1; k < m; k++) top[k] = top[kB] + gB * (k - kB) * BIN; }
+        const fall = (g0, d) => g0 * d * (1 + 0.9 * d / E) + (N(d / (0.03 * H) + 77, 2) - 0.5) * 0.02 * H * Math.min(1, d / (0.02 * H));   // bending down and uneven, not ruled
+        for (let k = 0; k < kA; k++) top[k] = top[kA] + fall(gA, (kA - k) * BIN); for (let k = kB + 1; k < m; k++) top[k] = top[kB] + fall(gB, (k - kB) * BIN); }
       for (let k = 0, last = P[i0][1]; k < m; k++) { if (top[k] > 1e8) top[k] = last; else last = top[k]; }
       const ts = blur(top, 5), wide = blur(top, 40), slope = (k) => (wide[Math.min(m - 1, k + 4)] - wide[Math.max(0, k - 4)]) / (8 * BIN);
       // lit side / shaded side, turning over gently across a summit: spread over about a sixth of a screen (three box
@@ -144,14 +145,14 @@
       runs.push([a, n - 1]); }
     // past both its ends the mountain goes on, falling away into the mist: the ink thins out there and not inside the
     // stroke. (Thinned inside, two mountains meeting end to end left a white upright gap between them: r007)
-    const E = runs.length > 1 ? 0 : Math.round(0.22 * H * (1 - cliff)); bx1 += E;
+    const E = runs.length > 1 ? 0 : Math.round(0.07 * H * (1 - cliff)); bx1 += E;   // short: drawn on for 0.22 of a screen, every mountain grew a straight sharp spur at each end (Yang 11-18)
     const F = field(0, n - 1, E), bx0 = F.x0, nb = F.m, top = F.top, ts = F.ts, shAt = (k) => F.shade[clamp(k, 0, nb - 1)];
     // the two ends of the stroke thin out: the brush is set down and lifted there
-    const te = Math.min(0.3, 0.09 * H / Math.max(1, bx1 - bx0)), envX = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / te) * sm((1 - t) / te); }, env = (k) => envX(bx0 + k * BIN);
+    const te = Math.min(0.3, (E ? E : 0.09 * H) / Math.max(1, bx1 - bx0)), envX = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / te) * sm((1 - t) / te); }, env = (k) => envX(bx0 + k * BIN);
     // how far the ink runs down the slope: to about the level of the stroke's lowest point, so tall peaks get long slopes
     // toward both ends the ink runs less and less far down: the mountain dies out as a wedge along its falling flank.
     // (Its ink only thinned there, column by column, so every mountain began and ended at a plumb edge: r007)
-    const tD = Math.min(0.5, (E + 0.1 * H) / Math.max(1, bx1 - bx0)), envD = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / tD) * sm((1 - t) / tD); };
+    const tD = Math.min(0.22, (E + 0.22 * H) / Math.max(1, bx1 - bx0)), envD = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / tD) * sm((1 - t) / tD); };
     const depthAt = (t, x) => ((yBase - t) * 1.0 + 0.17 * H) * (E ? 0.05 + 0.95 * envD(x) : 0.45 + 0.55 * envX(x)), depth = ts.map((t, k) => depthAt(t, bx0 + k * BIN));
     const folded = runs.length > 1, fields = folded ? runs.map(([a, b]) => field(a, b)) : [F];
     // -- canvases, cropped to the mountain
@@ -179,17 +180,19 @@
          e = ee * (1 - cliff) * (folded ? sm(Math.min(k, f.m - 1 - k) / fr) : 1),   // a stretch's ink thins toward the turn, or its end stood as a plumb edge in the body
          X = DX(x), Wd = DX(x + BIN) - X, Y0 = DY(y0), T = DY(t);
       const a0 = Math.min(0.95, 0.56 * bm * (0.85 + 0.3 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2)));
-      let gd = g.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(${INK},${a0.toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * (0.34 + mid)).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * (0.1 + mid)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
+      // past the end of the stroke there is no line: the ink has no upper edge there, it comes up out of nothing (mist)
+      const soft = E ? 1 - sm(clamp(Math.max(bx0 + E - x, x - (bx1 - E)) / E, 0, 1) * 1.4) : 1;
+      let gd = g.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(${INK},${(a0 * soft).toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7 * (0.3 + 0.7 * soft)).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * (0.34 + mid)).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * (0.1 + mid)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
       const d2 = Math.min(dd * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
          a2 = Math.min(0.9, 0.34 * bm * clamp(0.5 + 0.7 * sh, 0.12, 1) * e);
       gd = g.createLinearGradient(0, T, 0, DY(t + d2)); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       if (qc) {   // a real band of wash, its dark wet edge under the ridge; a second one drawn long and faint down the body
         const h1 = Math.min(dd * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), w1 = Math.max(1, BIN * sc1), w2 = Math.max(1, BIN * sc2);
-        g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e); g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
-        g.globalAlpha = Math.min(1, 0.26 * bm * e); g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dd * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
-      } else { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
-      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${hm})`); gd.addColorStop(0.6, `rgba(0,0,0,${hm})`);   // and a little less: where its ink is thin the two lie over each other, or a pale sliver stood between them   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
+        g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e) * soft * soft; g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
+        g.globalAlpha = Math.min(1, 0.26 * bm * e) * soft * soft; g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dd * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
+      } else if (soft > 0.98) { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
+      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${(hm * soft).toFixed(3)})`); gd.addColorStop(0.15, `rgba(0,0,0,${hm})`); gd.addColorStop(0.6, `rgba(0,0,0,${hm})`);   // and a little less: where its ink is thin the two lie over each other, or a pale sliver stood between them   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
     }
     home(g); home(gb);
