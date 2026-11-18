@@ -262,12 +262,25 @@ void main(){
   o = mix(o, uInk * (.25 + .55 * bill), hidEye * k * .5 * smoothstep(.04, .8, mm.b));
   gl_FragColor = vec4(o + rimGlow * k, ea);   // edge wisps: soft, or they trace the skeleton
 }`,
-    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual; uniform vec2 uEye; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud, uLandO;
+    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual, uGameEye; uniform vec2 uEye; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud, uLandO;
 float gp(vec2 p){ vec4 t = texture2D(t1, p); return t.g * (1. - t.r); }
 void main(){
   vec4 dye4 = uManual > .5 ? bil(t0, v, uDyeTx) : texture2D(t0, v);
   vec3 d = max(dye4.rgb, 0.);
   float eg = max(dye4.a, 0.);
+  // game: the red stays inside the eye socket (Yang 11-18: "vẽ vừa khớp với hốc mắt để nó không bị lộ"). Eye ink is the only dye
+  // with alpha (eye_src + eye smoke trail), so alpha marks it. Socket = this frame's eye cut-out in the mask (blue, no head red)
+  // near the eye. Eye ink the flow carried out of the socket turns to plain grey ink, and its glow is dropped
+  float sockG = 0.;
+  if (uGameEye > .5) {
+    vec4 mk = texture2D(t1, v);
+    float near = 1. - smoothstep(2.2, 2.6, length((v - uEye) * vec2(uAsp, 1.)) / max(uEyeR, 1e-5));
+    float sock = clamp(mk.b * (1. - smoothstep(.3, .8, mk.r)) * near * 1.6, 0., 1.);
+    float out_ = smoothstep(.0, .04, eg) * (1. - sock);   // even a faint old trail still tints orange: any eye alpha counts
+    d = mix(d, vec3((d.r + d.g + d.b) / 3.), out_);
+    eg *= sock;
+    sockG = sock;
+  }
   vec3 col;
   // paper with calligraphy (r) and a red seal (g), dry-brush broken; the smoke drifts over it
   vec4 cg = uCalli > .5 ? texture2D(t2, v) : vec4(0.);
@@ -440,6 +453,9 @@ void main(){
     col = mix(col, eyeMid, clamp(bodyEye * .80, 0., .86));
     col += eyeHot * hotG * (uDark > .5 ? .10 : .12);
   }
+  // game: the socket itself is painted red every frame, so the eye is always full and exactly the socket's shape (fluid eye
+  // ink only builds up slowly, and while flying the socket outran it: a 2-3 px speck)
+  if (sockG > .01) col = mix(col, mix(vec3(1., .14, .02), vec3(1., .80, .06), uKing.x), smoothstep(.15, .6, sockG) * uEyeA * .92);
   // fire glow in the open mouth (xy = pos, z = radius, w = how open)
   // open-mouth glow: warped, blurred, flickering - no hard wedge edge. Only near an open mouth (5 fetches + 3 noises a pixel)
   if (uGape.w > .01 && length((v - uGape.xy) * vec2(uAsp, 1.)) < uGape.z * 4.) {
@@ -1708,7 +1724,7 @@ void main(){
         return [(cx * 0.35 - G.remX) / W * f[0], clamp(-cy / Hh * f[1] * 0.12, -0.25, 0.25) + G.remY / Hh * f[1]]; })() : [0, 0],
       uDyeTx: dye.tx,
       uManual: linear ? 0 : 1,
-      uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true),
+      uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true), uGameEye: G.on ? 1 : 0,
       uDark: dark ? 1 : 0,
       uCap: CAP_DARK,
       uBg: dark ? NIGHT : PAPER,
@@ -1770,7 +1786,7 @@ void main(){
         }
       }
       const eyeVis = visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true);
-      if (cl.ph !== 'hidden' && dg.pts.length >= 3 && eyeVis > 0.05) {
+      if (!G.on && cl.ph !== 'hidden' && dg.pts.length >= 3 && eyeVis > 0.05) {   // eye smoke trail: wallpaper only. Game: the red stays in the socket (Yang 11-18)
         const epNow = eye();
         const rate = clamp(dt * 30, 0.05, 1.5);
         const fNorm = dark ? [1.0, 0.50, 0.096] : [0.03, 1.05, 1.75];
