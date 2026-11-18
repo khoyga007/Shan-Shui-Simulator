@@ -220,6 +220,7 @@
   }
 
   // ---- painting (mask: red = ink shape, blue = cloud wash) -----------------------------------------------------------------
+  const FOE = 'rgb(255,64,0)';
   function mask(c) {
     const a = A(); if (!a || !U) return;
     const G = a.G, T = a.T, x0 = -0.5 * U, x1 = a.W + 0.5 * U, y0 = -0.5 * U, y1 = a.H + 0.5 * U;
@@ -233,7 +234,8 @@
         c.fillStyle = g; c.beginPath(); c.arc(x, y, p.r, 0, TAU); c.fill();
       }
     }
-    c.globalCompositeOperation = 'source-over'; c.fillStyle = '#f00'; c.strokeStyle = '#f00'; c.lineCap = 'round'; c.lineJoin = 'round';
+    // a little green tags enemy ink: the display pass draws tagged shapes solid and crisp, the dragon as a soft wash
+    c.globalCompositeOperation = 'source-over'; c.fillStyle = FOE; c.strokeStyle = FOE; c.lineCap = 'round'; c.lineJoin = 'round';
     for (const e of ens) {
       if (e.hp <= 0) continue;
       const s = scr(e); if (s.x < x0 || s.x > x1 || s.y < y0 || s.y > y1) continue;
