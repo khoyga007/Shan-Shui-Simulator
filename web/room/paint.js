@@ -163,7 +163,7 @@
     const pad = Math.round(0.04 * H), ox = bx0 - pad - extL, oy = Math.floor(yTop - 0.1 * H),   // whole px: wash columns must sit on the pixel grid or their seams show as fine upright stripes
        cw = Math.ceil((bx1 - bx0 + 2 * pad + extL + extR) * dpr), chh = Math.ceil((yBase + 0.19 * H - oy) * dpr);
     const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
-    const [cv, g] = mk(), [body, gb] = mk(), [rib, gr] = mk();
+    const [cv, g] = mk(), [body, gb] = mk(), [rib, gr] = mk(), [mist, gm] = mk();
     const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
     // -- wash: per column, ink thinning from the ridge to nothing at the foot. A second, shorter and darker band under
     //    the ridge with an uneven lower edge: the brush belly does not touch the paper evenly
@@ -207,6 +207,18 @@
       // behind was wiped in an upright pale band beside it
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, chh - Y0);
     }
+    // -- mist behind this mountain: it takes ink only from the mountains further back (laid in render, before this one
+    //    is drawn), so one standing alone has none. Lies along the ridge: thick where the ridge runs low (saddles, the
+    //    falling ends: where two mountains meet), thin toward the summits, in banks; reaching up over the far mountain
+    //    and down through this one's foot at its ends, where its own body hides little
+    // (pkF: a summit stands clear of it)
+    raw(gm); { const rel = Math.max(0.08 * H, yBase - yTop);
+      for (let k = 0; k < nb; k++) { const x = bx0 + k * BIN, t = ts[k], l = sm(clamp((t - yTop) / rel, 0, 1) * 1.4),
+          bank = 0.55 + 0.45 * sm((N(x / (0.22 * H) + 500, 2) - 0.3) / 0.35), pkF = 0.3 + 0.7 * sm(crests.reduce((b, c) => Math.min(b, Math.abs(P[c][0] - x)), 1e9) / (0.09 * H)), hx = sm((x - bx0) / (0.08 * H)) * sm((bx1 - x) / (0.08 * H)),
+          am = Math.min(0.95, (0.5 + 0.5 * l) * bank * pkF) * hx * (1 - cliff), hA = H * (0.05 + 0.08 * l) * (0.6 + 0.8 * N(x / (0.1 * H) + 520, 2)), hB = Math.max(0.05 * H, depthAt(t, x) * 0.9), pr = hA / (hA + hB);
+        if (am < 0.01) continue;
+        const gd = gm.createLinearGradient(0, DY(t - hA), 0, DY(t + hB)); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(pr * 0.5, `rgba(0,0,0,${(am * 0.3).toFixed(3)})`); gd.addColorStop(pr, `rgba(0,0,0,${am.toFixed(3)})`); gd.addColorStop(pr + (1 - pr) * 0.4, `rgba(0,0,0,${(am * 0.6).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
+        gm.fillStyle = gd; const X = DX(x); gm.fillRect(X, DY(t - hA), DX(x + BIN) - X, (hA + hB) * dpr); } }
     home(g); home(gb);
     // -- cun: texture strokes, each a thin line of a drying brush that bends toward the fall line and fades out
     const col = (x) => clamp(Math.round((x - bx0) / BIN), 0, nb - 1);
@@ -336,9 +348,10 @@
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
-    return { cv, body, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
+    return { cv, body, mist, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
   }
 
+  const MIST = 1.0;   // seconds the mist takes to rise behind a mountain, once its ink has run down
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
   const bake = document.createElement('canvas'); let bakeKey = '';
   const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
@@ -346,9 +359,9 @@
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = mountain(d) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
-    const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), key = old.map((d) => d.seed + ':' + d.t0).join() + '|' + ink.width + 'x' + ink.height;
+    const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
-      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone); } }
+      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalAlpha = mistA(d); b.drawImage(d.m.mist, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone); } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m, nb = m.ts.length;
