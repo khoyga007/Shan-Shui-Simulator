@@ -262,9 +262,24 @@ void main(){
   float hidEye = (1. - smoothstep(2.2, 3.4, length((v - uEye) * vec2(uAsp, 1.)) / max(uEyeR, 1e-5))) * (1. - smoothstep(.0, .6, uEyeA));
   ea *= 1. - hidEye * .25;
   o = mix(o, uInk * (.25 + .55 * bill), hidEye * k * .5 * smoothstep(.04, .8, mm.b));
+  // game: eye ink that strayed past the socket's fringe is taken out of the dye (its share estimated from the eye alpha: in the
+  // socket ink -> uEyeInk while alpha -> ~1.4). The breath jet blew it out of the eye into a thin line along the fire, which
+  // the display pass then turned black (Yang 11-18 "cái khỉ gì đây?")
+  // Only the eye's own share is taken (fire or body ink in the same texel stay): inside the body it becomes the same amount of
+  // grey (plain subtraction there tinted the head blue), outside it just goes. Full strength per step: this is cleanup, not decay
+  if (uEyeK > 1.5) {
+    float pdI = length((v - uEye) * vec2(uAsp, 1.)) / max(uEyeR, 1e-5);
+    float stray = smoothstep(.0, .04, ea) * smoothstep(1.3, 1.7, pdI) * (1. - smoothstep(.05, .4, eyeM));
+    // scaled as a whole, never clamped per channel (per-channel min left a red-absorbing rest: a blue streak behind the eye)
+    // inside the body the alpha overestimates the eye's share (body pull greys the red faster), so there the whole texel goes grey
+    float inB = smoothstep(.1, .5, m);
+    vec3 eyeP = uEyeInk * min(clamp(ea / 1.4, 0., 1.2), min(o.g / max(uEyeInk.g, 1e-3), o.b / max(uEyeInk.b, 1e-3))) * stray * (1. - inB);
+    o = mix(o - eyeP, vec3((o.r + o.g + o.b) / 3.), stray * inB);
+    ea *= 1. - stray;
+  }
   gl_FragColor = vec4(o + rimGlow * k, ea);   // edge wisps: soft, or they trace the skeleton
 }`,
-    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual, uGameEye; uniform vec2 uEye; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud, uLandO;
+    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual, uGameEye; uniform vec2 uEye; uniform vec3 uEyeInkD; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud, uLandO;
 float gp(vec2 p){ vec4 t = texture2D(t1, p); return t.g * (1. - t.r); }
 void main(){
   vec4 dye4 = uManual > .5 ? bil(t0, v, uDyeTx) : texture2D(t0, v);
@@ -281,7 +296,13 @@ void main(){
     float sock = clamp(mk.b * (1. - smoothstep(.3, .8, mk.r)) * (1. - smoothstep(2.2, 2.6, pd)) * 1.6, 0., 1.);
     float keep = max(sock, 1. - smoothstep(.55, 1.25, pd + (vnoise(v * 260. + uT * 1.3) - .5) * .5));   // ragged fringe edge
     float out_ = smoothstep(.0, .04, eg) * (1. - keep);   // even a faint old trail still tints orange: any eye alpha counts
-    d = mix(d, vec3((d.r + d.g + d.b) / 3.), out_);
+    // grey only the eye's share (estimated from its alpha), never the whole texel: greying all of it turned the breath fire
+    // the eye smoke drifted through into a black line along the jet (Yang 11-18 "cái khỉ gì đây?")
+    // Inside the body the whole texel greys as before (alpha overestimates the share there: a blue streak; fire over the head
+    // greyed reads as head ink anyway)
+    float inB = smoothstep(.1, .5, mk.r);
+    vec3 eyeP = uEyeInkD * min(clamp(eg / 1.4, 0., 1.2), min(d.g / max(uEyeInkD.g, 1e-3), d.b / max(uEyeInkD.b, 1e-3))) * out_ * (1. - inB);   // whole-colour scale: see ink pass
+    d = mix(d - eyeP + vec3((eyeP.r + eyeP.g + eyeP.b) / 3.), vec3((d.r + d.g + d.b) / 3.), out_ * inB);
     eg *= keep;
   }
   vec3 col;
@@ -529,6 +550,7 @@ void main(){
   let cv = null, gl = null, P = {}, half = 0, linear = false, quad = null;
   let vel = null, dye = null, prs = null, div = null, crl = null;
   let simW = 0, simH = 0, dyeW = 0, dyeH = 0, maskTex = null, mcv = null, mx = null;
+  let lastEyeInk = [0.03, 1.28, 2.1];   // eye ink colour of the last ink pass; the display pass greys only the eye's share
   let raf = 0, last = 0, T = 0, W = 0, Hh = 0, S = 1, dark = false;
   let mounted = false, ptrT = -99, lastAct = 0;
   const ptr = { x: 0, y: 0, px: 0, py: 0, init: false, moved: false };
@@ -1667,6 +1689,7 @@ void main(){
       eyeNorm[1] + (eyeKing[1] - eyeNorm[1]) * ka,
       eyeNorm[2] + (eyeKing[2] - eyeNorm[2]) * ka,
     ];
+    lastEyeInk = eyeInk;
     pass('ink', dye.b, [dye.a.tex, maskTex, vel.a.tex], {
       uInk: dark ? BODY.dark : BODY.light,
       uGold: dark ? GOLD_INK.dark : GOLD_INK.light,
@@ -1676,7 +1699,7 @@ void main(){
       uEye: [e.x / W, 1 - e.y / Hh],
       uEyeR: rad() * 0.34 / Math.max(1, Hh),
       uAsp: W / Math.max(1, Hh),
-      uEyeA: ea, uOpen: G.on ? 1 : 0, uEyeK: G.on ? 3 : 1,
+      uEyeA: G.noEyeInk ? 0 : ea, uOpen: G.on ? 1 : 0, uEyeK: G.on ? 3 : 1,
     }, [1 / mcv.width, 1 / mcv.height]); dye.swap();
   }
 
@@ -1724,7 +1747,7 @@ void main(){
         return [(cx * 0.35 - G.remX) / W * f[0], clamp(-cy / Hh * f[1] * 0.12, -0.25, 0.25) + G.remY / Hh * f[1]]; })() : [0, 0],
       uDyeTx: dye.tx,
       uManual: linear ? 0 : 1,
-      uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true), uGameEye: G.on ? 1 : 0,
+      uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true), uGameEye: G.on ? 1 : 0, uEyeInkD: lastEyeInk,
       uDark: dark ? 1 : 0,
       uCap: CAP_DARK,
       uBg: dark ? NIGHT : PAPER,
