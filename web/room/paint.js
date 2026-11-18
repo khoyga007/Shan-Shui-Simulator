@@ -16,8 +16,9 @@
   const ink = document.getElementById('ink'), cMain = ink.getContext('2d'), panel = document.getElementById('panel');
   let c = cMain;   // swapped to the cache canvas while finished pictures are baked
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-  const S = { tol: 0.055, guide: true };   // tol: how near a point the stroke must pass, screen heights
+  const S = { tol: 0.055, guide: true, vec: true };   // vec: mountains as generated shapes + ink texture (N switches back to the pieced ones)   // tol: how near a point the stroke must pass, screen heights
   try { Object.assign(S, JSON.parse(localStorage.getItem('paint.v1') || '{}')); } catch { /* defaults */ }
+  { const q = new URLSearchParams(location.search).get('vec'); if (q != null) S.vec = q !== '0'; }
   const save = () => { try { localStorage.setItem('paint.v1', JSON.stringify(S)); } catch { /* ok */ } };
 
   // ---- figures: f(t), t 0..1, in px of the free paper (left of the panel). Laid out as one picture ------------------
@@ -168,7 +169,79 @@
       const f = (d - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), p0 = P[Math.max(0, j - 3)], p1 = P[Math.min(n - 1, j + 4)];
       return [P[j][0] + (P[j + 1][0] - P[j][0]) * f, P[j][1] + (P[j + 1][1] - P[j][1]) * f, Math.atan2(p1[1] - p0[1], p1[0] - p0[0])]; } };
   }
-  const scr = document.createElement('canvas'), sc = scr.getContext('2d');
+  const scr = document.createElement('canvas'), sc = scr.getContext('2d'), scr2 = document.createElement('canvas'), sc2 = scr2.getContext('2d');
+  // the ink of a piece as alpha (pieces are opaque on white): so a blot can be laid inside a shape only (source-atop),
+  // or bitten out of it (destination-out). Made once per piece
+  function inkA(p) {
+    if (p.a) return p.a;
+    const cv = document.createElement('canvas'); cv.width = p.w; cv.height = p.h; const g = cv.getContext('2d'); g.drawImage(p.im, 0, 0, p.w, p.h);
+    const d = g.getImageData(0, 0, p.w, p.h), px = d.data;
+    for (let i = 0; i < px.length; i += 4) { const k = 1 - (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) / 255; px[i + 3] = Math.round(clamp(k * 1.15 - 0.03, 0, 1) * px[i + 3]); px[i] = 18; px[i + 1] = 18; px[i + 2] = 24; }
+    g.putImageData(d, 0, 0); return (p.a = cv);
+  }
+  function dab(x, p, px, py, size, rot, alpha, mode) {
+    const a = inkA(p), s = size / p.w, co = Math.cos(rot) * dpr * s, si = Math.sin(rot) * dpr * s;
+    x.setTransform(co, si, -si, co, px * dpr, py * dpr); x.globalAlpha = alpha; x.globalCompositeOperation = mode; x.drawImage(a, -p.w / 2, -p.h / 2);
+  }
+  // smooth 1-D noise from the picture's dice: n(t, octaves) in 0..1
+  const noise1 = (R) => { const g = Array.from({ length: 64 }, R), v = (t) => { const i = Math.floor(t), f = t - i, s = f * f * (3 - 2 * f); return g[i & 63] + (g[(i + 1) & 63] - g[i & 63]) * s; };
+    return (t, oct) => { let a = 0, w = 1, n = 0; for (let o = 0; o < oct; o++) { a += w * v(t * (1 << o) + o * 17.3); n += w; w *= 0.5; } return a / n; }; };
+  // the stroke as a height per x (8 px bins): yAt(x), ym = its mean height
+  function profile(P) {
+    const B = box(P), nb = Math.ceil((B[2] - B[0]) / 8) + 1, acc = new Array(nb).fill(0), cnt = new Array(nb).fill(0);
+    for (const p of P) { const k = clamp(Math.round((p[0] - B[0]) / 8), 0, nb - 1); acc[k] += p[1]; cnt[k]++; }
+    let last = P[0][1]; const ys = acc.map((v, k) => (cnt[k] ? (last = v / cnt[k]) : null)); for (let k = nb - 1, nx = last; k >= 0; k--) { if (ys[k] == null) ys[k] = nx; else nx = ys[k]; }
+    for (let it = 0; it < 3; it++) for (let k = 1; k < nb - 1; k++) ys[k] = (ys[k - 1] + 2 * ys[k] + ys[k + 1]) / 4;
+    return { B, ym: ys.reduce((a, b) => a + b, 0) / nb, yAt: (cx) => ys[clamp(Math.round((cx - B[0]) / 8), 0, nb - 1)] };
+  }
+  // Mountains as shapes (Yang 11-18, after his reference paintings: the mist is the paper, left where a mountain's foot
+  // fades out). Three ranges, far to near. Each: an outline generated from the stroke (crests of the stroke become the
+  // high peaks) plus noise; filled with ink that thins to nothing toward the foot; ink blots laid inside for tone and
+  // bitten out for pale patches; small blots along the ridge so the edge is ink on paper, not a drawn line.
+  function mountainV(x, P, R) {
+    const H = D.H, pf = profile(P), B = pf.B, y0 = pf.ym + 0.05 * H, N = noise1(R), sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+    const tex = PARTS.puff, line = PARTS.trunk.concat(PARTS.bank);
+    for (const cv of [scr, scr2]) if (cv.width !== ink.width || cv.height !== ink.height) { cv.width = ink.width; cv.height = ink.height; }
+    const LAY = [{ up: 0.11, amp: 0.1, follow: 0.8, tone: 0.3, wide: 0.12, f: 0.24 }, { up: 0.055, amp: 0.125, follow: 1.2, tone: 0.55, wide: 0.05, f: 0.19 }, { up: 0, amp: 0.15, follow: 1.7, tone: 1, wide: -0.01, f: 0.15 }];
+    LAY.forEach((Ly, li) => {
+      const x0 = B[0] - Ly.wide * H - 0.03 * H, x1 = B[2] + Ly.wide * H + 0.03 * H, ph = R() * 50, shift = (R() - 0.5) * 0.1 * H * (LAY.length - 1 - li);
+      const envAt = (cx) => { const t = (cx - x0) / (x1 - x0); return sm(t / 0.2) * sm((1 - t) / 0.2); };
+      // jag: the fine tooth of the outline. Left out (0) for the fade of the foot, or each column fades from its own
+      // tooth and the wash comes out in vertical stripes
+      const elev = (cx, jag) => { const n = N(cx / (Ly.f * H) + ph, 4), r = 1 - Math.abs(2 * n - 1);
+        return envAt(cx) * (0.025 * H + Ly.follow * Math.max(-0.02 * H, pf.ym - pf.yAt(cx + shift)) + Ly.amp * H * (0.75 * r + 0.25 * n) + jag * 0.012 * H * (N(cx / (0.03 * H) + ph, 2) - 0.5)); };
+      const top = (cx, jag = 1) => y0 - Ly.up * H - Math.max(0, elev(cx, jag)), deep = (cx) => Math.max(0, elev(cx, 0)) * 1.0 + 0.05 * H, yb = y0 + 0.14 * H;
+      const path = (g) => { g.beginPath(); g.moveTo(x0, yb); for (let cx = x0; cx <= x1; cx += 2) g.lineTo(cx, top(cx)); g.lineTo(x1, yb); g.closePath(); };
+      // the mist of this range hides what stands behind it
+      if (li) { plain(x); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 0.8; x.fillStyle = '#000'; path(x); x.fill(); plain(x); }
+      sc.setTransform(1, 0, 0, 1, 0, 0); sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = 1; sc.clearRect(0, 0, scr.width, scr.height);
+      sc.setTransform(dpr, 0, 0, dpr, 0, 0); sc.fillStyle = 'rgba(18,18,24,0.68)'; path(sc); sc.fill();
+      // ink inside: dark washes high up under the ridge, pale patches lower down. Soft washes only: the round blots
+      // of sheet 5 have dark rims and showed as rings
+      for (let i = 0, n = 18 + Math.floor(R() * 8); i < n; i++) { const cx = x0 + (x1 - x0) * R(), e = Math.max(0, elev(cx, 0)); dab(sc, any(R, tex), cx, top(cx) + e * 0.3 * R(), H * (0.06 + 0.12 * R()), R() * 6.2832, 0.5 + 0.5 * R(), 'source-atop'); }
+      for (let i = 0, n = 8 + Math.floor(R() * 6); i < n; i++) { const cx = x0 + (x1 - x0) * R(), e = Math.max(0, elev(cx, 0)); dab(sc, any(R, tex), cx, top(cx) + e * (0.3 + 0.6 * R()), H * (0.05 + 0.1 * R()), R() * 6.2832, 0.3 + 0.4 * R(), 'destination-out'); }
+      // the ridge: real brush strokes (trunk and bank pieces) bent along the outline, in lengths with gaps between,
+      // sunk half their width into the shape. A string of blots here read as beads
+      for (let cx = x0 + (x1 - x0) * 0.08; cx < x1 - (x1 - x0) * 0.1;) {
+        const len = H * (0.1 + 0.22 * R()), p = any(R, line), thick = H * (0.01 + 0.014 * R()), seg = [];
+        for (let q = cx; q <= Math.min(cx + len, x1); q += 3) seg.push([q, top(q) + thick * 0.35]);
+        if (seg.length > 6) { if (R() < 0.5) seg.reverse(); const nat = (p.b[3] - p.b[1]) * p.h * (len / ((p.b[2] - p.b[0]) * p.w));
+          // bent on a canvas of its own: the melting of its two ends rubs out whatever lies under them
+          sc2.setTransform(1, 0, 0, 1, 0, 0); sc2.clearRect(0, 0, scr2.width, scr2.height); bend(sc2, { im: inkA(p), b: p.b }, seg, thick / nat, 0.12);
+          sc.setTransform(1, 0, 0, 1, 0, 0); sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = envAt(cx + len / 2) * (0.55 + 0.45 * R()); sc.drawImage(scr2, 0, 0); }
+        cx += len * (0.75 + 0.7 * R());
+      }
+      // foot: every column thins to nothing below its own ridge (one gradient per column: a single one for the whole
+      // range would leave the low stretches of the ridge already faded); the two ends of the range thin out as well
+      sc.setTransform(1, 0, 0, 1, 0, 0); sc.globalAlpha = 1; sc.globalCompositeOperation = 'destination-out';
+      for (let px = Math.floor(x0 * dpr) - 8; px < x1 * dpr + 8; px += 2) { const cx = (px + 1) / dpr, t = top(cx, 0) * dpr, d = deep(cx) * dpr, g = sc.createLinearGradient(0, t, 0, t + d), e = 1 - sm(envAt(cx) * 2.5);
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.18, 'rgba(0,0,0,0.12)'); g.addColorStop(0.55, 'rgba(0,0,0,0.6)'); g.addColorStop(0.85, 'rgba(0,0,0,0.93)'); g.addColorStop(1, 'rgba(0,0,0,1)'); sc.fillStyle = g; sc.fillRect(px, t - 0.06 * H * dpr, 2, d + 0.3 * H * dpr);
+        if (e > 0.003) { sc.fillStyle = `rgba(0,0,0,${e.toFixed(3)})`; sc.fillRect(px, 0, 2, scr.height); } }
+      sc.globalCompositeOperation = 'source-over';
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = Ly.tone; x.drawImage(scr, 0, 0);
+    });
+    plain(x);
+  }
   const PAINT = {
     // moon: the one painting still used whole, turned and mirrored by the dice. Assembled from the round ink blots of
     // sheet 5 (a pale blot as the disc, darker blots piled up as seas) it came out as stains on a dish, three tries:
@@ -183,6 +256,7 @@
     // mountains: a peak on every crest of the stroke, its summit on the stroke, taller where the stroke climbs higher;
     // smaller peaks fill the line between; a pale far range behind. Near peaks hide far ones
     mountain: (x, P, R) => {
+      if (S.vec) return mountainV(x, P, R);
       const H = D.H, B = box(P), nb = Math.ceil((B[2] - B[0]) / 8) + 1, acc = new Array(nb).fill(0), cnt = new Array(nb).fill(0);
       for (const p of P) { const k = clamp(Math.round((p[0] - B[0]) / 8), 0, nb - 1); acc[k] += p[1]; cnt[k]++; }
       let last = P[0][1]; const ys = acc.map((v, k) => (cnt[k] ? (last = v / cnt[k]) : null)); for (let k = nb - 1, nx = last; k >= 0; k--) { if (ys[k] == null) ys[k] = nx; else nx = ys[k]; }
@@ -314,7 +388,7 @@
   const pbox = document.createElement('div');
   pbox.innerHTML = `<h3>Vẽ tranh (bản thử)</h3><div id="p_stat" class="keys"></div>
     ${TPL.map((T, i) => `<button class="pf" data-i="${i}">${i + 1}. ${T.name.split('→')[0].trim()}</button>`).join('')}<br>
-    <button id="p_clear">Xóa tranh (C)</button><button id="p_guide">Ẩn/hiện mẫu (V)</button>
+    <button id="p_clear">Xóa tranh (C)</button><button id="p_guide">Ẩn/hiện mẫu (V)</button><button id="p_vec"></button>
     <label><span class="row"><span>Độ rộng điểm (màn)</span><b id="p_tolv"></b></span><input type="range" id="p_tol" min="0.02" max="0.1" step="0.005"></label>
     <div class="keys">Giữ chuột trái: hạ bút
 Qua các điểm theo số, một nét
@@ -325,12 +399,16 @@ Thả chuột giữa chừng: đứt nét
   pbox.querySelectorAll('.pf').forEach((b) => { b.onclick = () => pick(+b.dataset.i); });
   $('p_clear').onclick = () => reset(true);
   $('p_guide').onclick = () => { S.guide = !S.guide; save(); };
+  $('p_vec').onclick = flipVec;
   $('p_tol').addEventListener('input', (e) => { S.tol = +e.target.value; save(); sync(); });
+  // same stroke, same dice, the other way of painting it: so the two can be compared on one picture
+  function flipVec() { S.vec = !S.vec; save(); for (const d of st.done) if (TPL[d.i].id === 'mountain') d.pic = null; bakeKey = ''; say(S.vec ? 'Núi: hình sinh + chất mực' : 'Núi: ráp mảnh'); sync(); }
   function sync() {
     if (!$('p_stat')) return;
     const T = TPL[st.cur], all = st.done.length === TPL.length;
     $('p_stat').textContent = all ? 'Xong cả tranh. Bấm C để vẽ lại' : `Đang vẽ: ${T.name}\nĐiểm kế: ${st.next >= T.n ? 1 : st.next + 1}/${T.n}` + (st.last ? `\nLần trước: ${st.last.ok ? `lệch TB ${st.last.avgPx} px, ${st.last.grade}` : st.last.why}` : '');
     pbox.querySelectorAll('.pf').forEach((b) => { const i = +b.dataset.i; b.classList.toggle('on', i === st.cur && !all); b.textContent = `${i + 1}. ${TPL[i].name.split('→')[0].trim()}${st.done.some((d) => d.i === i) ? ' ✓' : ''}`; });
+    $('p_vec').textContent = `Núi: ${S.vec ? 'hình sinh' : 'ráp mảnh'} (N)`;
     $('p_tol').value = S.tol; $('p_tolv').textContent = S.tol.toFixed(3);
   }
   sync();
@@ -339,8 +417,9 @@ Thả chuột giữa chừng: đứt nét
     if (k.length === 1 && k >= '1' && k <= String(TPL.length)) pick(+k - 1);
     else if (k === 'c' || k === 'C') reset(true);
     else if (k === 'v' || k === 'V') { S.guide = !S.guide; save(); }
+    else if (k === 'n' || k === 'N') flipVec();
   });
 
   window.__paint = { S, st, TPL, step, render, pick, reset, ready: () => partsReady && !!MOON.im, pen: (on) => (on ? penDown() : penUp()), geo: () => { if (!geo) { layout(); geo.w = freeW(); geo.H = D.H; } return geo; },
-    info: () => ({ fig: TPL[st.cur].id, next: st.next, pen: st.pen, done: st.done.map((d) => TPL[d.i].id), last: st.last, tol: S.tol }) };
+    info: () => ({ fig: TPL[st.cur].id, next: st.next, pen: st.pen, done: st.done.map((d) => TPL[d.i].id), last: st.last, tol: S.tol, vec: S.vec }) };
 })();
