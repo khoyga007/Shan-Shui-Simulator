@@ -38,3 +38,28 @@ Budget: 1 day. Owner: Ariel codes, Claire reviews. Spike Godot (D:\Projects\InkD
 4. Short report on bridge: does scroll keep ink crisp? which sub-texel option won? anything blurring left.
 
 Run: serve `web/` with any static server (e.g. `npx http-server web -p 8099`), open `/?game=1`.
+
+## Result 2026-11-18 (Claire did it herself; Ariel task cancelled)
+Run: `run.bat` → http://127.0.0.1:8099/?game=1. Keys: RMB fly (hold = follow cursor) · Q breath at cursor · W whip · E coil · R dive (out at cursor) · Shift/Space boost · F1 camera follow/fixed · F2 HUD · F3 naive-resample camera (comparison only).
+
+How (all in web/dragon.js, wallpaper path untouched when no ?game=1):
+- Floating origin: positions stay canvas px; camera move → `worldShift(nx,ny)` moves every world object back by whole sim cells + `shift` pass copies vel/prs/dye by exact texels (dye grid forced = sim × 8). Leftover < 1 cell → CSS translate of an oversized canvas (4% margin), snapped to device px.
+- Open edges in game (`uOpen` on divergence/gradient/vorticity/vsm/ink); impinging-jet screen-wall code off.
+- Landscape: 0.35× parallax x (mirror wrap), 0.12× y, fades to paper past image top/bottom.
+- Off in game: pearl, king cycle, dance/audio, rain, calligraphy, autonomous coil/breath/clouds, pointer stir; frame loop every vsync (wallpaper throttles ~30fps).
+
+Crispness (web/crisp-test.js, mean |Laplacian| over dragon bbox, ink px only, landscape off, 1920×1080, same world flight path, 422 px/s):
+| camera | lap |
+|---|---|
+| fixed (wallpaper-like) | 1.45 |
+| follow, integer-cell shift (shipped) | 1.36 (−6%) |
+| follow, naive fractional resample (F3) | 1.09 (−25%) |
+Shots shots/keep/a1-a3: a3 = visible horizontal smear on body = Spike's symptom. **Conclusion: blur was the camera resample, not WebGL/engine. Integer shift fixes it.** Residual 6%: smoke scrolling off edges / crop; not visible in shots.
+
+Perf: preview pane (hidden, emulated 1920×1080 dpr 1.2, canvas 2489×1399): game 35.7 ms/frame, original wallpaper 43.7 ms same pane → game no costlier. Pane numbers unreliable; real check = HUD fps in Chrome on GTX 1650. Wallpaper prof: render 15.5, mask upload 15.0, step 10.0, mask draw 5.8 ms → if <60fps, first cuts: mask upload (2D canvas → texSubImage each frame), canvas scale S_CAP.
+
+Known/open:
+- Mirror-wrapped landscape shows mirrored trees; needs real world art later.
+- Head reads as blob when flying straight up/down (readability, not blur). No eye glow (ban).
+- Coil E balls the body up; tune later (Celine feel).
+- DESIGN.md still says Godot: update once Yang confirms WebGL.

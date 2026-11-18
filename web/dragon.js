@@ -23,6 +23,14 @@
     dance: true,
   };
   let SIM_H = 128, DYE_H = 1024, MASK_H = 480, ITER = 20, S_CAP = 1.25;
+  // ---- game mode (InkDragon WebGL test, ?game=1) -------------------------------------------
+  // Floating origin: every position stays in canvas CSS px as in the wallpaper. When the camera moves, the whole world (dragon,
+  // clouds, fluid) is shifted back by a whole number of sim cells, so the fluid textures move by exact texels (no resample, no
+  // blur). What is left over (< 1 cell) is a CSS translate of the oversized canvas, rounded to device pixels.
+  const G = { on: /[?&]game=1(&|$)/.test(location.search), follow: true, mx: 0, my: 0,
+    accX: 0, accY: 0, remX: 0, remY: 0, leadX: 0, leadY: 0, camX: 0, camY: 0, cx: 0, cy: 0, ptr: false,
+    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, dive: false,
+    fps: 0, fpsN: 0, fpsT: 0, hud: null, shifts: 0 };
   const mq = matchMedia('(prefers-color-scheme: dark)');
   const resolveDark = () => (cfg.theme === 'dark' ? true : cfg.theme === 'light' ? false : mq.matches);
 
@@ -49,6 +57,9 @@ float fbm(vec2 p){ return .5 * vnoise(p) + .3 * vnoise(RO * p * 2.1 + 7.3) + .2 
 `;
   const FS = {
     clear: H + 'uniform sampler2D t0; uniform float uK; void main(){ gl_FragColor = uK * texture2D(t0, v); }',
+    // game camera: move a field by whole texels (uOff = n * texel), what scrolls in is empty
+    shift: H + `uniform sampler2D t0; uniform vec2 uOff;
+void main(){ vec2 c = v + uOff; gl_FragColor = (c.x < 0. || c.x > 1. || c.y < 0. || c.y > 1.) ? vec4(0.) : texture2D(t0, c); }`,
     splat: H + `uniform sampler2D t0; uniform float uAsp, uR; uniform vec2 uP; uniform vec4 uC;
 void main(){ vec2 p = v - uP; p.x *= uAsp; gl_FragColor = vec4(texture2D(t0, v).xyz + exp(-dot(p, p) / uR) * uC.xyz, 1.); }`,
     splat4: H + `uniform sampler2D t0; uniform float uAsp; uniform vec4 uP[4], uC[4];
@@ -64,10 +75,11 @@ void main(){
   vec4 r = uManual > .5 ? bil(t1, c, uSrcTx) : texture2D(t1, c);
   gl_FragColor = r / (1. + uDiss * uDt);
 }`,
-    divergence: H + `uniform sampler2D t0;
+    divergence: H + `uniform sampler2D t0; uniform float uOpen;
 void main(){
   float l = texture2D(t0, vL).x, r = texture2D(t0, vR).x, t = texture2D(t0, vT).y, b = texture2D(t0, vB).y;
   vec2 c = texture2D(t0, v).xy;
+  if (uOpen > .5) { gl_FragColor = vec4(.5 * (r - l + t - b), 0., 0., 1.); return; }   // game: open edges (clamp = zero-gradient outflow)
   if (vL.x < 0.) l = -c.x; if (vR.x > 1.) r = -c.x; if (vT.y > 1.) t = -c.y; if (vB.y < 0.) b = -c.y;
   gl_FragColor = vec4(.5 * (r - l + t - b), 0., 0., 1.);
 }`,
@@ -76,12 +88,12 @@ void main(){
   float l = texture2D(t0, vL).y, r = texture2D(t0, vR).y, t = texture2D(t0, vT).x, b = texture2D(t0, vB).x;
   gl_FragColor = vec4(.5 * (r - l - t + b), 0., 0., 1.);
 }`,
-    vorticity: H + `uniform sampler2D t0, t1; uniform float uCurl, uDt, uCMax;
+    vorticity: H + `uniform sampler2D t0, t1; uniform float uCurl, uDt, uCMax, uOpen;
 void main(){
   float l = texture2D(t1, vL).x, r = texture2D(t1, vR).x, t = texture2D(t1, vT).x, b = texture2D(t1, vB).x, c = texture2D(t1, v).x;
   vec2 f = .5 * vec2(abs(t) - abs(b), abs(r) - abs(l));
   float edgeD = min(min(v.x, 1. - v.x), min(v.y, 1. - v.y));
-  float nearW = 1. - smoothstep(.0, .18, edgeD);
+  float nearW = (1. - smoothstep(.0, .18, edgeD)) * (1. - uOpen);   // game: no wall, no wall curls
   f /= length(f) + .0001; f *= uCurl * clamp(c, -uCMax * (1. + nearW), uCMax * (1. + nearW)); f.y *= -1.;   // capped: in the jet's shear layer the curl is huge and the confinement blew cell-sized eddies up into noise
   // screen edge = solid wall (Yang 11-17: fire hitting it must splat, split along the wall and roll back in curls). The old
   // .68 sponge over 4.5% ate the jet before it reached the wall. Now only a thin, mild sponge, and the roll-up eddies that
@@ -96,7 +108,7 @@ void main(){
     // wormy). Slow smoke keeps the raw field and all its detail. Done once on the small sim grid, not per dye pixel
     // also wherever fire is (dilated 3 cells): slow fire at the jet's edge rode the raw field, whose odd/even cell noise printed a
     // checkerboard along the flame edge (Yang 11-17: centre smooth, edge pixelated). Smoke away from fire keeps full detail
-    vsm: H + `uniform sampler2D t0, t1; uniform vec2 uSmR; uniform float uDk;
+    vsm: H + `uniform sampler2D t0, t1; uniform vec2 uSmR; uniform float uDk, uOpen;
 float fireAt(vec2 p){ vec3 d = max(texture2D(t1, p).rgb, 0.); float s = max(d.r, max(d.g, d.b));
   float f = uDk > .5 ? (d.r - d.b) / (s + 1e-4) - .15 : (d.g - d.r - .28 * max(d.b - d.g, 0.)) / (s + 1e-4);
   return clamp(f * 2., 0., 1.) * smoothstep(.01, .08, s); }
@@ -106,7 +118,7 @@ void main(){
   float fire = max(max(fireAt(v), max(fireAt(v + ex), fireAt(v - ex))), max(max(fireAt(v + ey), fireAt(v - ey)), max(fireAt(v + ex + ey), fireAt(v - ex - ey))));
   float w = max(smoothstep(uSmR.x, uSmR.y, length(c)), fire);
   // near the screen-edge wall the fire keeps the raw field: the averaging erased the roll-back curls the wall peels off
-  w *= mix(.75, 1., smoothstep(.03, .2, min(min(v.x, 1. - v.x), min(v.y, 1. - v.y))));   // only a little: much less and the wall film printed the cell checkerboard again
+  w *= mix(mix(.75, 1., smoothstep(.03, .2, min(min(v.x, 1. - v.x), min(v.y, 1. - v.y)))), 1., uOpen);   // only a little: much less and the wall film printed the cell checkerboard again
   vec2 dx = vec2(vR.x - v.x, 0.) * 3.5, dy = vec2(0., vT.y - v.y) * 3.5;
   vec2 a = (texture2D(t0, v + dx).xy + texture2D(t0, v - dx).xy + texture2D(t0, v + dy).xy + texture2D(t0, v - dy).xy
     + texture2D(t0, v + dx + dy).xy + texture2D(t0, v - dx - dy).xy + texture2D(t0, v + dx - dy).xy + texture2D(t0, v - dx + dy).xy) * .125;
@@ -117,13 +129,15 @@ void main(){
   float l = texture2D(t0, vL).x, r = texture2D(t0, vR).x, t = texture2D(t0, vT).x, b = texture2D(t0, vB).x;
   gl_FragColor = vec4((l + r + b + t - texture2D(t1, v).x) * .25, 0., 0., 1.);
 }`,
-    gradient: H + `uniform sampler2D t0, t1;
+    gradient: H + `uniform sampler2D t0, t1; uniform float uOpen;
 void main(){
   float l = texture2D(t0, vL).x, r = texture2D(t0, vR).x, t = texture2D(t0, vT).x, b = texture2D(t0, vB).x;
   vec2 u = texture2D(t1, v).xy - vec2(r - l, t - b);
   // no-penetration wall at the screen edge: the normal component dies in the boundary ring, tangential slides free
+  if (uOpen < .5) {
   if (vL.x < 0. || vR.x > 1.) u.x = 0.;
   if (vB.y < 0. || vT.y > 1.) u.y = 0.;
+  }
   gl_FragColor = vec4(u, 0., 1.);
 }`,
     // velocity: mask edges curl and push outward -> the outline keeps smoking off
@@ -144,7 +158,7 @@ void main(){
   gl_FragColor = vec4(clamp((vel + f * uAmp * uDt * 60.) * damp, -1000., 1000.), 0., 1.);   // calm inside the body, turbulent at its edge
 }`,
     // dye: re-ink inside the mask toward the body colour, brush-textured
-    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA;
+    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA, uOpen;
 float fireOf(vec3 d){ return clamp(((uDk > .5 ? d.r - d.b : max(d.g, d.b) - d.r) / (max(d.r, max(d.g, d.b)) + 1e-4) - .04) * 1.35, 0., 1.); }
 void main(){
   vec4 d = texture2D(t0, v);
@@ -180,7 +194,7 @@ void main(){
     ? (length(bil(t2, v, uVelTx).xy) + length(bil(t2, v + sx, uVelTx).xy) + length(bil(t2, v - sx, uVelTx).xy) + length(bil(t2, v + sy, uVelTx).xy) + length(bil(t2, v - sy, uVelTx).xy)) * .2
     : (length(texture2D(t2, v).xy) + length(texture2D(t2, v + sx).xy) + length(texture2D(t2, v - sx).xy) + length(texture2D(t2, v + sy).xy) + length(texture2D(t2, v - sy).xy)) * .2;
   float edgeD = min(min(v.x, 1. - v.x), min(v.y, 1. - v.y));
-  float still = (1. - smoothstep(12., 120., spd)) * .4 * mix(.3, 1., smoothstep(.03, .2, edgeD));   // fire sliding along the wall is slow by nature: let it live to roll back
+  float still = (1. - smoothstep(12., 120., spd)) * .4 * mix(mix(.3, 1., smoothstep(.03, .2, edgeD)), 1., uOpen);   // fire sliding along the wall is slow by nature: let it live to roll back
   float wall = (1. - smoothstep(0., .012, edgeD)) * .35;   // was 4.5% band at full kill: the fire died before it could splat along the wall
   float killF = fire * max(still, wall);
   // fast path: far from the silhouette (beyond the noise warp reach) only the thinning applies; skips 4 fbm calls on most of the screen
@@ -247,7 +261,7 @@ void main(){
   o = mix(o, uInk * (.25 + .55 * bill), hidEye * k * .5 * smoothstep(.04, .8, mm.b));
   gl_FragColor = vec4(o + rimGlow * k, ea);   // edge wisps: soft, or they trace the skeleton
 }`,
-    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual; uniform vec2 uEye; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud;
+    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual; uniform vec2 uEye; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud, uLandO;
 float gp(vec2 p){ vec4 t = texture2D(t1, p); return t.g * (1. - t.r); }
 void main(){
   vec4 dye4 = uManual > .5 ? bil(t0, v, uDyeTx) : texture2D(t0, v);
@@ -259,7 +273,12 @@ void main(){
   vec3 bg = uBg;
   if (uLand > .5) {   // landscape, cover-fit, bottom-anchored (mountains sit low). Light: the painting is the paper, tinted
     // to the theme's paper. Dark: inverted to faint moonlit grey ridges on the night
-    vec3 im = texture2D(t3, vec2(.5 + (v.x - .5) * uLandS.x, v.y * uLandS.y)).rgb;
+    // game: uLandO = parallax scroll in image units; x mirror-wraps (seamless without a tileable image), y clamps
+    vec2 lu = vec2(.5 + (v.x - .5) * uLandS.x, v.y * uLandS.y) + uLandO;
+    lu.x = 1. - abs(1. - mod(lu.x, 2.));
+    vec3 im = texture2D(t3, vec2(lu.x, clamp(lu.y, 0., 1.))).rgb;
+    // past the image's top/bottom: fade to its paper, a clamped edge row smeared into vertical stripes
+    im = mix(vec3(.985, .972, .94), im, smoothstep(-.04, .0, lu.y) * smoothstep(1.04, 1., lu.y));
     float m = clamp((.975 - dot(im, vec3(.3, .59, .11))) / .4, 0., 1.);
     bg = uDark > .5 ? uBg + vec3(.085, .092, .12) * m : im * uBg / vec3(.985, .972, .94);
   }
@@ -559,6 +578,7 @@ void main(){
     freeTargets();
     const asp = Math.max(0.3, W / Math.max(1, Hh));
     simH = SIM_H; simW = Math.round(SIM_H * asp); dyeH = DYE_H; dyeW = Math.round(DYE_H * asp);
+    if (G.on) { const r = Math.max(1, Math.round(DYE_H / SIM_H)); dyeW = simW * r; dyeH = simH * r; }   // one sim cell = r whole dye texels, so a cell shift moves both exactly
     vel = pair(simW, simH); prs = pair(simW, simH); div = target(simW, simH); crl = target(simW, simH); dye = pair(dyeW, dyeH);
     mcv.height = MASK_H; mcv.width = Math.round(MASK_H * asp);
   }
@@ -614,6 +634,7 @@ void main(){
     coilUntil = -9; nextCoil = T + 18 + Math.random() * 10; nextAutoBreath = T + 12 + Math.random() * 6; wasAutoCoil = false;
     Object.assign(kg, { ph: 'off', amt: 0, storm: 0, C: null, burst: false, puffs: [] }); sealKing = false;
     pickHome();
+    if (G.on) { pl.x = pl.hx = pl.y = pl.hy = -1e5; G.tgt = G.hover = null; }   // no pearl in the game test
   }
 
   // ---- pearl -----------------------------------------------------------------------------
@@ -789,7 +810,7 @@ void main(){
         if (cl.fade <= 0) {
           cl.ph = 'hidden'; cl.t = T; cl.path = null; A.on = false;
           kd.hop++;
-          const [bx, by] = pickFarSpot(A.x, A.y, Math.hypot(W, Hh) * 0.38);
+          const [bx, by] = G.on && G.diveTo ? [G.diveTo.x, G.diveTo.y] : pickFarSpot(A.x, A.y, Math.hypot(W, Hh) * 0.38);   // game R: come out at the cursor
           cl.B = cloudSpot(bx, by); cl.B.hide = 1; cl.B.amt = 0.12; cl.B.on = true;   // gathers while the dragon is away (below)
         }
       } else if (cl.ph === 'hidden') {
@@ -811,7 +832,8 @@ void main(){
             cloudMouthBurst(cl.B.x, cl.B.y, launchA, 1);
           } else {
             cl.A = null;
-            kd.tx = W * (0.38 + Math.random() * 0.24); kd.ty = Hh * (0.36 + Math.random() * 0.24);
+            if (G.on) { const a = G.diveA ?? dg.ang; kd.tx = cl.B.x + Math.cos(a) * Hh * 0.6; kd.ty = cl.B.y + Math.sin(a) * Hh * 0.6; G.diveTo = null; }   // keep the heading it dived with
+            else { kd.tx = W * (0.38 + Math.random() * 0.24); kd.ty = Hh * (0.36 + Math.random() * 0.24); }
             const launchA = Math.atan2(kd.ty - cl.B.y, kd.tx - cl.B.x) + (Math.random() - 0.5) * 0.45;
             coilAt(cl.B.x, cl.B.y, launchA);
             cloudMouthBurst(cl.B.x, cl.B.y, launchA, 1);
@@ -989,10 +1011,10 @@ void main(){
   }
   function dragonUpdate(dt) {
     updateRoll(dt);
-    pearlUpdate(dt);
+    if (!G.on) pearlUpdate(dt);
     kingUpdate(dt);
     const R = rad(), idle = T - ptrT;
-    const chasing = idle < 2.5 && ptr.init;
+    const chasing = !G.on && idle < 2.5 && ptr.init;
     const px = ptr.x * W, py = (1 - ptr.y) * Hh;
 
     let autoCoil = T < coilUntil;
@@ -1004,7 +1026,7 @@ void main(){
         nextAutoBreath = T + 11 + Math.random() * 5;
       }
     }
-    const freeAuto = kg.ph === 'off' && cl.ph === 'off' && !chasing && !pl.drag && !pl.held && !pl.ripe && dg.breath <= 0 && !dg.roar && dn.amt < 0.3;   // no auto coil / auto breath while dancing
+    const freeAuto = !G.on && kg.ph === 'off' && cl.ph === 'off' && !chasing && !pl.drag && !pl.held && !pl.ripe && dg.breath <= 0 && !dg.roar && dn.amt < 0.3;   // no auto coil / auto breath while dancing
     if (freeAuto && !autoCoil) {
       if (T > nextCoil) {
         coilUntil = T + 4.5 + Math.random() * 3.0;
@@ -1029,7 +1051,7 @@ void main(){
       pl.caught = Math.max(pl.caught, T + 0.5);
     }
 
-    cloudUpdate(dt, kg.ph === 'off' && !chasing && !autoCoil && !dg.roar && dg.breath <= 0 && !pl.held && !pl.drag && (sn.done || idle < 6), chasing);
+    cloudUpdate(dt, !G.on && kg.ph === 'off' && !chasing && !autoCoil && !dg.roar && dg.breath <= 0 && !pl.held && !pl.drag && (sn.done || idle < 6), chasing);
     if (cl.ph === 'hidden') { for (let i = 0; i < N; i++) { dg.prev[i].x = dg.pts[i].x; dg.prev[i].y = dg.pts[i].y; } dg.mode = 'hidden'; return; }
     if (cl.ph === 'enter' && cl.headIn) {
       if (!cl.path) { const P = [[cl.A.x, cl.A.y], ...dg.pts.map((p) => [p.x, p.y])], L = [0];
@@ -1084,7 +1106,8 @@ void main(){
       if (cl.ph === 'enter') { const A = cl.A, oa = Math.atan2(dg.hy - A.y, dg.hx - A.x) + (cl.headIn ? 1.2 : 0), r = cl.headIn ? cloudR() * 0.3 : 0; dg.tx = A.x + Math.cos(oa) * r; dg.ty = A.y + Math.sin(oa) * r; }
       else { dg.tx = dg.hx + Math.cos(dg.ang) * Hh; dg.ty = dg.hy + Math.sin(dg.ang) * Hh; }
       mode = 'cloud';
-    } else if (kg.ph === 'morph') {
+    } else if (G.on) { mode = gameMode(R); }
+    else if (kg.ph === 'morph') {
       const oa = Math.atan2(dg.hy - kg.cy, dg.hx - kg.cx) + 1.0, r = Hh * 0.09;
       dg.tx = kg.cx + Math.cos(oa) * r; dg.ty = kg.cy + Math.sin(oa) * r; mode = 'coil';
     } else if (kg.ph === 'swallow' || kg.ph === 'glow') { dg.tx = dg.hx + Math.cos(dg.ang) * Hh; dg.ty = dg.hy + Math.sin(dg.ang) * Hh; mode = 'swallow'; }
@@ -1126,7 +1149,7 @@ void main(){
       }
     }
     if (dg.breath > 0) want = Math.atan2(dg.by - dg.hy, dg.bx - dg.hx);
-    const turn = (dg.breath > 0 || dg.roar ? 2.6 : mode === 'kdive' ? 4.8 : mode === 'sniff' ? (near ? 1.4 : 0.9) : mode === 'chase' ? 0.9 : mode === 'fetch' ? 1.6 : mode === 'think' ? 0.7 : mode === 'cloud' ? 1.0 : mode === 'coil' ? 2.4 : mode === 'king' ? 0.6 : mode === 'dance' ? 0.75 : 0.85) * dt;
+    const turn = (G.on && mode !== 'kdive' && mode !== 'cloud' ? gameTurn(mode) : dg.breath > 0 || dg.roar ? 2.6 : mode === 'kdive' ? 4.8 : mode === 'sniff' ? (near ? 1.4 : 0.9) : mode === 'chase' ? 0.9 : mode === 'fetch' ? 1.6 : mode === 'think' ? 0.7 : mode === 'cloud' ? 1.0 : mode === 'coil' ? 2.4 : mode === 'king' ? 0.6 : mode === 'dance' ? 0.75 : 0.85) * dt;
     {   // turns ease in and out (Yang 11-17: tight turns are fine, sudden ones are not): in relaxed modes the turn rate
         // itself is smoothed, so the head rolls into a curve instead of snapping onto it; urgent modes (breath aim, dives,
         // coil) keep the direct clamp
@@ -1140,6 +1163,7 @@ void main(){
     const calm = !autoCoil && T - lastAct > 20 && mode === 'pearl';
     const aimOff = Math.abs(wrapA(want - headA));
     const sp = Hh * (
+      G.on && mode !== 'kdive' && mode !== 'cloud' ? gameSpeed(mode, R) :
       mode === 'kdive' ? (() => {
         const ke = T - cl.t;
         if (kd.hop >= kd.total) return 1.42 - 1.24 * clamp((ke - 0.25) / 1.1, 0, 1);
@@ -1171,7 +1195,7 @@ void main(){
     dg.hx += (Math.cos(dg.ang) * sp + driftX) * dt;
     dg.hy += (Math.sin(dg.ang) * sp + driftY) * dt;
     const m = Math.min(W, Hh) * 0.14;
-    if (dg.hx < m || dg.hx > W - m || dg.hy < m || dg.hy > Hh - m) dg.ang += clamp(wrapA(Math.atan2(Hh / 2 - dg.hy, W / 2 - dg.hx) - dg.ang), -1.4 * dt, 1.4 * dt);
+    if (!G.on && (dg.hx < m || dg.hx > W - m || dg.hy < m || dg.hy > Hh - m)) dg.ang += clamp(wrapA(Math.atan2(Hh / 2 - dg.hy, W / 2 - dg.hx) - dg.ang), -1.4 * dt, 1.4 * dt);
     const s = segLen();
     for (let i = 0; i < N; i++) { dg.prev[i].x = dg.pts[i].x; dg.prev[i].y = dg.pts[i].y; }
     dg.pts[0].x = dg.hx; dg.pts[0].y = dg.hy;
@@ -1200,6 +1224,10 @@ void main(){
         const de = 0.45 + 0.55 * u;
         lat += Hh * dn.amt * dt * (de * (0.07 + 0.05 * danceE + 0.04 * dn.kickS) * Math.sin(dn.ph2 - i * 0.11)
           + (u > 0.6 ? (u - 0.6) * 0.18 * Math.min(1, dn.hi) * Math.sin(T * 6 - i * 0.35) : 0));
+      }
+      if (G.on && T - G.whip < 0.5) {   // W whip: a sideways wave runs down the back half, strongest at the tip
+        const e = (T - G.whip) / 0.5;
+        lat += Hh * 2.4 * G.whipS * Math.sin(Math.PI * e) * Math.pow(u, 1.6) * Math.cos(e * 7 - u * 4) * dt;
       }
       ex += nx * lat; ey += ny * lat;
       // spine stiffness (Yang 11-17: tight turns folded the body onto itself): each joint may bend at most MAXB from the
@@ -1521,7 +1549,7 @@ void main(){
     const ys = column('飛龍在天', x0 - big * 0.95, h * 0.13, small, 0.9);
     // seal: square, slightly rough edge, characters knocked out
     const ss = small * 1.5, sc = document.createElement('canvas').getContext('2d');
-    sc.canvas.width = sc.canvas.height = Math.ceil(ss);
+    sc.canvas.width = sc.canvas.height = Math.max(1, Math.ceil(ss));   // 0-size window (hidden preview) threw here
     sc.fillStyle = '#0f0'; sc.beginPath();
     sc.moveTo(ss * 0.03, ss * 0.05); sc.lineTo(ss * 0.97, ss * 0.02); sc.lineTo(ss * 0.98, ss * 0.96); sc.lineTo(ss * 0.04, ss * 0.98); sc.closePath(); sc.fill();
     sc.globalCompositeOperation = 'destination-out'; sc.textAlign = 'center'; sc.textBaseline = 'middle';
@@ -1593,14 +1621,14 @@ void main(){
   }
   function step(dt) {
     pass('curl', crl, [vel.a.tex], {});
-    pass('vorticity', vel.b, [vel.a.tex, crl.tex], { uCurl: CFG.curl, uCMax: 12, uDt: dt }); vel.swap();
+    pass('vorticity', vel.b, [vel.a.tex, crl.tex], { uCurl: CFG.curl, uCMax: 12, uDt: dt, uOpen: G.on ? 1 : 0 }); vel.swap();
     pass('stir', vel.b, [vel.a.tex, maskTex], { uAmp: T < coilUntil ? 8 : 6, uT: T, uDt: dt }); vel.swap();
-    pass('divergence', div, [vel.a.tex], {});
+    pass('divergence', div, [vel.a.tex], { uOpen: G.on ? 1 : 0 });
     pass('clear', prs.b, [prs.a.tex], { uK: CFG.pressK }); prs.swap();
     for (let i = 0; i < ITER; i++) { pass('pressure', prs.b, [prs.a.tex, div.tex], {}); prs.swap(); }
-    pass('gradient', vel.b, [prs.a.tex, vel.a.tex], {}); vel.swap();
+    pass('gradient', vel.b, [prs.a.tex, vel.a.tex], { uOpen: G.on ? 1 : 0 }); vel.swap();
     pass('advect', vel.b, [vel.a.tex, vel.a.tex], { uDt: dt, uDiss: CFG.velDiss, uSrcTx: vel.tx, uVelTx: vel.tx, uManual: linear ? 0 : 1 }); vel.swap();
-    pass('vsm', crl, [vel.a.tex, dye.a.tex], { uSmR: [50, 180], uDk: dark ? 1 : 0 });   // crl is free again until the next step's curl pass
+    pass('vsm', crl, [vel.a.tex, dye.a.tex], { uSmR: [50, 180], uDk: dark ? 1 : 0, uOpen: G.on ? 1 : 0 });   // crl is free again until the next step's curl pass
     pass('advect', dye.b, [crl.tex, dye.a.tex], { uDt: dt, uDiss: CFG.dyeDiss, uSrcTx: dye.tx, uVelTx: vel.tx, uManual: linear ? 0 : 1 }, vel.tx); dye.swap();
     const e = eye();
     const ea = visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true);
@@ -1621,7 +1649,7 @@ void main(){
       uEye: [e.x / W, 1 - e.y / Hh],
       uEyeR: rad() * 0.34 / Math.max(1, Hh),
       uAsp: W / Math.max(1, Hh),
-      uEyeA: ea,
+      uEyeA: ea, uOpen: G.on ? 1 : 0,
     }, [1 / mcv.width, 1 / mcv.height]); dye.swap();
   }
 
@@ -1659,8 +1687,9 @@ void main(){
     landUp();
     const audioBoost = cfg.audioReactive && audioEnergy > 0.01 ? audioBass * 1.4 : 0;
     pass('display', null, [dye.a.tex, maskTex, calTex, landTex || calTex], {
-      uLand: landTex ? 1 : 0, uMud: [1.6, .25],
+      uLand: landTex && !G.noLand ? 1 : 0, uMud: [1.6, .25],
       uLandS: landFit(),
+      uLandO: G.on ? (() => { const f = landFit(); return [G.camX / W * f[0] * 0.35, clamp(-G.camY / Hh * f[1] * 0.12, -0.25, 0.25)]; })() : [0, 0],   // parallax: hills move at a third of the ink
       uDyeTx: dye.tx,
       uManual: linear ? 0 : 1,
       uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true),
@@ -1818,7 +1847,7 @@ void main(){
       // toward the dragon). The 128-row grid smears the wall's stagnation pressure into a thin film, so it is helped here: where
       // the jet axis meets the edge, the flow is turned into two wall jets, and a bit farther out each one is bent off the wall
       // and back, which seeds the roll-up eddy; vorticity confinement near the wall then keeps it curling
-      {
+      if (!G.on) {   // game: the screen edge is not a wall (terrain will be)
         const tx = ca > 1e-3 ? (W - m.x) / ca : ca < -1e-3 ? -m.x / ca : 1e9, ty = sa > 1e-3 ? (Hh - m.y) / sa : sa < -1e-3 ? -m.y / sa : 1e9;
         const dist = Math.min(tx, ty), reach = Hh * 1.1;
         if (dist > R * 2 && dist < reach) {
@@ -1941,6 +1970,7 @@ void main(){
     }
     prevAudioBass = audioBass;
 
+    if (G.on) gameFx(dt, kx, ky);
     if (ptr.moved) {
       ptr.moved = false;
       let dx = ptr.x - ptr.px, dy = ptr.y - ptr.py;
@@ -1954,20 +1984,157 @@ void main(){
 
   function frame(now) {
     raf = requestAnimationFrame(frame);
+    if (G.pause) { last = now; return; }   // test hook holds the last frame on screen
     const el = now - last;
     const active = T < coilUntil || T - ptrT < 3 || dg.breath > 0 || dg.roar || kg.ph !== 'off';
-    if (el < (active ? 31 : (T - lastAct < 20 ? 36 : 42))) return;
+    if (!G.on && el < (active ? 31 : (T - lastAct < 20 ? 36 : 42))) return;   // game: every vsync
     const dt = Math.min(el / 1000, 0.1);
     T += dt; last = now;
+    if (G.on) gameFrame(dt);
     inputs(dt); flushDye(); drawMask(); uploadMask(); step(Math.min(dt, 1 / 15)); render();
+    if (G.on) gameHud(now);
   }
   function resize() {
-    W = innerWidth; Hh = innerHeight; S = Math.min(S_CAP, window.devicePixelRatio || 1);
+    gameCss();
+    W = innerWidth + 2 * G.mx; Hh = innerHeight + 2 * G.my; S = Math.min(S_CAP, window.devicePixelRatio || 1);
     cv.width = Math.max(1, Math.round(W * S)); cv.height = Math.max(1, Math.round(Hh * S));
     if (!gl) return;
     if (!vel || Math.abs(simW / simH - W / Math.max(1, Hh)) > 0.02) { buildTargets(); dragonInit(); }
     buildCalli();
     render();
+  }
+
+  // ---- game mode: camera, controls, HUD --------------------------------------------------
+  function gameCss() {   // canvas a little larger than the window: the sub-cell camera offset slides it, the edge never shows
+    if (!G.on || !cv) return;
+    G.mx = Math.round(innerWidth * 0.04); G.my = Math.round(innerHeight * 0.04);
+    Object.assign(cv.style, { position: 'fixed', left: -G.mx + 'px', top: -G.my + 'px', width: innerWidth + 2 * G.mx + 'px', height: innerHeight + 2 * G.my + 'px', willChange: 'transform' });
+  }
+  function gameMode(R) {
+    if (T < G.coil) {   // E: circle a fixed centre (the wallpaper's cocoon orbit)
+      const oa = Math.atan2(dg.hy - G.ccy, dg.hx - G.ccx) + 1.0, r = Hh * 0.1;
+      dg.tx = G.ccx + Math.cos(oa) * r; dg.ty = G.ccy + Math.sin(oa) * r; return 'coil';
+    }
+    if (G.rmb && G.ptr) G.tgt = { x: G.cx, y: G.cy };   // RMB held: follow the cursor
+    if (G.tgt) {
+      dg.tx = G.tgt.x; dg.ty = G.tgt.y;
+      if (G.rmb || Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy) > R * 1.6) return 'chase';
+      G.hover = { x: G.tgt.x, y: G.tgt.y }; G.tgt = null;   // arrived
+    }
+    const h = G.hover || (G.hover = { x: dg.hx, y: dg.hy });   // idle: slow loop round the last stop, never stands still
+    dg.tx = h.x + Math.cos(T * 0.5) * Hh * 0.22; dg.ty = h.y + Math.sin(T * 0.5) * Hh * 0.14;
+    return 'pearl';
+  }
+  const gameTurn = (mode) => dg.breath > 0 ? 2.6 : mode === 'coil' ? 2.4 : mode === 'chase' ? (G.boosting ? 1.5 : 1.9) : 0.9;
+  function gameSpeed(mode, R) {   // fraction of screen height per second
+    if (dg.breath > 0) return 0.07;
+    if (mode === 'coil') return 0.2;
+    if (mode === 'chase') { const d = Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy); return (G.boosting ? 0.75 : 0.36) * (G.rmb ? 1 : clamp(d / (R * 5), 0.45, 1)); }
+    return 0.12;
+  }
+  function worldShift(nx, ny) {   // camera moved by (nx, ny) sim cells: move everything back by that much
+    const dx = nx * W / simW, dy = ny * Hh / simH;
+    const mv = (o) => { if (o) { o.x -= dx; o.y -= dy; } };
+    for (let i = 0; i < dg.pts.length; i++) { mv(dg.pts[i]); mv(dg.prev[i]); }
+    dg.hx -= dx; dg.hy -= dy; dg.tx -= dx; dg.ty -= dy; dg.bx -= dx; dg.by -= dy; dg.prevEyeX -= dx; dg.prevEyeY -= dy;
+    mv(cl.A); mv(cl.B); mv(G.tgt); mv(G.hover); mv(G.diveTo); G.ccx -= dx; G.ccy -= dy;
+    kg.cx -= dx; kg.cy -= dy; if (kg.gx != null) { kg.gx -= dx; kg.gy -= dy; } kd.tx -= dx; kd.ty -= dy;
+    for (const q of kg.puffs) mv(q);
+    for (const b of kd.bursts) mv(b);
+    for (const P of [cl.path?.P, dg.reel?.P]) if (P) for (const p of P) { p[0] -= dx; p[1] -= dy; }
+    // fluid: whole cells on the sim grid = whole texels (cell * r) on the dye grid; uv y is up. Exact texel copy, no blur
+    const so = [nx / simW, -ny / simH];
+    for (const f of [vel, prs, dye]) { pass('shift', f.b, [f.a.tex], { uOff: so }); f.swap(); }
+    G.camX += dx; G.camY += dy; G.shifts++;
+  }
+  function gameFrame(dt) {
+    const dpr = window.devicePixelRatio || 1;
+    G.cx = (G.clX ?? innerWidth / 2) + G.mx + G.remX; G.cy = (G.clY ?? innerHeight / 2) + G.my + G.remY;   // cursor in canvas px
+    const moving = !!G.tgt || (G.rmb && G.ptr);
+    G.boosting = G.boost && G.stam > 0.02 && moving && T >= G.coil && kd.ph === 'off';
+    if (G.boosting) { G.stam = Math.max(0, G.stam - dt / 2.2); G.stamT = T; }
+    else if (T - G.stamT > 0.6) G.stam = Math.min(1, G.stam + dt / 3.5);
+    if (G.q && cl.ph === 'off' && kd.ph === 'off') {   // Q held: breathe at the cursor
+      dg.bx = G.cx; dg.by = G.cy; dg.breath = Math.max(dg.breath, 0.2); dg.breathPearl = false; dg.roar = 0;
+    }
+    if (!G.follow || !dg.pts.length || !vel) { G.accX = G.accY = 0; }
+    else {
+      const L = Math.min(W, Hh) * 0.14, k = Math.min(1, dt * 1.5);
+      G.leadX += (Math.cos(dg.ang) * L - G.leadX) * k; G.leadY += (Math.sin(dg.ang) * L - G.leadY) * k;
+      const f = 1 - Math.exp(-dt * 2.5);
+      G.accX += (dg.hx + G.leadX - W / 2 - G.accX) * f; G.accY += (dg.hy + G.leadY - Hh / 2 - G.accY) * f;
+      const qx = W / simW, qy = Hh / simH;
+      // G.resample (F3, comparison only): naive camera, fields shifted by the exact fractional amount every frame -> bilinear resample
+      const nx = G.resample ? G.accX / qx : Math.trunc(G.accX / qx), ny = G.resample ? G.accY / qy : Math.trunc(G.accY / qy);
+      if (nx || ny) { worldShift(nx, ny); G.accX -= nx * qx; G.accY -= ny * qy; }
+    }
+    // what is left (< 1 cell) slides the canvas, snapped to device pixels so the page compositor does not resample it either
+    G.remX = Math.round(G.accX * dpr) / dpr; G.remY = Math.round(G.accY * dpr) / dpr;
+    cv.style.transform = `translate(${-G.remX}px, ${-G.remY}px)`;
+  }
+  function gameFx(dt, kx, ky) {
+    if (T < G.coil) {   // coil vortex: tangential pushes round the centre plus a slight inward pull, smoke there spins in
+      const r = Hh * 0.17, sp = Hh * 0.8;
+      for (let j = 0; j < 8; j++) {
+        const a = j / 8 * Math.PI * 2 + T * 1.7, x = G.ccx + Math.cos(a) * r, y = G.ccy + Math.sin(a) * r;
+        const tX = -Math.sin(a) - Math.cos(a) * 0.35, tY = Math.cos(a) - Math.sin(a) * 0.35;
+        splatVel(x / W, 1 - y / Hh, tX * sp * kx, -tY * sp * ky, 0.0012);
+      }
+    }
+    if (T - G.whip < 0.45) {   // whip: the tail's own motion pushes the fluid already; ink off the tip makes the sweep read
+      const p = dg.pts[N - 1], q = dg.prev[N - 1], b = dark ? BODY.dark : BODY.light, id = 1 / Math.max(dt, 1e-3);
+      splat(p.x / W, 1 - p.y / Hh, (p.x - q.x) * id * kx * 0.8, -(p.y - q.y) * id * ky * 0.8, b.map((c) => c * 0.3), 0.0005);
+    }
+  }
+  function gameDive() {   // R: into a cloud just ahead, out of one at the cursor
+    if (cl.ph !== 'off' || kd.ph !== 'off') return;
+    const R = cloudR(), ax = dg.hx + Math.cos(dg.ang) * R * 1.2, ay = dg.hy + Math.sin(dg.ang) * R * 1.2;
+    kd.ph = 'dive'; kd.hop = 0; kd.total = 1; kd.t = T; kd.bursts.length = 0;
+    cl.A = cloudSpot(ax, ay); cl.A.hide = 1; cl.A.amt = 0.55; cl.A.on = true;
+    cl.B = null; cl.ph = 'enter'; cl.t = T; cl.headIn = T; cl.path = null; cl.fade = 1;
+    G.diveTo = { x: G.cx, y: G.cy }; G.diveA = Math.atan2(G.cy - dg.hy, G.cx - dg.hx); G.tgt = null; G.hover = null;
+    dg.breath = 0;
+    cloudMouthBurst(cl.A.x, cl.A.y, dg.ang + Math.PI, -1);
+  }
+  function gameListeners() {
+    const at = (e) => { G.clX = e.clientX; G.clY = e.clientY; G.ptr = true; };
+    addEventListener('contextmenu', (e) => e.preventDefault());
+    addEventListener('pointermove', at, { passive: true });
+    addEventListener('pointerdown', (e) => {
+      at(e);
+      if (e.button === 2) { G.rmb = true; G.tgt = { x: e.clientX + G.mx + G.remX, y: e.clientY + G.my + G.remY }; G.hover = null; }
+    });
+    addEventListener('pointerup', (e) => { if (e.button === 2) G.rmb = false; });
+    const keys = (down) => (e) => {
+      const c = e.code;
+      if (c === 'KeyQ') G.q = down;
+      else if (c === 'ShiftLeft' || c === 'ShiftRight' || c === 'Space') G.boost = down;
+      else if (!down || e.repeat) return;
+      else if (c === 'KeyW') { if (T - G.whip > 0.6) { G.whip = T; G.whipS = -G.whipS; } }
+      else if (c === 'KeyE') { if (T > G.coil + 0.8 && kd.ph === 'off') { G.coil = T + 3; G.ccx = dg.hx + Math.cos(dg.ang) * Hh * 0.12; G.ccy = dg.hy + Math.sin(dg.ang) * Hh * 0.12; G.tgt = null; G.hover = null; } }
+      else if (c === 'KeyR') gameDive();
+      else if (c === 'F1') G.follow = !G.follow;
+      else if (c === 'F3') G.resample = !G.resample;
+      else if (c === 'F2') { if (G.hud) G.hud.hidden = !G.hud.hidden; }
+      else return;
+      e.preventDefault();
+    };
+    addEventListener('keydown', keys(true));
+    addEventListener('keyup', keys(false));
+    addEventListener('blur', () => { G.q = G.boost = G.rmb = false; });
+    G.hud = document.createElement('div');
+    Object.assign(G.hud.style, { position: 'fixed', left: '12px', top: '10px', font: '12px/1.4 Consolas, monospace', color: '#333', background: 'rgba(255,255,255,.55)', padding: '6px 8px', borderRadius: '4px', pointerEvents: 'none', whiteSpace: 'pre', zIndex: 2 });
+    document.body.appendChild(G.hud);
+  }
+  function gameHud(now) {
+    G.fpsN++;
+    if (now - G.fpsT < 500) return;
+    G.fps = G.fpsN * 1000 / (now - G.fpsT); G.fpsN = 0; G.fpsT = now;
+    if (!G.hud || G.hud.hidden) return;
+    const bar = '#'.repeat(Math.round(G.stam * 12)).padEnd(12, '.');
+    G.hud.textContent = `${G.fps.toFixed(0)} fps  ${cv.width}x${cv.height}  sim ${simW}x${simH} dye ${dyeW}x${dyeH}\n`
+      + `stamina ${bar}\ncam ${G.follow ? 'FOLLOW' : 'FIXED'} (F1)${G.resample ? ' RESAMPLE(F3)' : ''}  world ${Math.round(G.camX)},${Math.round(G.camY)}  shifts ${G.shifts}\n`
+      + 'RMB fly · Q breath · W whip · E coil · R cloud dive · Shift/Space boost · F2 hud';
   }
 
   // ---- pointer interactions --------------------------------------------------------------
@@ -2265,6 +2432,7 @@ void main(){
   }
 
   applyProps(parseUrlParams());
+  if (G.on) Object.assign(cfg, { audioReactive: false, dance: false, rainLightning: false, calligraphy: false });
   window.wallpaperPropertyListener = {
     applyUserProperties(props) { applyProps(props); },
   };
@@ -2277,7 +2445,8 @@ void main(){
     cv = document.getElementById('dragon-canvas');
     if (!cv) return;
     mcv = document.createElement('canvas'); mx = mcv.getContext('2d');
-    W = innerWidth; Hh = innerHeight; S = Math.min(S_CAP, window.devicePixelRatio || 1);
+    gameCss();
+    W = innerWidth + 2 * G.mx; Hh = innerHeight + 2 * G.my; S = Math.min(S_CAP, window.devicePixelRatio || 1);
     cv.width = Math.max(1, Math.round(W * S)); cv.height = Math.max(1, Math.round(Hh * S));
     dark = resolveDark();
     try { if (!initGL()) throw new Error('no webgl'); buildTargets(); }
@@ -2289,16 +2458,39 @@ void main(){
     else cl.next = 1e9;
     cv.addEventListener('webglcontextlost', onLost); cv.addEventListener('webglcontextrestored', onRestored);
     resize();
+    if (G.on) gameListeners(); else {
     addEventListener('pointermove', onMove, { passive: true });
     addEventListener('pointerdown', onDown, { passive: true });
     addEventListener('pointerup', onUp, { passive: true });
     addEventListener('pointercancel', onUp, { passive: true });
     addEventListener('blur', onUp);
+    }
     addEventListener('mousedown', noSelect, true);
     addEventListener('selectstart', noSelect, true);
     addEventListener('resize', resize);
     start();
 
+    // game test hook: drive frames deterministically (each(i) may set G.tgt / G.boost / G.q ...), returns the canvas as PNG
+    window.__game = {
+      G, dg, size: () => [W, Hh, simW, simH, dyeW, dyeH],
+      frames(n, dt = 1 / 60, each = null, snap = true) {
+        for (let i = 0; i < n; i++) {
+          T += dt; if (each) each(i, T);
+          gameFrame(dt); inputs(dt); flushDye(); drawMask(); uploadMask(); step(Math.min(dt, 1 / 15));
+        }
+        render();
+        return snap ? cv.toDataURL('image/png') : null;
+      },
+      perf(n = 60) {   // full game frame incl. camera shifts, GPU flushed each frame
+        const b = new Uint8Array(4), t0 = performance.now();
+        for (let i = 0; i < n; i++) {
+          T += 1 / 60; gameFrame(1 / 60); inputs(1 / 60); flushDye(); drawMask(); uploadMask(); step(1 / 60); render();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b);
+        }
+        const ms = (performance.now() - t0) / n;
+        return { ms: +ms.toFixed(2), fps: +(1000 / ms).toFixed(1), w: cv.width, h: cv.height, sim: [simW, simH], dye: [dyeW, dyeH], shifts: G.shifts };
+      },
+    };
     window.__dragonDebug = {
       step(n = 1, opts = {}) {
         const dt = opts.dt > 0 ? opts.dt : 1 / 30;
