@@ -1306,7 +1306,15 @@ void main(){
       const m = X.t >= 1 ? 1 : X.t * X.t * (3 - 2 * X.t);
       for (let i = 1; i < N; i++) { dg.pts[i].x += (F[i].x - dg.pts[i].x) * m; dg.pts[i].y += (F[i].y - dg.pts[i].y) * m; }
       if (X.t >= 1) dg.xf = null;
-    } else follow(dg.pts);
+    } else {
+      if (gm) {   // game: a head carried more than a segment in one frame straight back lands beyond joint 1, and the chain
+        // turns inside out (the facing flipped in a frame). So the head is walked there in half-segment steps
+        const ox = dg.prev[0].x, oy = dg.prev[0].y, n = Math.min(12, Math.ceil(Math.hypot(dg.hx - ox, dg.hy - oy) / (s * 0.5)));
+        for (let k = 1; k < n; k++) { dg.pts[0].x = ox + (dg.hx - ox) * k / n; dg.pts[0].y = oy + (dg.hy - oy) * k / n; follow(dg.pts); }
+        dg.pts[0].x = dg.hx; dg.pts[0].y = dg.hy;
+      }
+      follow(dg.pts);
+    }
     // serpentine flight (Yang 11-18: flying, the body ran dead straight; it must wind in waves). Follow-the-leader pulls itself
     // straight behind a moving head, and the idle sway above (lat) fades with speed, so at cruising speed nothing was left.
     // The wave is a layer on top of the solved spine: each joint is shown pushed along the spine's normal. Its phase runs on
