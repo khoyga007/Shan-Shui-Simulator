@@ -1119,10 +1119,11 @@ void main(){
     const danceE = clamp(dn.fast * 1.2, 0, 1);
     let gv = 0;   // game: speed the head was carried at this frame, px/s
     if (gm) {
-      // the head is where the game puts it; its heading follows the way it is being moved (eased, GM.turn 1/s), and holds
-      // when it stands still
+      // the head is where the game puts it. Its heading is the game's (GM.ang) when it gives one; else it follows the way
+      // the head is being moved (eased, GM.turn 1/s) and holds when it stands still
       const idt = 1 / Math.max(dt, 1e-3), vx = (GM.x - dg.hx) * idt, vy = (GM.y - dg.hy) * idt; gv = Math.hypot(vx, vy);
-      if (gv > Hh * 0.03) { const dA = wrapA(Math.atan2(vy, vx) - dg.ang) * Math.min(1, dt * (GM.turn || 10)); dg.angV = dA * idt; dg.ang += dA; }
+      if (GM.ang != null) { dg.angV = wrapA(GM.ang - dg.ang) * idt; dg.ang = GM.ang; }
+      else if (gv > Hh * 0.03) { const dA = wrapA(Math.atan2(vy, vx) - dg.ang) * Math.min(1, dt * (GM.turn || 10)); dg.angV = dA * idt; dg.ang += dA; }
       else dg.angV = 0;
       mode = 'game';
     } else if (kd.ph === 'dive') {
@@ -1282,7 +1283,7 @@ void main(){
       // segment before it, so a sharp head turn becomes a wide arc down the body instead of a kink. The coil pose needs
       // ~0.11 rad/joint, well inside the limit
       if (i >= 2) {
-        const z = Q[i - 2], pa = Math.atan2(a.y - z.y, a.x - z.x), na = Math.atan2(ey, ex), d = wrapA(na - pa), MAXB = 0.2;
+        const z = Q[i - 2], pa = Math.atan2(a.y - z.y, a.x - z.x), na = Math.atan2(ey, ex), d = wrapA(na - pa), MAXB = gm && GM.bend > 0 ? GM.bend : 0.2;   // a game may set its own limit, to match the turning circle it flies the head on
         if (Math.abs(d) > MAXB) { const ca = pa + Math.sign(d) * MAXB; ex = Math.cos(ca); ey = Math.sin(ca); }
       }
       l = Math.hypot(ex, ey) || 1;
@@ -2503,7 +2504,7 @@ void main(){
     start();
 
     window.__dragon = {
-      // o = { on, x, y, turn, bg, tick(dt) -> dt, draw(dt) }; null hands the dragon back to the wallpaper
+      // o = { on, x, y, ang, turn, bend, bg, tick(dt) -> dt, draw(dt) }; null hands the dragon back to the wallpaper
       game(o) {
         GM = o || null;
         if (GM) { if (GM.x == null) { GM.x = dg.hx; GM.y = dg.hy; } coilUntil = -9; dg.roar = 0; dg.breath = 0; dg.wind = 0; pl.drag = false; setGrab(''); }

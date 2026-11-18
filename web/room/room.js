@@ -14,7 +14,8 @@
     follow: 30,    // how hard the head closes on the mouse point, 1/s; 60 = glued
     leash: 0.35,   // how far the mouse point may run ahead of the head, screen heights
     sens: 1,       // mouse sensitivity
-    turn: 10,      // how fast the head may come about, rad/s
+    turn: 16,      // how fast the head comes about, rad/s (a full U-turn at 16: 0.2 s)
+    rho: 1.8,      // turning circle of the neck, body radii; the spine's bend limit is set to match it
     hold: 1.6,     // where on the head the mouse holds it, body radii ahead of the neck joint: 0 = neck (pts[0]), 1.6 = the eye
     waveAmp: D.WAVE.amp, waveLen: D.WAVE.len,
     L: { spine: true, base: false, body: false, hit: true, trail: true, vel: true, aim: true, grid: false, text: true },
@@ -24,7 +25,8 @@
     ['follow', 'Độ bám chuột (60 = dính)', 3, 60, 1],
     ['leash', 'Dây chuột (màn)', 0.05, 1.5, 0.05],
     ['sens', 'Độ nhạy chuột', 0.3, 3, 0.05],
-    ['turn', 'Tốc độ quay đầu', 2, 30, 1],
+    ['turn', 'Tốc độ quay đầu (rad/s)', 4, 30, 1],
+    ['rho', 'Bán kính vòng cua (thân)', 0.8, 4, 0.1],
     ['hold', 'Điểm cầm (0 gáy · 1.6 mắt)', 0, 3, 0.1],
     ['waveAmp', 'Sóng thân: biên độ', 0, 3, 0.1],
     ['waveLen', 'Sóng thân: bước sóng (đốt)', 8, 60, 1],
@@ -32,8 +34,10 @@
   const LAYERS = [['spine', 'Xương sống'], ['base', 'Xương gốc (chưa sóng)'], ['body', 'Bề dày thân'], ['hit', 'Hitbox đầu'], ['trail', 'Vệt bay'],
     ['vel', 'Mũi tên tốc độ'], ['aim', 'Điểm chuột + dây'], ['grid', 'Lưới'], ['text', 'Chữ trạng thái']];
   const S = JSON.parse(JSON.stringify(DEF));
-  try { const o = JSON.parse(localStorage.getItem('room.v1') || 'null'); if (o) { for (const k in DEF) if (k !== 'L' && typeof o[k] === 'number') S[k] = o[k]; Object.assign(S.L, o.L || {}); } } catch { /* defaults */ }
-  const save = () => { try { localStorage.setItem('room.v1', JSON.stringify(S)); } catch { /* private window */ } };
+  // v2: 'turn' changed meaning with the steering model, so a v1 save keeps everything but that
+  try { const v2 = localStorage.getItem('room.v2'), o = JSON.parse(v2 || localStorage.getItem('room.v1') || 'null');
+    if (o) { for (const k in DEF) if (k !== 'L' && typeof o[k] === 'number' && (v2 || k !== 'turn')) S[k] = o[k]; Object.assign(S.L, o.L || {}); } } catch { /* defaults */ }
+  const save = () => { try { localStorage.setItem('room.v2', JSON.stringify(S)); } catch { /* private window */ } };
 
   // ---- the room: wallpaper life off, white paper ------------------------------------------
   D.props({ theme: 'light', cloudfreq: 0, calligraphy: false, audioreactive: false, rainlightning: false, dance: false });
@@ -45,13 +49,13 @@
   // (r001: the cursor sat on the neck, the face well outside the hitbox ring). So the mouse carries hc, a point on the
   // head, and the neck joint is put S.hold radii behind it along the way the head is drawn facing (pts[2] -> pts[0])
   const hc = { x: 0, y: 0 };
-  let fa = 0;   // the facing the neck is placed by
-  let bk = 0;   // how far the head has given backwards lately, px
-  let blk = 0;  // -1 / 1 while the neck is blocked from backing up: the side the head comes about to
+  let fa = 0;   // the neck's heading: it only ever moves along this
+  let sv = 0;   // its speed, px/s (never negative)
+  let sw = 0;   // its turn rate, rad/s
   const face = () => { const P = D.dg.pts; return P.length >= 3 ? Math.atan2(P[0].y - P[2].y, P[0].x - P[2].x) : D.dg.ang; };
-  const seat = () => { const a = fa = face(), o = S.hold * D.rad(); hc.x = D.dg.hx + Math.cos(a) * o; hc.y = D.dg.hy + Math.sin(a) * o; tx = hc.x; ty = hc.y; };
+  const seat = () => { const a = fa = face(), o = S.hold * D.rad(); sv = sw = 0; hc.x = D.dg.hx + Math.cos(a) * o; hc.y = D.dg.hy + Math.sin(a) * o; tx = hc.x; ty = hc.y; };
   const G = {
-    on: true, bg: [1, 1, 1], turn: S.turn,
+    on: true, bg: [1, 1, 1], ang: null, bend: 0,
     tick(rdt) {
       st.fps += (1 / Math.max(rdt, 1e-3) - st.fps) * 0.08; st.ms = rdt * 1000;
       let dt = st.paused ? 0 : rdt * st.scale;
@@ -68,38 +72,46 @@
   D.game(G); seat();
 
   function moveHead(dt) {
-    G.turn = S.turn; D.WAVE.amp = S.waveAmp; D.WAVE.len = S.waveLen;
-    // The mouse point pulls the head point hc; the neck joint (the dragon's own head point) sits S.hold radii behind hc
-    // along the facing fa.
-    // - fa turns towards the line joint 2 -> hc, S.turn rad/s at most. With the neck on that line nothing feeds back: at a
-    //   hover the neck holds to 0.01 px, round a circle the eye stays 0.4 R from the mouse point.
-    // - the neck may not be pushed back into the body by more than BK px (most of a segment; the allowance comes back as
-    //   it flies on, or in a second): a chain being pushed folds, and the facing flips in a frame. Measured against the
-    //   chain itself (joint 1 -> neck), not against fa. Blocked, the head comes about (fa swings to the mouse point's
-    //   side) and then goes.
-    // Tried and dropped: facing = drawn pts[2] -> pts[0] (flipped end over end at a hover, 137 px a frame); joint 2 -> hc
-    // with no block (flick straight back: facing flipped in one frame, neck jumped 102 px), even with the spine walked in
-    // half-segment steps (1.2 rad a frame); facing = the way hc is pulled, block measured against fa (a plain circle
-    // then whipped 0.85 rad a frame, eye 2.8 R off: the neck swung round hc into its own body).
-    const H = D.H, o = S.hold * D.rad(), dx = tx - hc.x, dy = ty - hc.y, d = Math.hypot(dx, dy), P = D.dg.pts, BK = D.segLen() * 0.8;
-    const mv0 = Math.min(d * (S.follow >= 60 ? 1 : 1 - Math.exp(-dt * S.follow)), S.cap * H * dt);
-    const hx = hc.x + (d > 1e-6 ? dx / d * mv0 : 0), hy = hc.y + (d > 1e-6 ? dy / d * mv0 : 0), lim = S.turn * dt;
-    if (P.length >= 3) { const da = Math.atan2(hy - P[2].y, hx - P[2].x) - fa; fa += clamp(Math.atan2(Math.sin(da), Math.cos(da)), -lim, lim); }
-    if (blk) fa += blk * lim;
-    let fx = Math.cos(fa), fy = Math.sin(fa), nx = hx - fx * o - G.x, ny = hy - fy * o - G.y;   // the neck's step
-    blk = 0;
-    if (P.length >= 2) {
-      let cx = P[0].x - P[1].x, cy = P[0].y - P[1].y; const cl = Math.hypot(cx, cy) || 1; cx /= cl; cy /= cl;
-      const fw = nx * cx + ny * cy;
-      if (fw < 0) { const give = Math.min(-fw, Math.max(0, BK - bk)), cut = -fw - give; bk += give; nx += cut * cx; ny += cut * cy;
-        if (cut > 0.5) blk = (cx * (ty - G.y) - cy * (tx - G.x)) < 0 ? -1 : 1; }
-      else bk = Math.max(0, bk - fw);
+    D.WAVE.amp = S.waveAmp; D.WAVE.len = S.waveLen;
+    // The neck (the dragon's own head point) is flown like a swimmer: it only moves forwards, along its heading fa, and fa
+    // comes round at S.turn rad/s on a circle of S.rho body radii. It heads for the mouse point and stops S.hold radii
+    // short of it, so the held point hc (the eye) lands on the mouse point. Swinging fa moves hc sideways at once (lever
+    // S.hold), so small moves to the side are still followed 1:1; only a mouse point that goes behind the head costs a
+    // U-turn (0.2 to 0.3 s, a fifth of a screen wide).
+    // Why (Yang 11-18: a sudden reversal jerked the head and the whole body changed at once): before this, hc was glued to
+    // the mouse and the neck was put behind it. A reversal then pushed the neck back into the body and swung it round hc at
+    // 1000 px/s. The spine is follow-the-leader with a bend limit: pulled, it trails smoothly; pushed, or with its first
+    // segment turned faster than the limit lets the joints behind bend, the limit swings the front of the body round with
+    // it in a frame. So: never push (speed >= 0), never turn tighter than the body can bend (G.bend = segment / rho, the
+    // body threads the neck's own track).
+    // - the turning circle shrinks for a mouse point nearer than 2.2 rho (else the neck orbits a point inside its circle),
+    //   and the turn slows with it (PIV): a long stiff body cannot spin on the spot
+    // - a mouse point between neck and eye, or within a quarter of S.hold of the neck: nothing to do, the cursor is on the head
+    // - braking is eased at the follow rate, so a reversal at speed coasts into its U-turn instead of stopping dead
+    // Tried and dropped (all with hc glued to the mouse): facing = drawn pts[2] -> pts[0] (flipped end over end at a hover,
+    // 137 px a frame); joint 2 -> hc with no block (flick straight back: facing flipped in one frame, neck jumped 102 px),
+    // even with the spine walked in half-segment steps (1.2 rad a frame); facing = the way hc is pulled, block measured
+    // against fa (a plain circle then whipped 0.85 rad a frame); neck allowed 0.8 segment backwards then blocked, head
+    // swung round hc (r001 / Yang 11-18: still jerked on every sharp reversal).
+    const H = D.H, R = D.rad(), o = S.hold * R, rho = S.rho * R, PIV = 0.35;
+    const dx = tx - G.x, dy = ty - G.y, dn = Math.hypot(dx, dy), k = S.follow >= 60 ? 1 / dt : (1 - Math.exp(-dt * S.follow)) / dt;
+    let wW = 0, vW = 0, dA = 0, re = rho;
+    if (dn > Math.max(2, 0.25 * o)) {
+      dA = Math.atan2(dy, dx) - fa; dA = Math.atan2(Math.sin(dA), Math.cos(dA));
+      const e = dn - o; re = Math.min(rho, 0.45 * dn);
+      const wm = S.turn * clamp(re / rho, PIV, 1);
+      if (!(e <= 0 && Math.abs(dA) * dn < 1.5)) wW = clamp(k * dA, -wm, wm);
+      vW = Math.max(Math.min(k * Math.max(0, e), S.cap * H) * Math.max(0, Math.cos(dA)), re * Math.abs(wW));
     }
-    bk = Math.max(0, bk - BK * dt);
-    G.x += nx; G.y += ny;
+    sv = Math.max(vW, sv * Math.exp(-dt * Math.max(20, S.follow)));
+    sw += (wW - sw) * (1 - Math.exp(-dt * 60));
+    sw = sv > 1e-6 ? clamp(sw, -sv / re, sv / re) : 0;
+    if (wW !== 0 && Math.abs(sw * dt) > Math.abs(dA)) sw = dA / dt;   // never past the mouse point's bearing
+    fa += sw * dt;
+    const fx = Math.cos(fa), fy = Math.sin(fa);
+    G.x += fx * sv * dt; G.y += fy * sv * dt; G.ang = fa; G.bend = Math.min(0.6, D.segLen() / rho * 1.05);
     const ox = hc.x, oy = hc.y; hc.x = G.x + fx * o; hc.y = G.y + fy * o;
-    const mv = Math.hypot(hc.x - ox, hc.y - oy);
-    st.v = mv / dt / H; st.vMax = Math.max(st.vMax * (1 - dt * 0.5), st.v);
+    st.v = Math.hypot(hc.x - ox, hc.y - oy) / dt / H; st.vMax = Math.max(st.vMax * (1 - dt * 0.5), st.v); st.w = sw;
   }
 
   // ---- mouse: pointer lock, the head is the cursor ----------------------------------------
@@ -175,7 +187,7 @@
       const lines = [
         `fps ${st.fps.toFixed(0)}  khung ${st.ms.toFixed(1)} ms  ${st.paused ? 'TẠM DỪNG' : 'x' + st.scale}`,
         `tốc độ ${st.v.toFixed(2)} màn/s  đỉnh ${st.vMax.toFixed(2)}  trần ${S.cap.toFixed(1)}`,
-        `gập tối đa ${bmax.toFixed(2)} rad  sóng ${wv ? wv.w.toFixed(2) : '-'}`,
+        `gập tối đa ${bmax.toFixed(2)}/${G.bend.toFixed(2)} rad  quay ${(st.w || 0).toFixed(1)} rad/s  sóng ${wv ? wv.w.toFixed(2) : '-'}`,
         `đầu ${hc.x.toFixed(0)},${hc.y.toFixed(0)}  chuột lệch ${(Math.hypot(tx - hc.x, ty - hc.y) / H).toFixed(2)} màn`,
         `mode ${dg.mode}  T ${D.T.toFixed(1)}  ${st.locked ? 'đang cầm' : 'chuột thả'}`,
       ];
@@ -194,7 +206,7 @@
     const info = {
       id, when: new Date().toISOString(), screen: [D.W, D.H], T: +D.T.toFixed(2), settings: S, time: { paused: st.paused, scale: st.scale },
       fps: +st.fps.toFixed(1), speed: +st.v.toFixed(3), speedPeak: +st.vMax.toFixed(3), bendMax: +st.bend.toFixed(3), wave: wv ? +wv.w.toFixed(3) : null,
-      head: [+hc.x.toFixed(1), +hc.y.toFixed(1)], neck: [+dg.hx.toFixed(1), +dg.hy.toFixed(1)], ang: +dg.ang.toFixed(3), mouse: [+tx.toFixed(1), +ty.toFixed(1)],
+      head: [+hc.x.toFixed(1), +hc.y.toFixed(1)], neck: [+dg.hx.toFixed(1), +dg.hy.toFixed(1)], ang: +dg.ang.toFixed(3), turnRate: +(st.w || 0).toFixed(2), neckSpeed: +(sv / D.H).toFixed(3), bendLimit: +G.bend.toFixed(3), mouse: [+tx.toFixed(1), +ty.toFixed(1)],
       pts: dg.pts.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1)]), base: wv ? Array.from(wv.bx, (v, i) => [+v.toFixed(1), +wv.by[i].toFixed(1)]) : null,
       trail: trail.map((t) => [+t[0].toFixed(0), +t[1].toFixed(0)]),
     };
@@ -250,5 +262,6 @@ Space/P: tạm dừng  . : 1 khung
     e.preventDefault();
   });
 
-  window.__room = { S, st, G, hc, trail, target: (x, y) => { tx = x; ty = y; }, report: () => { st.rep = true; } };   // test hooks
+  window.__room = { S, st, G, hc, trail, tick: (dt) => moveHead(dt), seat, target: (x, y) => { tx = x; ty = y; }, report: () => { st.rep = true; } };   // test hooks
+  if (new URLSearchParams(location.search).has('bot')) { const s = document.createElement('script'); s.src = 'bot.js'; document.body.appendChild(s); }   // tools/roomtest.py
 })();
