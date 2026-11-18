@@ -331,23 +331,14 @@ void main(){
     float br = vnoise(RO * pw * vec2(230., 34.)) * .65 + vnoise(pw * 120.) * .35;
     float line = smoothstep(.12, .72, mB - br * .5 * (1. - smoothstep(.72, .98, mB)));
     // two rings of 6, turned by a per-pixel hash: fixed taps gave the average 9 levels, which showed as bands along the body
-    float ja = hash(gl_FragCoord.xy) * 1.0472, al = clamp(mB, 0., 1.); thick = mB;
+    float ja = hash(gl_FragCoord.xy) * 1.0472; thick = mB;
     for (int i = 0; i < 6; i++) { float a = ja + float(i) * 1.0472; vec2 dq = vec2(cos(a), sin(a)) * qs;
-      float tin = texture2D(t1, vb - dq * 1.05).r; al = max(al, tin);
-      thick += texture2D(t1, vb + dq * 1.9).r + tin; }
+      thick += texture2D(t1, vb + dq * 1.9).r + texture2D(t1, vb - dq * 1.05).r; }
     thick /= 13.;
-    // a part fading out (into a cloud, toward the tail tip) has a low mask value all over, not just at its edge: there the wash
-    // thins with it. Read like an edge, a body going into a cloud ended in a hard round stump with a dark rim. al = the mask's
-    // level round here (peak of the near taps, so the thin gaps between coils do not count as fading)
-    float fd = step(.02, al), thN = thick / mix(1., max(al, .05), fd);
-    mass = smoothstep(.34, .78, thN + (fbm(pw * 16. + uT * .1) - .5) * .32) * mix(1., al, fd);
-    thin = line * (1. - smoothstep(.3, .62, thN));
-    // enemies (game.js tags them with a little green, ~.25): solid ink, stroke-crisp. They are what the player must read at a
-    // glance; as soft washes a crow and a turtle were two blobs
-    float foe = smoothstep(.16, .22, mb.g) * (1. - smoothstep(.32, .42, mb.g)) * step(.3, mb.r);
-    mass *= 1. - foe; thin = mix(thin, line, foe);
+    mass = smoothstep(.34, .78, thick + (fbm(pw * 16. + uT * .1) - .5) * .32);
+    thin = line * (1. - smoothstep(.3, .62, thick));
     scl = smoothstep(.02, .09, mb.g) * (1. - smoothstep(.2, .4, mb.g)) * smoothstep(.6, .9, mb.r)   // scale / belly-plate hints
-      * smoothstep(.3, .55, fbm(pw * 4.5 + 11.)) * (1. - foe);                                      // in patches only
+      * smoothstep(.3, .55, fbm(pw * 4.5 + 11.));                                                   // in patches only
   }
   vec3 col;
   // paper with calligraphy (r) and a red seal (g), dry-brush broken; the smoke drifts over it
@@ -2015,7 +2006,7 @@ void main(){
         splatVel(pCheekX / W, 1 - pCheekY / Hh, hbX * 0.90 * backSp * kx, -hbY * 0.90 * backSp * ky, 0.0055);
         splatVel(pNeckX / W, 1 - pNeckY / Hh, hbX * 0.72 * backSp * kx, -hbY * 0.72 * backSp * ky, 0.0060);
         const bCol = dark ? BODY.dark : BODY.light;
-        for (let j = 0; j < (G.on ? 0 : 4); j++) {   // game: no smoke puffed over the head, it is the part that must stay clear
+        for (let j = 0; j < 4; j++) {
           const sideF = j < 2 ? -1 : 1;
           const pw = headPt(0.35 + Math.random() * 0.75, (sideF > 0 ? 0.85 : -0.68) + (Math.random() - 0.5) * 0.20);
           dyeQ.push([pw.x / W, 1 - pw.y / Hh, 0.00042 + Math.random() * 0.00024, bCol.map((v) => v * (dark ? 0.40 : 0.72) * rateF)]);
