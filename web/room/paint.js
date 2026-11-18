@@ -116,7 +116,10 @@
     const ts = blur(top, 5), wide = blur(top, 40), slope = (k) => (wide[Math.min(nb - 1, k + 4)] - wide[Math.max(0, k - 4)]) / (8 * BIN);
     // lit side / shaded side, turning over gently across a summit (taken straight from the slope it flipped in one
     // column under a steep peak and left a ruled upright seam: r005)
-    const shade = blur(top.map((_, k) => clamp(slope(k) * 1.3, -1, 1)), 60), shAt = (k) => shade[clamp(k, 0, nb - 1)];
+    const boxb = (A, r) => { const c0 = [0]; for (let k = 0; k < nb; k++) c0.push(c0[k] + A[k]); return A.map((_, k) => { const a = Math.max(0, k - r), b = Math.min(nb - 1, k + r); return (c0[b + 1] - c0[a]) / (b - a + 1); }); };
+    // spread over about a sixth of a screen (three box passes): 60 passes of the small blur only reached 11 px, so the
+    // two sides still met in a plumb line down the middle of every peak (Yang, after r005)
+    const rs = Math.max(4, Math.round(0.055 * H / BIN)), shade = boxb(boxb(boxb(top.map((_, k) => clamp(slope(k) * 1.3, -1, 1)), rs), rs), rs), shAt = (k) => shade[clamp(k, 0, nb - 1)];
     // the two ends of the stroke thin out: the brush is set down and lifted there
     const te = Math.min(0.3, 0.09 * H / Math.max(1, bx1 - bx0)), env = (k) => { const t = k / (nb - 1); return sm(t / te) * sm((1 - t) / te); };
     // how far the ink runs down the slope: to about the level of the stroke's lowest point, so tall peaks get long slopes
@@ -131,7 +134,7 @@
     //    the ridge with an uneven lower edge: the brush belly does not touch the paper evenly
     for (let k = 0; k < nb; k++) {
       const x = bx0 + k * BIN, t = ts[k], dd = depth[k], e = env(k), sh = shAt(k), y0 = Math.min(top[k], t) - 1;
-      const a0 = 0.56 * (0.8 + 0.4 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2));
+      const a0 = 0.56 * (0.85 + 0.3 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2));
       let gd = g.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(${INK},${a0.toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * 0.34).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * 0.1).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(x, y0, BIN, t + dd - y0);
       const d2 = Math.min(dd * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
