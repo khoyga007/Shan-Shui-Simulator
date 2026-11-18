@@ -109,7 +109,7 @@ void main(){
     // wormy). Slow smoke keeps the raw field and all its detail. Done once on the small sim grid, not per dye pixel
     // also wherever fire is (dilated 3 cells): slow fire at the jet's edge rode the raw field, whose odd/even cell noise printed a
     // checkerboard along the flame edge (Yang 11-17: centre smooth, edge pixelated). Smoke away from fire keeps full detail
-    vsm: H + `uniform sampler2D t0, t1; uniform vec2 uSmR; uniform float uDk, uOpen;
+    vsm: H + `uniform sampler2D t0, t1; uniform vec2 uSmR; uniform float uDk, uOpen, uSm;
 float fireAt(vec2 p){ vec3 d = max(texture2D(t1, p).rgb, 0.); float s = max(d.r, max(d.g, d.b));
   float f = uDk > .5 ? (d.r - d.b) / (s + 1e-4) - .15 : (d.g - d.r - .28 * max(d.b - d.g, 0.)) / (s + 1e-4);
   return clamp(f * 2., 0., 1.) * smoothstep(.01, .08, s); }
@@ -117,7 +117,7 @@ void main(){
   vec2 c = texture2D(t0, v).xy;
   vec2 ex = vec2(vR.x - v.x, 0.) * 3., ey = vec2(0., vT.y - v.y) * 3.;
   float fire = max(max(fireAt(v), max(fireAt(v + ex), fireAt(v - ex))), max(max(fireAt(v + ey), fireAt(v - ey)), max(fireAt(v + ex + ey), fireAt(v - ex - ey))));
-  float w = max(smoothstep(uSmR.x, uSmR.y, length(c)), fire);
+  float w = max(max(smoothstep(uSmR.x, uSmR.y, length(c)), fire), uSm);   // uSm: game, breathing (the body-obstacle's edge prints the cell checkerboard into the smoke as zebra bands)
   // near the screen-edge wall the fire keeps the raw field: the averaging erased the roll-back curls the wall peels off
   w *= mix(mix(.75, 1., smoothstep(.03, .2, min(min(v.x, 1. - v.x), min(v.y, 1. - v.y)))), 1., uOpen);   // only a little: much less and the wall film printed the cell checkerboard again
   vec2 dx = vec2(vR.x - v.x, 0.) * 3.5, dy = vec2(0., vT.y - v.y) * 3.5;
@@ -142,24 +142,36 @@ void main(){
   gl_FragColor = vec4(u, 0., 1.);
 }`,
     // velocity: mask edges curl and push outward -> the outline keeps smoking off
-    stir: H + NOISE + `uniform sampler2D t0, t1; uniform float uAmp, uT, uDt;
+    stir: H + NOISE + `uniform sampler2D t0, t1; uniform float uAmp, uT, uDt, uHold, uObst, uCalm, uZone;
 void main(){
   vec2 vel = texture2D(t0, v).xy;
   float l = texture2D(t1, vL).r, r = texture2D(t1, vR).r, t = texture2D(t1, vT).r, b = texture2D(t1, vB).r;
   vec2 g = vec2(r - l, t - b);
   float n = fbm(v * 9. + vec2(uT * .35, -uT * .22)) * 2. - 1.;
-  vec2 f = vec2(-g.y, g.x) * n * 2.0 - g * .7;
+  // uHold (game, breathing): the outline stops churning and shedding, so the fire's draught finds no loose smoke to tear at
+  vec2 f = (vec2(-g.y, g.x) * n * 2.0 - g * .7) * (1. - uCalm * uHold);
   vec4 mc = texture2D(t1, v); float m = mc.r;
   // Long Vương's antler (mask R+G) churns at its own outline too, and is not calmed inside, so its gold ink smokes like the body's edge
   vec4 cL = texture2D(t1, vL), cR = texture2D(t1, vR), cT = texture2D(t1, vT), cB = texture2D(t1, vB);
   vec2 gc = vec2(min(cR.r, cR.g) - min(cL.r, cL.g), min(cT.r, cT.g) - min(cB.r, cB.g));
   float c = min(mc.r, mc.g);
   f += vec2(-gc.y, gc.x) * n * 3. + gc * .5;
-  float damp = pow(1. - m * .6 * (1. - c * .8), clamp(uDt * 30., .15, 1.5));
+  // uHold: the body is a solid obstacle (velocity dies inside it): the jet's flow goes round the dragon, not through its ink
+  // and a calm zone a few cells round it (uZone): the smoke the outline sheds lingers there as a shroud instead of being drawn
+  // off into the jet, so the body is still veiled while it breathes
+  float z = 0.;
+  if (uHold > .01) {
+    vec2 tx = vec2(vR.x - v.x, vT.y - v.y);
+    z = max(max(texture2D(t1, v + tx * vec2(3., 0.)).r, texture2D(t1, v - tx * vec2(3., 0.)).r), max(texture2D(t1, v + tx * vec2(0., 3.)).r, texture2D(t1, v - tx * vec2(0., 3.)).r));
+    z = max(z, max(max(texture2D(t1, v + tx * 2.2).r, texture2D(t1, v - tx * 2.2).r), max(texture2D(t1, v + tx * vec2(2.2, -2.2)).r, texture2D(t1, v - tx * vec2(2.2, -2.2)).r)));
+    z = max(z, .6 * max(max(texture2D(t1, v + tx * vec2(6., 0.)).r, texture2D(t1, v - tx * vec2(6., 0.)).r), max(texture2D(t1, v + tx * vec2(0., 6.)).r, texture2D(t1, v - tx * vec2(0., 6.)).r)));
+    z = max(z, .6 * max(max(texture2D(t1, v + tx * 4.3).r, texture2D(t1, v - tx * 4.3).r), max(texture2D(t1, v + tx * vec2(4.3, -4.3)).r, texture2D(t1, v - tx * vec2(4.3, -4.3)).r)));
+  }
+  float damp = pow(1. - mix(m * .6 * (1. - c * .8), max(smoothstep(.35, .9, m) * uObst, z * uZone), uHold), clamp(uDt * 30., .15, 1.5));
   gl_FragColor = vec4(clamp((vel + f * uAmp * uDt * 60.) * damp, -1000., 1000.), 0., 1.);   // calm inside the body, turbulent at its edge
 }`,
     // dye: re-ink inside the mask toward the body colour, brush-textured
-    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA, uOpen, uEyeK;
+    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA, uOpen, uEyeK, uHold, uHalo, uFar; uniform vec3 uMouth;
 float fireOf(vec3 d){ return clamp(((uDk > .5 ? d.r - d.b : max(d.g, d.b) - d.r) / (max(d.r, max(d.g, d.b)) + 1e-4) - .04) * 1.35, 0., 1.); }
 void main(){
   vec4 d = texture2D(t0, v);
@@ -203,7 +215,9 @@ void main(){
   float near = n0.r + n0.b;
   if (near < .002) {
     float fk = clamp(uK, 0., 1.);
-    vec3 fd = d.rgb * (1. - fk * (.45 + killF * 1.85));
+    // uFar (game, breathing): loose smoke away from the body goes fast. The jet's draught smeared it across the whole screen
+    // when the aim swept round (Yang 11-18: the fire churns the smoke, the dragon is lost in it)
+    vec3 fd = d.rgb * (1. - clamp(fk * (.45 + killF * 1.85 + (uHalo + uFar) * (1. - fire)), 0., 1.));
     float fa_e = max(d.a, 0.) * (1. - fk * (.95 + still * 1.45));
     gl_FragColor = vec4(fd, fa_e); return;   // decay only: a constant subtract here cut hard-edged holes into the fire
   }
@@ -240,12 +254,16 @@ void main(){
   float wisp = smoothstep(.4, .8, fbm(v * 30. + vec2(uT * .4, -uT * .3)));
   float bristle = smoothstep(.35, .75, vnoise(RO * v * vec2(260., 38.) + vec2(uT * .05, 0.)));   // dry brush: long thin bristle gaps
   float rim = smoothstep(.12, .45, m) * (1. - smoothstep(.45, .8, m));
-  vec3 tgt = ink * (.72 + .7 * streak + .3 * grain) * (uDk > .5 ? 1. : 1.15)   /* one tone: Yang 11-16 dropped back/belly, the smoke is there to hide the skeleton */ * (1. - rim * (1. - bristle) * .6);
+  vec3 tgt = ink * mix(.72 + .7 * streak + .3 * grain, 1.5 + .3 * streak + .12 * grain, uHold * smoothstep(.45, .95, m)) * (uDk > .5 ? 1. : 1.15)   /* one tone: Yang 11-16 dropped back/belly, the smoke is there to hide the skeleton */ * (1. - rim * (1. - bristle) * .6);
   vec3 eyeTgt = uEyeInk * (.78 + .55 * streak + .22 * grain) * (.85 + .3 * wisp);
   float k = clamp(uK, 0., 1.);
   float m_comb = max(m, eyeM);
-  vec3 o = d.rgb * (1. - (1. - m_comb) * k * (.45 + killF * 1.85));          // outside the silhouette stagnant/wall fire burns out fast
-  float ink_mix = clamp(smoothstep(.12, .9, m) * k * 2., 0., 1.) * (1. - fire * .82);
+  float farK = uFar * (1. - smoothstep(0., .5, near));   // fades in toward the far region: no seam where the fast path takes over
+  vec3 o = d.rgb * (1. - clamp((1. - m_comb) * k * (.45 + killF * 1.85 + (uHalo + farK) * (1. - fire)), 0., 1.));          // outside the silhouette stagnant/wall fire burns out fast
+  // uHold: fire is only spared from re-inking at the mouth (uMouth). Elsewhere in the body it goes back to ink at once, or the
+  // jet's backwash leaves brown fire/ink lumps over the head
+  float atMouth = 1. - smoothstep(.7, 1.5, length((v - uMouth.xy) * vec2(uAsp, 1.)) / max(uMouth.z, 1e-5));
+  float ink_mix = clamp(smoothstep(.12, .9, m) * k * 2., 0., 1.) * (1. - fire * .82 * mix(1., atMouth, uHold));
   o = mix(o, tgt, ink_mix);            // inside it is pulled back to the brush pattern: shape holds
   o = mix(o, eyeTgt, clamp(smoothstep(.06, .62, eyeM) * k * 2.6 * uEyeK, 0., 1.));   // uEyeK: game fills the socket faster (the head moves fast)
   // cloud (mask blue): a paler, billowing wash held in place the same way as the body
@@ -660,7 +678,7 @@ void main(){
   // ---- dragon ----------------------------------------------------------------------------
   const N = 76;
   const HS = 1.0;
-  const dg = { roll: 0, rollT: 0, pts: [], prev: [], hx: 0, hy: 0, ang: 0, tx: 0, ty: 0, nextWander: 0, breath: 0, after: 0, angV: 0, bx: 0, by: 0, roar: 0, roarPearl: false, breathPearl: false, jaw: 0, fire: 0, mode: '', prevEyeX: 0, prevEyeY: 0, hasPrevEye: false };
+  const dg = { roll: 0, rollT: 0, pts: [], prev: [], hx: 0, hy: 0, ang: 0, tx: 0, ty: 0, nextWander: 0, breath: 0, after: 0, angV: 0, bx: 0, by: 0, roar: 0, roarPearl: false, breathPearl: false, jaw: 0, fire: 0, qi: 0, gather: 0, wind: 0, mode: '', prevEyeX: 0, prevEyeY: 0, hasPrevEye: false };
   // game: camera pulled back (DESIGN: dragon spans 1/3-1/2 of the screen; at wallpaper scale it was ~2 screens long and the
   // enemies had nowhere to be). One factor for body size, spacing and clouds
   const GZ = G.on ? 0.75 : 1;   // game zoom. 0.5 (step 1) shrank the head to a blob and the eye to a speck (Yang 11-18: phóng to)
@@ -1196,7 +1214,7 @@ void main(){
         dg.roarPearl = false;
       }
     }
-    if (dg.breath > 0) want = Math.atan2(dg.by - dg.hy, dg.bx - dg.hx);
+    if (dg.breath > 0 || dg.wind > 0) want = Math.atan2(dg.by - dg.hy, dg.bx - dg.hx);
     const turn = (G.on && mode !== 'kdive' && mode !== 'cloud' ? gameTurn(mode) : dg.breath > 0 || dg.roar ? 2.6 : mode === 'kdive' ? 4.8 : mode === 'sniff' ? (near ? 1.4 : 0.9) : mode === 'chase' ? 0.9 : mode === 'fetch' ? 1.6 : mode === 'think' ? 0.7 : mode === 'cloud' ? 1.0 : mode === 'coil' ? 2.4 : mode === 'king' ? 0.6 : mode === 'dance' ? 0.75 : 0.85) * dt;
     {   // turns ease in and out (Yang 11-17: tight turns are fine, sudden ones are not): in relaxed modes the turn rate
         // itself is smoothed, so the head rolls into a curve instead of snapping onto it; urgent modes (breath aim, dives,
@@ -1292,8 +1310,16 @@ void main(){
     dg.breath = Math.max(0, dg.breath - dt);
     if (wasBreath && dg.breath <= 0) dg.after = 2.8;   // leftover wisps leak from the lip seam once the jaws shut
     if (dg.breath <= 0) dg.breathPearl = false;
-    dg.jaw += ((dg.breath > 0 ? 1 : kg.ph === 'swallow' ? (T - kg.t < 0.45 ? 0.7 : 0) : pl.held ? 0.42 : 0) - dg.jaw) * Math.min(1, dt * 8);
+    dg.jaw += ((dg.breath > 0 ? 1 : dg.wind > 0 ? 0.5 : kg.ph === 'swallow' ? (T - kg.t < 0.45 ? 0.7 : 0) : pl.held ? 0.42 : 0) - dg.jaw) * Math.min(1, dt * 8);
     dg.fire += ((dg.breath > 0 ? 1 : 0) - dg.fire) * Math.min(1, dt * 8);
+    // game, "vận khí" (Yang 11-18: the fire churned the smoke and the dragon lost its shape). Three beats: gather (wind-up: the loose
+    // smoke round the body thins out, the body goes dense black), hold (while breathing: body = obstacle, smoke combed back along it),
+    // release (qi drains slowly: the smoke comes back). qi drives the hold, gather the short pull-in
+    if (G.on) {
+      const on = dg.breath > 0 || dg.wind > 0;
+      dg.qi += ((on ? 1 : 0) - dg.qi) * Math.min(1, dt * (on ? 16 : 1.4));
+      dg.gather += ((dg.wind > 0 ? 1 : 0) - dg.gather) * Math.min(1, dt * (dg.wind > 0 ? 24 : 3));
+    }
   }
   function startBreath(x, y, dur, pearl = false) {
     dg.bx = x; dg.by = y;
@@ -1671,13 +1697,13 @@ void main(){
   function step(dt) {
     pass('curl', crl, [vel.a.tex], {});
     pass('vorticity', vel.b, [vel.a.tex, crl.tex], { uCurl: CFG.curl, uCMax: 12, uDt: dt, uOpen: G.on ? 1 : 0 }); vel.swap();
-    pass('stir', vel.b, [vel.a.tex, maskTex], { uAmp: T < coilUntil ? 8 : 6, uT: T, uDt: dt }); vel.swap();
+    pass('stir', vel.b, [vel.a.tex, maskTex], { uAmp: T < coilUntil ? 8 : 6, uT: T, uDt: dt, uHold: dg.qi, uObst: QI.obst, uCalm: QI.calm, uZone: QI.zone }); vel.swap();
     pass('divergence', div, [vel.a.tex], { uOpen: G.on ? 1 : 0 });
     pass('clear', prs.b, [prs.a.tex], { uK: CFG.pressK }); prs.swap();
     for (let i = 0; i < ITER; i++) { pass('pressure', prs.b, [prs.a.tex, div.tex], {}); prs.swap(); }
     pass('gradient', vel.b, [prs.a.tex, vel.a.tex], { uOpen: G.on ? 1 : 0 }); vel.swap();
     pass('advect', vel.b, [vel.a.tex, vel.a.tex], { uDt: dt, uDiss: CFG.velDiss, uSrcTx: vel.tx, uVelTx: vel.tx, uManual: linear ? 0 : 1 }); vel.swap();
-    pass('vsm', crl, [vel.a.tex, dye.a.tex], { uSmR: [50, 180], uDk: dark ? 1 : 0, uOpen: G.on ? 1 : 0 });   // crl is free again until the next step's curl pass
+    pass('vsm', crl, [vel.a.tex, dye.a.tex], { uSmR: [50, 180], uDk: dark ? 1 : 0, uOpen: G.on ? 1 : 0, uSm: dg.qi * QI.smooth });   // crl is free again until the next step's curl pass
     pass('advect', dye.b, [crl.tex, dye.a.tex], { uDt: dt, uDiss: CFG.dyeDiss, uSrcTx: dye.tx, uVelTx: vel.tx, uManual: linear ? 0 : 1 }, vel.tx); dye.swap();
     const e = eye();
     const ea = visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true);
@@ -1700,6 +1726,7 @@ void main(){
       uEyeR: rad() * 0.34 / Math.max(1, Hh),
       uAsp: W / Math.max(1, Hh),
       uEyeA: G.noEyeInk ? 0 : ea, uOpen: G.on ? 1 : 0, uEyeK: G.on ? 3 : 1,
+      uHold: dg.qi, uHalo: QI.haloG * dg.gather, uFar: QI.far * dg.qi, uMouth: (() => { const m = mouth(); return [m.x / W, 1 - m.y / Hh, rad() / Math.max(1, Hh)]; })(),
     }, [1 / mcv.width, 1 / mcv.height]); dye.swap();
   }
 
@@ -1863,6 +1890,18 @@ void main(){
         }
       }
     }
+    // game, holding qi: the calm zone round the body sheds almost nothing by itself, so soft ink puffs are fed into it along the
+    // whole body. They hang there and curl slowly: the black body stays veiled in smoke while it breathes
+    if (G.on && dg.qi > 0.05 && cl.ph === 'off' && QI.shroud > 0) {
+      const b = dark ? BODY.dark : BODY.light;
+      for (let j = 0; j < 6; j++) {
+        if (Math.random() > wakeK) continue;
+        const i = 1 + Math.floor(Math.random() * (N * 0.9)), p = dg.pts[i], q = dg.pts[Math.min(N - 1, i + 1)], dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1;
+        const side = Math.random() < 0.5 ? -1 : 1, r = radAt(i / (N - 1)), o = r * (0.7 + Math.random() * 1.2), along = (Math.random() - 0.5) * r * 3;
+        const x = p.x - dy / l * o * side + dx / l * along, y = p.y + dx / l * o * side + dy / l * along;
+        dyeQ.push([x / W, 1 - y / Hh, 0.00018 + Math.random() * 0.0006, b.map(c => c * QI.shroud * dg.qi)]);
+      }
+    }
     // after-breath (Yang 11-17): once the jaws close, a little leftover fire and smoke seeps out of the lip seam in small puffs,
     // thinning out over ~3 s. Puffs start anywhere along the seam (hinge -> lip tips), drift up and a bit forward
     if (dg.after > 0 && dg.breath <= 0) {
@@ -1927,7 +1966,9 @@ void main(){
           }
         }
       }
-      {
+      // game: no head backwash (velocity + ink puffs blown back over the head): it bloated the head into a blob. Tried instead and
+      // dropped: combing the smoke back along the body (fast flow past the still outline printed zebra bands)
+      if (!G.on) {
         const hfX = Math.cos(m.a), hfY = Math.sin(m.a), hbX = -hfX, hbY = -hfY, fl = headFlip();
         const hpX = -hfY * fl, hpY = hfX * fl, backSp = Hh * 0.72 * rateF;
         const pBrow = headPt(1.05, -0.82), pChin = headPt(1.00, 1.05);
@@ -2097,9 +2138,9 @@ void main(){
     dg.tx = h.x + Math.cos(T * 0.5) * Hh * 0.22; dg.ty = h.y + Math.sin(T * 0.5) * Hh * 0.14;
     return 'pearl';
   }
-  const gameTurn = (mode) => dg.breath > 0 ? 2.6 : mode === 'coil' ? 2.4 : mode === 'chase' ? (G.boosting ? 1.5 : 1.9) : 0.9;
+  const gameTurn = (mode) => dg.wind > 0 ? 3.4 : dg.breath > 0 ? 2.2 : mode === 'coil' ? 2.4 : mode === 'chase' ? (G.boosting ? 1.5 : 1.9) : 0.9;
   function gameSpeed(mode, R) {   // fraction of screen height per second
-    if (dg.breath > 0) return 0.07;
+    if (dg.breath > 0 || dg.wind > 0) return 0.07;
     if (mode === 'coil') return 0.2;
     if (mode === 'chase') { const d = Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy); return (G.boosting ? 0.75 : 0.36) * (G.rmb ? 1 : clamp(d / (R * 5), 0.45, 1)); }
     return 0.12;
@@ -2119,6 +2160,11 @@ void main(){
     for (const f of [vel, prs, dye]) { pass('shift', f.b, [f.a.tex], { uOff: so }); f.swap(); }
     G.camX += dx; G.camY += dy; G.shifts++;
   }
+  // vận khí tunables: haloG = extra smoke decay at the gather beat, obst = velocity kill inside the body, zone = in the calm zone
+  // round it, calm = how much the outline's churn drops, smooth = dye-velocity smoothing, shroud = ink fed into the calm zone,
+  // far = decay of loose smoke away from the body
+  const QI = { haloG: 0.5, obst: 0.9, smooth: 0.85, calm: 0.3, zone: 0.6, shroud: 0.32, far: 2.5 };
+  const WIND = 0.2;   // s of wind-up before the breath (telegraph + gather beat)
   function gameFrame(dt) {
     if (G.dead) { G.q = G.rmb = G.boost = false; G.tgt = null; }   // game.js: dead until restart
     G.cx = (G.clX ?? innerWidth / 2) + G.mx + G.remX; G.cy = (G.clY ?? innerHeight / 2) + G.my + G.remY;   // cursor in canvas px
@@ -2127,7 +2173,17 @@ void main(){
     if (G.boosting) { G.stam = Math.max(0, G.stam - dt / 2.2); G.stamT = T; }
     else if (T - G.stamT > 0.6) G.stam = Math.min(1, G.stam + dt / 3.5);
     if (G.q && cl.ph === 'off' && kd.ph === 'off') {   // Q held: breathe at the cursor
-      dg.bx = G.cx; dg.by = G.cy; dg.breath = Math.max(dg.breath, 0.2); dg.breathPearl = false; dg.roar = 0;
+      dg.bx = G.cx; dg.by = G.cy; dg.breathPearl = false; dg.roar = 0;
+      if (dg.breath > 0) dg.breath = Math.max(dg.breath, 0.2);
+      else if (dg.wind <= 0) dg.wind = 1e-3;   // wind-up first (gather beat); the fire follows WIND s later
+    }
+    if (dg.wind > 0) {   // runs out even if Q was only tapped: a tap is a short puff
+      dg.wind += dt;
+      // the fire waits until the head has come round to the aim (or 0.7 s): lit at once, it sprayed a fan of fire and ink
+      // across the screen while the head was still turning
+      const hA = dg.pts.length >= 3 ? Math.atan2(dg.pts[0].y - dg.pts[2].y, dg.pts[0].x - dg.pts[2].x) : dg.ang;
+      const off = Math.abs(wrapA(Math.atan2(dg.by - dg.hy, dg.bx - dg.hx) - hA));
+      if (dg.wind >= WIND && (off < 0.45 || dg.wind > 0.7)) { dg.wind = 0; if (cl.ph === 'off' && kd.ph === 'off') dg.breath = Math.max(dg.breath, 0.3); }
     }
     if (!G.follow || !dg.pts.length || !vel) { G.accX = G.accY = 0; }
     else {
@@ -2551,7 +2607,7 @@ void main(){
       ink: (x, y, r, a) => dyeQ.push([x / W, 1 - y / Hh, r, (dark ? BODY.dark : BODY.light).map((v) => v * a)]),
       push: (x, y, vx, vy, r) => splatVel(x / W, 1 - y / Hh, vx * simW / W, -vy * simH / Hh, r) };
     // game test hook: drive frames deterministically (each(i) may set G.tgt / G.boost / G.q ...), returns the canvas as PNG
-    window.__game = {
+    window.__game = { QI,
       G, dg, size: () => [W, Hh, simW, simH, dyeW, dyeH],
       frames(n, dt = 1 / 60, each = null, snap = true) {
         for (let i = 0; i < n; i++) {
