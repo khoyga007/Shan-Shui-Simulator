@@ -242,8 +242,13 @@ void main(){
   // taps: the eye can reach some of them, the cloud covers all) and taken off, so only the eye's own blue lights the eye. Without
   // it, Long Vương diving into a cloud lit the whole eye area as one big gold disc (Yang 11-17). Soft area edge, no step
   float isEyeArea = (1. - smoothstep(2.2, 2.6, length((v - uEye) * vec2(uAsp, 1.)) / max(uEyeR, 1e-5))) * step(.01, uEyeA);
-  float cloudB = 1.;
-  if (isEyeArea > 0.) for (int i = 0; i < 6; i++) { float a = float(i) * 1.0472; cloudB = min(cloudB, texture2D(t1, uEye + vec2(cos(a) / uAsp, sin(a)) * uEyeR * 2.4).b); }
+  // The ring is round THIS texel (1.2 eye radii: clear of the eye, which is ~1 across), not round the eye's centre. One level
+  // for the whole eye area (ring of 2.4 radii round uEye, lowest tap) was too low wherever the cloud thickens across the area:
+  // at a cloud's edge every texel beside the head (blue, no red) above that level lit up, a red disc as big as the eye area
+  // (Yang 11-18 "cứ vào trong đám mây là lại hiện cục tròn đỏ"). + a margin for the slope left inside the small ring
+  float cloudB = 1., cloudHi = 0.;
+  if (isEyeArea > 0.) for (int i = 0; i < 6; i++) { float a = float(i) * 1.0472; float tb = texture2D(t1, wv + vec2(cos(a) / uAsp, sin(a)) * uEyeR * 1.2).b; cloudB = min(cloudB, tb); cloudHi = max(cloudHi, tb); }
+  cloudB = min(1., cloudB + min(.12, cloudHi));
   // second test: the eye is cut out of the head ink (red gone), a cloud over the head leaves the red in place
   float eyeOnly = max(mm.b * (1. - smoothstep(.3, .8, texture2D(t1, wv).r)) - cloudB, 0.) / max(1. - cloudB, .2);   // red read unblurred: the eye is only a few texels
   vec4 b1 = texture2D(t1, wv + ox * 2.8), b2 = texture2D(t1, wv - ox * 2.8), b3 = texture2D(t1, wv + oy * 2.8), b4 = texture2D(t1, wv - oy * 2.8);
