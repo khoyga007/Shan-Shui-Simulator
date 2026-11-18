@@ -19,6 +19,8 @@
     hold: 1.6,     // where on the head the mouse holds it, body radii ahead of the neck joint: 0 = neck (pts[0]), 1.6 = the eye
     waveAmp: D.WAVE.amp, waveLen: D.WAVE.len,
     waveTurn: 0,   // how much of the body wave is kept where the body is turning: 0 = a clean arc, 1 = wriggles all the way round
+    infV: 1.2,     // infinity dance: speed along the figure, screen heights per second
+    infW: 0.5,     // its half width, screen heights (height of a lobe = 0.45 of that)
     L: { spine: true, base: false, body: false, hit: true, trail: true, vel: true, aim: true, grid: false, text: true },
   };
   const SL = [   // key, label, min, max, step
@@ -32,6 +34,8 @@
     ['waveAmp', 'Sóng thân: biên độ', 0, 3, 0.1],
     ['waveLen', 'Sóng thân: bước sóng (đốt)', 8, 60, 1],
     ['waveTurn', 'Sóng thân khi cua (0 tắt · 1 giữ)', 0, 1, 0.1],
+    ['infV', 'Múa ∞: tốc độ (màn/giây)', 0.3, 2.5, 0.1],
+    ['infW', 'Múa ∞: nửa bề ngang (màn)', 0.25, 0.8, 0.05],
   ];
   const LAYERS = [['spine', 'Xương sống'], ['base', 'Xương gốc (chưa sóng)'], ['body', 'Bề dày thân'], ['hit', 'Hitbox đầu'], ['trail', 'Vệt bay'],
     ['vel', 'Mũi tên tốc độ'], ['aim', 'Điểm chuột + dây'], ['grid', 'Lưới'], ['text', 'Chữ trạng thái']];
@@ -62,7 +66,7 @@
       st.fps += (1 / Math.max(rdt, 1e-3) - st.fps) * 0.08; st.ms = rdt * 1000;
       let dt = st.paused ? 0 : rdt * st.scale;
       if (st.stepReq) { dt = 1 / 60; st.stepReq = false; }
-      if (dt > 0) moveHead(dt);
+      if (dt > 0) advance(dt);
       return dt;
     },
     draw(dt) {
@@ -72,6 +76,32 @@
     },
   };
   D.game(G); seat();
+
+  // ---- infinity dance (Yang 11-18: he drew a figure-8 by hand, wanted a button for it) -----------------------
+  // Nothing new in the dragon: the mouse point is run round a figure-8 (x = A sin a, y = B sin 2a, about the middle of
+  // the free screen) at a steady S.infV, and the usual steering follows it. It waits while the head is still more than 0.15 screens behind. The mouse is ignored while it runs
+  const dance = { a: 0 };
+  const dancePt = (a) => { const A = S.infW * D.H, w = D.W - (panel.classList.contains('hide') ? 0 : panel.offsetWidth); return [w / 2 + A * Math.sin(a), D.H / 2 + A * 0.45 * Math.sin(2 * a)]; };
+  function setDance(on) {
+    st.dance = !!on;
+    if (on) {   // join the figure at a point ahead of the head, where the figure runs the head's way. (The plain nearest point
+      // was often behind it: the dragon then span on the spot, 4 rad round, and the stiff body was swung 43 px a frame)
+      const wr = (x) => Math.abs(Math.atan2(Math.sin(x), Math.cos(x))) / Math.PI, H = D.H; let best = 1e9;
+      for (let k = 0; k < 96; k++) {
+        const a = k / 96 * 6.2832, p = dancePt(a), dx = p[0] - G.x, dy = p[1] - G.y, dn = Math.hypot(dx, dy);
+        const sc = dn + H * 0.5 * wr(Math.atan2(dy, dx) - fa) + H * 0.3 * wr(Math.atan2(0.9 * Math.cos(2 * a), Math.cos(a)) - fa) + (dn < 2.4 * S.rho * D.rad() ? 4 * H : 0);
+        if (sc < best) { best = sc; dance.a = a; }
+      }
+    }
+    else { tx = hc.x; ty = hc.y; }
+    sync();
+  }
+  function danceStep(dt) {
+    const A = S.infW * D.H, a = dance.a, p = dancePt(a);
+    if (Math.hypot(p[0] - hc.x, p[1] - hc.y) < 0.15 * D.H) dance.a = (a + S.infV * D.H * dt / Math.max(1, A * Math.hypot(Math.cos(a), 0.9 * Math.cos(2 * a)))) % 6.2832;
+    const q = dancePt(dance.a); tx = q[0]; ty = q[1];
+  }
+  function advance(dt) { if (st.dance) danceStep(dt); moveHead(dt); }
 
   function moveHead(dt) {
     D.WAVE.amp = S.waveAmp; D.WAVE.len = S.waveLen; G.waveTurn = S.waveTurn;
@@ -125,7 +155,7 @@
     if (st.locked) { tx = hc.x; ty = hc.y; }
   });
   document.addEventListener('mousemove', (e) => {
-    if (!st.locked) return;
+    if (!st.locked || st.dance) return;
     const H = D.H, W = D.W;
     tx = clamp(tx + e.movementX * S.sens, 0, W); ty = clamp(ty + e.movementY * S.sens, 0, H);
     const dx = tx - hc.x, dy = ty - hc.y, d = Math.hypot(dx, dy), L = S.leash * H;
@@ -191,7 +221,7 @@
         `tốc độ ${st.v.toFixed(2)} màn/s  đỉnh ${st.vMax.toFixed(2)}  trần ${S.cap.toFixed(1)}`,
         `gập tối đa ${bmax.toFixed(2)}/${G.bend.toFixed(2)} rad  quay ${(st.w || 0).toFixed(1)} rad/s  sóng ${wv ? wv.w.toFixed(2) : '-'}`,
         `đầu ${hc.x.toFixed(0)},${hc.y.toFixed(0)}  chuột lệch ${(Math.hypot(tx - hc.x, ty - hc.y) / H).toFixed(2)} màn`,
-        `mode ${dg.mode}  T ${D.T.toFixed(1)}  ${st.locked ? 'đang cầm' : 'chuột thả'}`,
+        `mode ${dg.mode}  T ${D.T.toFixed(1)}  ${st.dance ? 'ĐANG MÚA ∞' : st.locked ? 'đang cầm' : 'chuột thả'}`,
       ];
       c.fillStyle = 'rgba(255,255,255,.8)'; c.fillRect(6, 6, 330, lines.length * 16 + 8);
       c.fillStyle = '#111'; lines.forEach((s, i) => c.fillText(s, 12, 22 + i * 16));
@@ -224,6 +254,7 @@
     const sl = SL.map(([k, lab, a, b, s]) => `<label><span class="row"><span>${lab}</span><b id="v_${k}"></b></span><input type="range" id="s_${k}" min="${a}" max="${b}" step="${s}"></label>`).join('');
     const ly = LAYERS.map(([k, lab]) => `<label><input type="checkbox" id="l_${k}"> ${lab}</label>`).join('');
     panel.innerHTML = `<h3>Điều khiển</h3>${sl}<button id="b_def">Về mặc định</button><button id="b_copy">Chép số</button>
+      <h3>Múa</h3><button id="b_inf">Múa vô cực ∞ (M)</button>
       <h3>Thời gian</h3><button id="b_pause">Tạm dừng</button><button id="b_step">1 khung</button><br>${[1, 0.5, 0.25, 0.1].map((v) => `<button class="sc" data-v="${v}">x${v}</button>`).join('')}
       <h3>Soi</h3>${ly}
       <h3>Báo em</h3><button id="b_rep">Lưu báo cáo (F8)</button>
@@ -231,7 +262,8 @@
 Esc: thả chuột     F1: ẩn bảng
 F3: bật/tắt soi    G: lưới
 Space/P: tạm dừng  . : 1 khung
-[ ]: chậm/nhanh    F8: báo em</div>`;
+[ ]: chậm/nhanh    F8: báo em
+M: múa vô cực</div>`;
     for (const [k] of SL) $('s_' + k).addEventListener('input', (e) => { S[k] = +e.target.value; sync(); save(); });
     for (const [k] of LAYERS) $('l_' + k).addEventListener('change', (e) => { S.L[k] = e.target.checked; save(); });
     $('b_def').onclick = () => { for (const k in DEF) if (k !== 'L') S[k] = DEF[k]; sync(); save(); };
@@ -239,12 +271,14 @@ Space/P: tạm dừng  . : 1 khung
     $('b_pause').onclick = () => { st.paused = !st.paused; sync(); };
     $('b_step').onclick = () => { st.paused = true; st.stepReq = true; sync(); };
     $('b_rep').onclick = () => { st.rep = true; };
+    $('b_inf').onclick = () => setDance(!st.dance);
     panel.querySelectorAll('.sc').forEach((b) => { b.onclick = () => { st.scale = +b.dataset.v; st.paused = false; sync(); }; });
     sync();
   }
   function sync() {
     for (const [k, , , , s] of SL) { $('s_' + k).value = S[k]; $('v_' + k).textContent = S[k].toFixed(s < 1 ? (s < 0.1 ? 2 : 1) : 0); }
     for (const [k] of LAYERS) $('l_' + k).checked = !!S.L[k];
+    if ($('b_inf')) { $('b_inf').classList.toggle('on', !!st.dance); $('b_inf').textContent = st.dance ? 'Dừng múa (M)' : 'Múa vô cực ∞ (M)'; }
     $('b_pause').classList.toggle('on', st.paused); $('b_pause').textContent = st.paused ? 'Chạy tiếp' : 'Tạm dừng';
     panel.querySelectorAll('.sc').forEach((b) => b.classList.toggle('on', !st.paused && +b.dataset.v === st.scale));
   }
@@ -256,6 +290,7 @@ Space/P: tạm dừng  . : 1 khung
     if (k === 'F1') panel.classList.toggle('hide');
     else if (k === 'F3') st.ov = !st.ov;
     else if (k === 'F8') st.rep = true;
+    else if (k === 'm' || k === 'M') setDance(!st.dance);
     else if (k === 'g' || k === 'G') { S.L.grid = !S.L.grid; save(); sync(); }
     else if (k === ' ' || k === 'p' || k === 'P') { st.paused = !st.paused; sync(); }
     else if (k === '.') { st.paused = true; st.stepReq = true; sync(); }
@@ -264,6 +299,6 @@ Space/P: tạm dừng  . : 1 khung
     e.preventDefault();
   });
 
-  window.__room = { S, st, G, hc, trail, tick: (dt) => moveHead(dt), seat, target: (x, y) => { tx = x; ty = y; }, report: () => { st.rep = true; } };   // test hooks
+  window.__room = { S, st, G, hc, trail, tick: (dt) => advance(dt), dance: setDance, aim: () => [tx, ty], seat, target: (x, y) => { tx = x; ty = y; }, report: () => { st.rep = true; } };   // test hooks
   if (new URLSearchParams(location.search).has('bot')) { const s = document.createElement('script'); s.src = 'bot.js'; document.body.appendChild(s); }   // tools/roomtest.py
 })();

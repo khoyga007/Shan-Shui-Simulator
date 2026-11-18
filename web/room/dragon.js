@@ -1329,20 +1329,29 @@ void main(){
       wv.w += (clamp((spdN - 0.02) / 0.06, 0.35, 1) * mm - wv.w) * Math.min(1, dt * 1.2);
       const A = rad() * WAVE.amp * wv.w, kq = 2 * Math.PI / WAVE.len;
       for (let i = 0; i < N; i++) { wv.bx[i] = dg.pts[i].x; wv.by[i] = dg.pts[i].y; }
+      // game (GM.waveTurn 0..1, Yang 11-18: flown in a circle the body still wriggled instead of going round): the wave is for
+      // flying straight. Where the plain spine itself bends, a joint keeps only GM.waveTurn of it: all of it up to 0.025 rad a
+      // joint (a curve 1.2 screens across), none from 0.075 (0.4 screens). CQ = that share lost, per joint: bend over the 8
+      // joints round it, then blurred twice over 11 joints. Unblurred, the spine's bend limit makes it a step (a run of
+      // joints at the limit next to straight ones), neighbours kept 0 and 0.96 of the wave, and the drawn spine broke into
+      // a zigzag there (0.9 rad at one joint; Yang's figure-8 shot showed it at the tail). The wallpaper never sets it
+      let CQ = null;
+      if (gm && GM.waveTurn < 1) {
+        const A0 = wv.q0 || (wv.q0 = new Float64Array(N)), A1 = wv.q1 || (wv.q1 = new Float64Array(N));
+        for (let i = 0; i < N; i++) {
+          const c = clamp(i, 4, N - 5), ax = wv.bx[c] - wv.bx[c - 4], ay = wv.by[c] - wv.by[c - 4], cx = wv.bx[c + 4] - wv.bx[c], cy = wv.by[c + 4] - wv.by[c];
+          const q = clamp((Math.abs(Math.atan2(ax * cy - ay * cx, ax * cx + ay * cy)) / 4 - 0.025) / 0.05, 0, 1); A0[i] = q * q * (3 - 2 * q);
+        }
+        for (let pass = 0; pass < 2; pass++) { const src = pass ? A1 : A0, dst = pass ? A0 : A1;
+          for (let i = 0; i < N; i++) { let a = 0; for (let k = -5; k <= 5; k++) a += src[clamp(i + k, 0, N - 1)]; dst[i] = a / 11; } }
+        CQ = A0;
+      }
       for (let i = 1; i < N; i++) {
         const g = wv.g[i] = Math.min(1, wv.g[i] + dt / 1.5), u = i / (N - 1), j1 = Math.min(N - 1, i + 1);
         const tx = wv.bx[i - 1] - wv.bx[j1], ty = wv.by[i - 1] - wv.by[j1], l = Math.hypot(tx, ty);
         if (l > 1e-3) {
           // none for joints still in the cloud or bunched up; eased in time, as wOut jumps when the last joint comes out
-          // game (GM.waveTurn 0..1, Yang 11-18: flown in a circle the body still wriggled instead of going round): the wave is
-          // for flying straight. Where the plain spine itself bends, the joint keeps only GM.waveTurn of it: all of it up to
-          // 0.025 rad a joint (a curve 1.2 screens across), none from 0.075 (0.4 screens). The wallpaper never sets it
-          let cf = 1;
-          if (gm && GM.waveTurn < 1 && j1 > i) {
-            const ax = wv.bx[i] - wv.bx[i - 1], ay = wv.by[i] - wv.by[i - 1], cx = wv.bx[j1] - wv.bx[i], cy = wv.by[j1] - wv.by[i];
-            const q = clamp((Math.abs(Math.atan2(ax * cy - ay * cx, ax * cx + ay * cy)) - 0.025) / 0.05, 0, 1);
-            cf = 1 - (1 - Math.max(0, GM.waveTurn)) * q * q * (3 - 2 * q);
-          }
+          const cf = CQ ? 1 - (1 - Math.max(0, GM.waveTurn)) * CQ[i] : 1;
           const e = clamp(u / 0.3, 0, 1), fo = wv.f[i] += clamp(cf * clamp((wOut - i) / 8, 0, 1) * clamp(2 * l / ((j1 - i + 1) * s) - 0.5, 0, 1) - wv.f[i], -dt * 4, dt * 2);
           const off = A * e * e * (3 - 2 * e) * (0.8 + 0.4 * u) * g * g * (3 - 2 * g) * fo * Math.sin(kq * (wv.D - i) + wv.ph);
           dg.pts[i].x -= ty / l * off; dg.pts[i].y += tx / l * off;
