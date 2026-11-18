@@ -54,7 +54,7 @@
   D.props({ theme: 'light', cloudfreq: 0, calligraphy: false, audioreactive: false, rainlightning: false, dance: false });
   const st = { paused: false, scale: 1, stepReq: false, ov: true, locked: false, fps: 0, ms: 0, v: 0, vMax: 0, bend: 0, rep: false, nRep: 0 };
   try { st.nRep = +localStorage.getItem('room.rep') || 0; } catch { /* 0 */ }
-  const trail = [], ft = [];
+  const trail = [], ft = [], log = [];
   let gpu = '?'; try { const g = D.canvas.getContext('webgl'), x = g.getExtension('WEBGL_debug_renderer_info'); gpu = String(g.getParameter(x ? x.UNMASKED_RENDERER_WEBGL : g.RENDERER)); } catch { /* unknown */ }
   const pace = () => { const a = ft.slice().sort((x, y) => x - y), n = a.length || 1, med = a[n >> 1] || 0; return { med, max: a[n - 1] || 0, long: ft.filter((v) => v > med * 1.5 + 1).length, n }; };
   let tx = 0, ty = 0;   // the mouse point the head goes to
@@ -79,6 +79,9 @@
       return dt;
     },
     draw(dt) {
+      // flight log, 12 s: Yang's reports are taken after he has stopped, so the still shows nothing of a lunge (r003, r004).
+      // Per frame: time, mouse point, eye, neck speed and eye speed (screens/s), turn rate, pen down
+      if (dt > 0) { log.push([+D.T.toFixed(3), Math.round(tx), Math.round(ty), Math.round(hc.x), Math.round(hc.y), +(sv / D.H).toFixed(2), +st.v.toFixed(2), +sw.toFixed(1), window.__paint && window.__paint.st.pen ? 1 : 0]); if (log.length > 720) log.shift(); }
       if (dt > 0) { trail.push([hc.x, hc.y, D.T]); while (trail.length && D.T - trail[0][2] > 2.5) trail.shift(); }
       drawOverlay();
       if (st.rep) { st.rep = false; report(); }
@@ -300,6 +303,7 @@
       head: [+hc.x.toFixed(1), +hc.y.toFixed(1)], neck: [+dg.hx.toFixed(1), +dg.hy.toFixed(1)], ang: +dg.ang.toFixed(3), turnRate: +(st.w || 0).toFixed(2), neckSpeed: +(sv / D.H).toFixed(3), bendLimit: +G.bend.toFixed(3), mouse: [+tx.toFixed(1), +ty.toFixed(1)],
       pts: dg.pts.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1)]), base: wv ? Array.from(wv.bx, (v, i) => [+v.toFixed(1), +wv.by[i].toFixed(1)]) : null,
       gpu, frameMs: ft.map((v) => +v.toFixed(1)), pace: pace(), drawMs: +(st.jsMs || 0).toFixed(2),
+      log_T_mouseXY_eyeXY_neckV_eyeV_turn_pen: log,
       paint: window.__paint ? window.__paint.info() : null,
       trail: trail.map((t) => [+t[0].toFixed(0), +t[1].toFixed(0)]),
     };
