@@ -8,12 +8,15 @@
 //   tailBendAvg   mean bend of the plain spine's last 20 joints over the 2nd half, rad a joint: a tail wound into a ring sits at the bend limit
 //   offFigurePx   dance, 2nd half: farthest any plain joint lay from the figure-8 line, px
 //   err*      held point (eye) to mouse point, body radii
-(() => {
+(async () => {
   const D = window.__dragon, Rm = window.__room, dbg = window.__dragonDebug;
   const post = (name, url) => fetch('/report', { method: 'POST', body: name + '|' + url });
   const json = (o) => 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(JSON.stringify(o, null, 1))));
   if (!D || !Rm) { post('bot.json', json({ error: 'no WebGL / room' })); return; }
   Rm.st.paused = true;
+  // the paintings load on their own time; this script never yields once it starts, so wait for them here (without this the
+  // pictures were there on some runs and missing on others)
+  for (let i = 0; i < 200 && window.__paint && !window.__paint.ready(); i++) await new Promise((r) => setTimeout(r, 50));
   Object.assign(Rm.S, { cap: 2.5, follow: 30, leash: 0.35, sens: 1, turn: 16, hold: 1.6, rho: 1.8, accel: 6 }, JSON.parse(new URLSearchParams(location.search).get('set') || '{}'));
   const H = D.H, W = D.W, R = D.rad(), dt = 1 / 60, N = D.N, wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   let T = [0, 0];

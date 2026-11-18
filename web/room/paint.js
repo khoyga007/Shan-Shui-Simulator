@@ -127,9 +127,10 @@
   }
   const box = (P) => P.reduce((m, p) => [Math.min(m[0], p[0]), Math.min(m[1], p[1]), Math.max(m[2], p[0]), Math.max(m[3], p[1])], [1e9, 1e9, -1e9, -1e9]);
   // painting's ink box onto a box on the paper (mirrored if asked)
-  function fit(x, A, B, flip) {
+  function fit(x, A, B, flip, rot) {
     const im = A.im, sx = (B[2] - B[0]) / ((A.b[2] - A.b[0]) * im.width), sy = (B[3] - B[1]) / ((A.b[3] - A.b[1]) * im.height);
     x.save(); x.setTransform(dpr, 0, 0, dpr, 0, 0); if (flip) { x.translate(B[0] + B[2], 0); x.scale(-1, 1); }
+    if (rot) { const cx = (B[0] + B[2]) / 2, cy = (B[1] + B[3]) / 2; x.translate(cx, cy); x.rotate(rot); x.translate(-cx, -cy); }
     x.drawImage(im, B[0] - A.b[0] * im.width * sx, B[1] - A.b[1] * im.height * sy, im.width * sx, im.height * sy); x.restore();
   }
   // a long painting (river, pine on its side) bent along the line P: cut into thin slices across, each turned to the line
@@ -179,7 +180,7 @@
       bend(x, IMG.cloud, [[mx - 0.7 * w, yb], [mx + 0.7 * w, yb]], 0.6, 0.22);
       const grow = (b) => { const gx = 0.1 * (b[2] - b[0]), gy = 0.18 * (b[3] - b[1]); return [b[0] - gx, b[1] - gy, b[2] + gx, b[3] + gy]; };
       const l = P.filter((p) => p[0] < mx), r = P.filter((p) => p[0] >= mx);
-      x.globalCompositeOperation = 'multiply'; if (l.length > 2) fit(x, IMG.swirl, grow(box(l))); if (r.length > 2) fit(x, IMG.swirl, grow(box(r)), true); x.globalCompositeOperation = 'source-over';
+      x.globalCompositeOperation = 'multiply'; if (l.length > 2) fit(x, IMG.swirl, grow(box(l))); if (r.length > 2) { const b = grow(box(r)), k = 0.06 * (b[2] - b[0]); fit(x, IMG.swirl, [b[0] + k, b[1] + k, b[2] - k, b[3] - k], false, 2.2); }   // the same swirl, turned and a little smaller: mirrored it made a perfect butterfly x.globalCompositeOperation = 'source-over';
     },
   };
   function picture(d) {   // the finished painting of one figure, on a canvas of its own; null until its images are in
@@ -268,6 +269,6 @@ Thả chuột giữa chừng: đứt nét
     else if (k === 'v' || k === 'V') { S.guide = !S.guide; save(); }
   });
 
-  window.__paint = { S, st, TPL, step, render, pick, reset, pen: (on) => (on ? penDown() : penUp()), geo: () => { if (!geo) { layout(); geo.w = freeW(); geo.H = D.H; } return geo; },
+  window.__paint = { S, st, TPL, step, render, pick, reset, ready: () => TPL.every((T) => T.art.every((n) => IMG[n])), pen: (on) => (on ? penDown() : penUp()), geo: () => { if (!geo) { layout(); geo.w = freeW(); geo.H = D.H; } return geo; },
     info: () => ({ fig: TPL[st.cur].id, next: st.next, pen: st.pen, done: st.done.map((d) => TPL[d.i].id), last: st.last, tol: S.tol }) };
 })();
