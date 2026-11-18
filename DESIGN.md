@@ -16,6 +16,7 @@ Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel
 - Wide world + combat.
 - Camera zoomed out vs wallpaper (dragon ~2100px > screen today).
 - Fire-hits-wall impinging jet, king gold horns/mane tips, through-cloud emerge, mouth-seam leak: approved in wallpaper 11-17 → port as-is.
+- Cloud dive exit (R, game): body reels out of the exit cloud along the head's track; joints not yet out wait INSIDE the cloud (stacked at its centre, hidden by a long soft ramp 0.5–1.3 R), cloud stays until the tail is out (`G.emer`), player gets control back after 1.4 s, E/R locked while `dg.reel`. Why: unreeled body was laid straight behind the cloud and showed all at once ("pop out of nowhere"). Idle head speed 0.3 while reeling so the tail does not sit in the cloud.
 
 ## Pillars
 1. **Fluid is the weapon.** Every attack = real dye/velocity in the sim, not canned VFX. Hits leave smoke on the painting.

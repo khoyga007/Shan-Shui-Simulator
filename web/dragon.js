@@ -29,7 +29,7 @@
   // blur). What is left over (< 1 cell) is a CSS translate of the oversized canvas, rounded to device pixels.
   const G = { on: /[?&]game=1(&|$)/.test(location.search), follow: true, mx: 0, my: 0,
     accX: 0, accY: 0, remX: 0, remY: 0, leadX: 0, leadY: 0, camX: 0, camY: 0, cx: 0, cy: 0, ptr: false,
-    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, cw: null, coilK: 0, dive: false,
+    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, cw: null, coilK: 0, dive: false, emer: false,
     fps: 0, fpsN: 0, fpsT: 0, hud: null, shifts: 0 };
   const mq = matchMedia('(prefers-color-scheme: dark)');
   const resolveDark = () => (cfg.theme === 'dark' ? true : cfg.theme === 'light' ? false : mq.matches);
@@ -868,12 +868,17 @@ void main(){
   // (full hide only inside 0.55R) a slow dive left it lit at the rim, a round glowing blob in the cloud (Yang 11-17)
   function visAt(x, y, eye = false) {
     let h = 0;
-    for (const c of [cl.A, cl.B]) if (c && c.hide > 0) { const R = cloudR(), d = Math.hypot(x - c.x, y - c.y); h = Math.max(h, c.hide * (eye ? clamp((R * 1.15 - d) / (R * 0.3), 0, 1) : clamp((R * 0.95 - d) / (R * 0.4), 0, 1))); }
+    for (const c of [cl.A, cl.B]) if (c && c.hide > 0) { const R = cloudR(), d = Math.hypot(x - c.x, y - c.y); const soft = G.on && c === cl.B;   // game's exit cloud: the body comes up out of it over a long ramp, no cut end at the rim
+      h = Math.max(h, c.hide * (eye ? clamp((R * 1.15 - d) / (R * 0.3), 0, 1) : soft ? ((u) => u * u * (3 - 2 * u))(clamp((R * 1.3 - d) / (R * 0.8), 0, 1)) : clamp((R * 0.95 - d) / (R * 0.4), 0, 1))); }
     if (kg.coc > 0.01) for (const [i, rr] of COC) { const R = rr * Hh * 0.8, p = dg.pts[i], d = Math.hypot(x - p.x, y - p.y); h = Math.max(h, kg.coc * clamp((R * 1.1 - d) / (R * 0.5), 0, 1)); }
     return cl.fade * (1 - h);
   }
   function cloudUpdate(dt, free, chasing) {
     const R = cloudR();
+    if (G.emer) { const B = cl.B;
+      if (!B || kd.ph !== 'off') G.emer = false;
+      else if (dg.reel) { B.hide = 1; B.on = true; }
+      else { B.on = false; B.hide = Math.max(0, B.hide - dt / 0.6); if (B.hide <= 0) G.emer = false; } }
     if (kd.ph === 'dive') {
       if (cfg.cloudFreq <= 0) {
         cl.ph = 'off'; kd.ph = 'off'; cl.fade = 1; cl.path = null;
@@ -928,8 +933,8 @@ void main(){
       } else if (cl.ph === 'emerge') {
         const B = cl.B, e = T - cl.t;
         cl.fade = Math.min(1, e / 0.22);
-        if (e > 0.35) B.on = false;
-        if (e > 0.85) B.hide = Math.max(0, 1 - (e - 0.85) / 0.5);   // holds till most of the body has left: let go early, the coil still inside showed all at once
+        if (e > 0.35 && !G.on) B.on = false;
+        if (e > 0.85 && !G.on) B.hide = Math.max(0, 1 - (e - 0.85) / 0.5);   // holds till most of the body has left: let go early, the coil still inside showed all at once
         if (kd.hop < kd.total && cl.A) {
           const dA = Math.hypot(dg.hx - cl.A.x, dg.hy - cl.A.y);
           if ((e > 0.45 && dA < R * 0.72) || e > 2.6) {
@@ -938,7 +943,10 @@ void main(){
             cloudMouthBurst(cl.A.x, cl.A.y, dg.ang + Math.PI, -1);
           }
         } else if (e > 1.4) {
-          B.hide = 0; cl.ph = 'off'; kd.ph = 'off'; cl.fade = 1;
+          // game: the player has the dragon back here, but the tail may still be in the cloud. The cloud stays and goes on
+          // hiding it till the reel has paid the whole body out (cloudUpdate's first lines)
+          if (G.on) G.emer = true; else B.hide = 0;
+          cl.ph = 'off'; kd.ph = 'off'; cl.fade = 1;
           cl.next = cfg.cloudFreq > 0 ? T + cfg.cloudFreq * (0.75 + Math.random() * 0.5) : 1e9;
         }
       }
@@ -1002,7 +1010,9 @@ void main(){
     // joints apart and the body stayed balled up in the cloud (Yang 11-17: "người không chui ra hết")
     if (kd.ph === 'dive') { const bx = -Math.cos(ang), by = -Math.sin(ang);
       dg.reel = { t0: T, bx, by, P: [[dg.hx, dg.hy]] };
-      for (let i = 0; i < N; i++) { const px2 = dg.hx + bx * s * i, py2 = dg.hy + by * s * i; dg.pts[i].x = dg.prev[i].x = px2; dg.pts[i].y = dg.prev[i].y = py2; } }
+      // game (R): one hop, and the reel runs till the tail is out, so the part not yet out can wait INSIDE the cloud, hidden.
+      // Laid out straight behind the cloud it showed at once, a black rod from nowhere (Yang 11-18: "pop out of nowhere")
+      for (let i = 0; i < N; i++) { const k = G.on ? 0 : s * i, px2 = dg.hx + bx * k, py2 = dg.hy + by * k; dg.pts[i].x = dg.prev[i].x = px2; dg.pts[i].y = dg.prev[i].y = py2; } }
   }
   function cloudFeed(kx, ky, dt) {   // clouds live in the mask (blue); here only their amount and a slow roll of the water
     for (const c of [cl.A, cl.B]) {
@@ -1281,15 +1291,16 @@ void main(){
     if (G.cw) coilHead(dt, s);
     for (let i = 0; i < N; i++) { dg.prev[i].x = dg.pts[i].x; dg.prev[i].y = dg.pts[i].y; }
     dg.pts[0].x = dg.hx; dg.pts[0].y = dg.hy;
-    if (dg.reel && (cl.ph !== 'emerge' || T - dg.reel.t0 > 4)) dg.reel = null;
+    if (dg.reel && (G.on ? cl.ph !== 'emerge' && !G.emer : cl.ph !== 'emerge' || T - dg.reel.t0 > 4)) dg.reel = null;
     if (G.cw) coilBody(s);
     else if (dg.reel) {   // reel-out: joint i sits i*s back along the head's track; joints not yet out wait at the cloud's centre
-      const P = dg.reel.P; P.unshift([dg.hx, dg.hy]);
+      const P = dg.reel.P;   // a hovering head adds no track: without this the 2000-point cap could cut the cloud's end off
+      if (P.length > 1 && Math.hypot(dg.hx - P[1][0], dg.hy - P[1][1]) < 2) P[0] = [dg.hx, dg.hy]; else P.unshift([dg.hx, dg.hy]);
       let k = 0, acc = 0;
       for (let i = 1; i < N; i++) {
         const want = i * s;
         while (k < P.length - 1) { const sl = Math.hypot(P[k + 1][0] - P[k][0], P[k + 1][1] - P[k][1]); if (acc + sl >= want) break; acc += sl; k++; }
-        if (k >= P.length - 1) { const ex2 = want - acc, E = P[P.length - 1]; dg.pts[i].x = E[0] + dg.reel.bx * ex2; dg.pts[i].y = E[1] + dg.reel.by * ex2; continue; }
+        if (k >= P.length - 1) { const ex2 = G.on ? 0 : want - acc, E = P[P.length - 1]; dg.pts[i].x = E[0] + dg.reel.bx * ex2; dg.pts[i].y = E[1] + dg.reel.by * ex2; continue; }
         const sl = Math.hypot(P[k + 1][0] - P[k][0], P[k + 1][1] - P[k][1]) || 1, f = (want - acc) / sl;
         dg.pts[i].x = P[k][0] + (P[k + 1][0] - P[k][0]) * f; dg.pts[i].y = P[k][1] + (P[k + 1][1] - P[k][1]) * f;
       }
@@ -2212,7 +2223,7 @@ void main(){
   // r0 / pitch / neck / lift / vr in joint spacings (body = N - 1 = 75 of them, thickest 3.7 across), wind = s to lay the whole body down
   const COIL = { r0: 3.6, pitch: 4.3, wind: 1.5, dur: 3, neck: 16, lift: 4, vr: 7.5, vs: 0.8, vin: 0.35 };
   function gameCoil() {
-    if (T < G.coil + 0.8 || kd.ph !== 'off' || cl.ph !== 'off' || G.dead) return;
+    if (T < G.coil + 0.8 || kd.ph !== 'off' || cl.ph !== 'off' || dg.reel || G.dead) return;
     const s = segLen(), nx = -Math.sin(dg.ang), ny = Math.cos(dg.ang);
     const dir = G.ptr && nx * (G.cx - dg.hx) + ny * (G.cy - dg.hy) < 0 ? -1 : 1;   // curls toward the cursor's side
     G.ccx = dg.hx + nx * dir * COIL.r0 * s; G.ccy = dg.hy + ny * dir * COIL.r0 * s;   // the head is on the first turn already, heading along it
@@ -2264,6 +2275,7 @@ void main(){
   function gameSpeed(mode, R) {   // fraction of screen height per second
     if (dg.breath > 0 || dg.wind > 0) return 0.07;
     if (mode === 'coil') return 0.2;
+    if (dg.reel && mode !== 'chase') return 0.3;   // tail still in the exit cloud: an idle head keeps drawing it out (0.12 left it in there 4 s)
     if (mode === 'chase') { const d = Math.hypot(dg.tx - dg.hx, dg.ty - dg.hy); return (G.boosting ? 0.75 : 0.36) * (G.rmb ? 1 : clamp(d / (R * 5), 0.45, 1)); }
     return 0.12;
   }
@@ -2345,7 +2357,8 @@ void main(){
     }
   }
   function gameDive() {   // R: into a cloud just ahead, out of one at the cursor
-    if (cl.ph !== 'off' || kd.ph !== 'off') return;
+    if (cl.ph !== 'off' || kd.ph !== 'off' || dg.reel) return;
+    G.emer = false; if (cl.B) cl.B.hide = 0;
     const R = cloudR(), ax = dg.hx + Math.cos(dg.ang) * R * 1.2, ay = dg.hy + Math.sin(dg.ang) * R * 1.2;
     kd.ph = 'dive'; kd.hop = 0; kd.total = 1; kd.t = T; kd.bursts.length = 0;
     cl.A = cloudSpot(ax, ay); cl.A.hide = 1; cl.A.amt = 0.55; cl.A.on = true;
