@@ -171,7 +171,7 @@ void main(){
   gl_FragColor = vec4(clamp((vel + f * uAmp * uDt * 60.) * damp, -1000., 1000.), 0., 1.);   // calm inside the body, turbulent at its edge
 }`,
     // dye: re-ink inside the mask toward the body colour, brush-textured
-    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA, uOpen, uEyeK, uHold, uHalo, uFar; uniform vec3 uMouth;
+    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA, uOpen, uEyeK, uHold, uHalo, uFar, uBody, uBodyK; uniform vec3 uMouth;
 float fireOf(vec3 d){ return clamp(((uDk > .5 ? d.r - d.b : max(d.g, d.b) - d.r) / (max(d.r, max(d.g, d.b)) + 1e-4) - .04) * 1.35, 0., 1.); }
 void main(){
   vec4 d = texture2D(t0, v);
@@ -254,7 +254,10 @@ void main(){
   float wisp = smoothstep(.4, .8, fbm(v * 30. + vec2(uT * .4, -uT * .3)));
   float bristle = smoothstep(.35, .75, vnoise(RO * v * vec2(260., 38.) + vec2(uT * .05, 0.)));   // dry brush: long thin bristle gaps
   float rim = smoothstep(.12, .45, m) * (1. - smoothstep(.45, .8, m));
-  vec3 tgt = ink * mix(.72 + .7 * streak + .3 * grain, 1.5 + .3 * streak + .12 * grain, uHold * smoothstep(.45, .95, m)) * (uDk > .5 ? 1. : 1.15)   /* one tone: Yang 11-16 dropped back/belly, the smoke is there to hide the skeleton */ * (1. - rim * (1. - bristle) * .6);
+  // uBody (game): the core of the body is dense black ink, at any time. The wallpaper's pattern averaged k ~1.6 with patches down
+  // to ~1.1, and the moving body never reached even that: mid-grey, never black (Yang 11-18: "xám xám bẩn bẩn"). Core only
+  // (m > ~.5), and it fills faster there: the edge stays thin smoke
+  vec3 tgt = ink * mix(.72 + .7 * streak + .3 * grain, 1.5 + .3 * streak + .12 * grain, max(uHold, uBody) * smoothstep(.45, .95, m)) * (uDk > .5 ? 1. : 1.15)   /* one tone: Yang 11-16 dropped back/belly, the smoke is there to hide the skeleton */ * (1. - rim * (1. - bristle) * .6);
   vec3 eyeTgt = uEyeInk * (.78 + .55 * streak + .22 * grain) * (.85 + .3 * wisp);
   float k = clamp(uK, 0., 1.);
   float m_comb = max(m, eyeM);
@@ -263,7 +266,7 @@ void main(){
   // uHold: fire is only spared from re-inking at the mouth (uMouth). Elsewhere in the body it goes back to ink at once, or the
   // jet's backwash leaves brown fire/ink lumps over the head
   float atMouth = 1. - smoothstep(.7, 1.5, length((v - uMouth.xy) * vec2(uAsp, 1.)) / max(uMouth.z, 1e-5));
-  float ink_mix = clamp(smoothstep(.12, .9, m) * k * 2., 0., 1.) * (1. - fire * .82 * mix(1., atMouth, uHold));
+  float ink_mix = clamp(smoothstep(.12, .9, m) * k * 2. * (1. + uBodyK * smoothstep(.5, .95, m)), 0., 1.) * (1. - fire * .82 * mix(1., atMouth, uHold));
   o = mix(o, tgt, ink_mix);            // inside it is pulled back to the brush pattern: shape holds
   o = mix(o, eyeTgt, clamp(smoothstep(.06, .62, eyeM) * k * 2.6 * uEyeK, 0., 1.));   // uEyeK: game fills the socket faster (the head moves fast)
   // cloud (mask blue): a paler, billowing wash held in place the same way as the body
@@ -1726,7 +1729,7 @@ void main(){
       uEyeR: rad() * 0.34 / Math.max(1, Hh),
       uAsp: W / Math.max(1, Hh),
       uEyeA: G.noEyeInk ? 0 : ea, uOpen: G.on ? 1 : 0, uEyeK: G.on ? 3 : 1,
-      uHold: dg.qi, uHalo: QI.haloG * dg.gather, uFar: QI.far * dg.qi, uMouth: (() => { const m = mouth(); return [m.x / W, 1 - m.y / Hh, rad() / Math.max(1, Hh)]; })(),
+      uHold: dg.qi, uHalo: QI.haloG * dg.gather, uFar: QI.far * dg.qi, uBody: G.on ? QI.body : 0, uBodyK: G.on ? QI.bodyK : 0, uMouth: (() => { const m = mouth(); return [m.x / W, 1 - m.y / Hh, rad() / Math.max(1, Hh)]; })(),
     }, [1 / mcv.width, 1 / mcv.height]); dye.swap();
   }
 
@@ -2163,7 +2166,7 @@ void main(){
   // vận khí tunables: haloG = extra smoke decay at the gather beat, obst = velocity kill inside the body, zone = in the calm zone
   // round it, calm = how much the outline's churn drops, smooth = dye-velocity smoothing, shroud = ink fed into the calm zone,
   // far = decay of loose smoke away from the body
-  const QI = { haloG: 0.5, obst: 0.9, smooth: 0.85, calm: 0.3, zone: 0.6, shroud: 0.32, far: 2.5 };
+  const QI = { haloG: 0.5, obst: 0.9, smooth: 0.85, calm: 0.3, zone: 0.6, shroud: 0.32, far: 2.5, body: 0.8, bodyK: 1 };
   const WIND = 0.2;   // s of wind-up before the breath (telegraph + gather beat)
   function gameFrame(dt) {
     if (G.dead) { G.q = G.rmb = G.boost = false; G.tgt = null; }   // game.js: dead until restart

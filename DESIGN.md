@@ -7,7 +7,7 @@ Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel
 ## Settled by Yang (don't reopen)
 - 2D, side view. Same dragon, same ink/fluid look.
 - Engine WebGL (Yang 11-18). Why: ink look already there; Godot blur was camera resampling, not engine; GTX 1650 ~4.6 ms/frame (WEBGL-TEST.md).
-- Look (Yang 11-18): dragon = long hồn, a soft body of smoke, as in the wallpaper. No scales, no crisp parts, no ink-wash redraw (tried 881cd2f/433788b, rejected, reverted). Open: ink reads grey/dirty, should be clean black.
+- Look (Yang 11-18): dragon = long hồn, a soft body of smoke, as in the wallpaper. No scales, no crisp parts, no ink-wash redraw (tried 881cd2f/433788b, rejected, reverted). Ink (game): body core = dense black (`QI.body/bodyK`, ink pass `uBody`), edge stays thin smoke; wallpaper pattern left it mid-grey ("xám xám bẩn bẩn").
 - Breath = "vận khí", 3 beats (dragon.js `QI`, `dg.qi/gather/wind`): wind-up 0.2 s (fire waits until head is on aim, max 0.7 s; loose smoke thins, body goes dense black) → hold (body = flow obstacle + calm zone, far smoke decays fast, soft puffs fed round the body) → release (qi drains ~1 s, smoke returns). Why: fire and body ink share one flow; the jet shredded the smoke and the dragon lost its shape. Dropped: combing smoke back along the body (zebra bands).
 - Controls: LoL-style mouse (11-17), see Controls.
 - Eye = original fluid red eye ink (smoky, not a flat fill: Yang 11-18 "trông như miếng decal"), 3x fill rate in game, kept to the socket + a short ragged fringe (display pass, mask cut-out). Eye ink outside the socket turns grey; no eye smoke trail in game (Yang 11-18: "vẽ vừa khớp với hốc mắt"). Never remove the eye.
