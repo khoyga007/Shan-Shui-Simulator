@@ -35,9 +35,10 @@
   const resolveDark = () => (cfg.theme === 'dark' ? true : cfg.theme === 'light' ? false : mq.matches);
 
   // ---- shaders (uv y up) ------------------------------------------------------------
-  const VERT = `precision highp float; attribute vec2 a; uniform vec2 uTx;
+  // uCam: game camera's sub-cell remainder as a uv offset (display pass only; every other pass leaves it at 0)
+  const VERT = `precision highp float; attribute vec2 a; uniform vec2 uTx, uCam;
 varying vec2 v, vL, vR, vT, vB;
-void main(){ v = a * .5 + .5; vL = v - vec2(uTx.x, 0.); vR = v + vec2(uTx.x, 0.); vT = v + vec2(0., uTx.y); vB = v - vec2(0., uTx.y);
+void main(){ v = a * .5 + .5 + uCam; vL = v - vec2(uTx.x, 0.); vR = v + vec2(uTx.x, 0.); vT = v + vec2(0., uTx.y); vB = v - vec2(0., uTx.y);
   gl_Position = vec4(a, 0., 1.); }`;
   const H = 'precision highp float; varying vec2 v, vL, vR, vT, vB;\n';
   const NOISE = `
@@ -1689,7 +1690,12 @@ void main(){
     pass('display', null, [dye.a.tex, maskTex, calTex, landTex || calTex], {
       uLand: landTex && !G.noLand ? 1 : 0, uMud: [1.6, .25],
       uLandS: landFit(),
-      uLandO: G.on ? (() => { const f = landFit(); return [G.camX / W * f[0] * 0.35, clamp(-G.camY / Hh * f[1] * 0.12, -0.25, 0.25)]; })() : [0, 0],   // parallax: hills move at a third of the ink
+      // game camera: ink/mask sampled at +remainder (uCam, same GL frame as the cell shift: nothing can drift apart).
+      // Hills: parallax from the continuous camera, minus the remainder uCam already added, so they glide instead of
+      // sliding a cell and snapping back
+      uCam: G.on ? [G.remX / W, -G.remY / Hh] : [0, 0],
+      uLandO: G.on ? (() => { const f = landFit(), cx = G.camX + G.remX, cy = G.camY + G.remY;
+        return [(cx * 0.35 - G.remX) / W * f[0], clamp(-cy / Hh * f[1] * 0.12, -0.25, 0.25) + G.remY / Hh * f[1]]; })() : [0, 0],
       uDyeTx: dye.tx,
       uManual: linear ? 0 : 1,
       uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true),
@@ -2068,9 +2074,10 @@ void main(){
       const nx = G.resample ? G.accX / qx : Math.trunc(G.accX / qx), ny = G.resample ? G.accY / qy : Math.trunc(G.accY / qy);
       if (nx || ny) { worldShift(nx, ny); G.accX -= nx * qx; G.accY -= ny * qy; }
     }
-    // what is left (< 1 cell) slides the canvas, snapped to device pixels so the page compositor does not resample it either
-    G.remX = Math.round(G.accX * dpr) / dpr; G.remY = Math.round(G.accY * dpr) / dpr;
-    cv.style.transform = `translate(${-G.remX}px, ${-G.remY}px)`;
+    // what is left (< 1 cell) is a sampling offset in the display pass (uCam), snapped to whole dye texels = exact copy.
+    // Was a CSS translate of the canvas: it moved the paper/hills too and could land a frame apart from the GL shift -> shake
+    const tX = W / dyeW, tY = Hh / dyeH;
+    G.remX = Math.round(G.accX / tX) * tX; G.remY = Math.round(G.accY / tY) * tY;
   }
   function gameFx(dt, kx, ky) {
     if (T < G.coil) {   // coil vortex: tangential pushes round the centre plus a slight inward pull, smoke there spins in
