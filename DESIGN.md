@@ -5,6 +5,9 @@ Working title. 2D side-view action-adventure, **WebGL** (browser; Electron/Tauri
 Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel review. Yang plays + approves.
 
 ## Settled by Yang (don't reopen)
+- **RESET 2026-11-18 late (overrides everything below where it conflicts):** game did not show the dragon off; dragon must be IDENTICAL to the wallpaper. One dragon source = `D:\Tools\DragonWallpaper\dragon.js`; game port inside it (`__dragon.game(o)`, `GM`, `gmOn()`): while `o.on`, wallpaper life is off (pearl, auto coil/breath, clouds, King, dance, cursor chase, click fire, backdrop) and head sits at `o.x,o.y`; `o.tick(dt)` returns sim dt (0 = pause), `o.draw(dt)` after render; 60 fps gate. `web/room/dragon.js` = synced copy (`tools/sync-dragon.sh`), never hand-edit. Fork `web/dragon.js` + `game.js` (Vân Sơn, F4 horde) = frozen, kept for reference.
+- Controls first, ALL skills dropped until controls feel right (Yang: controls decide almost everything). Head = the mouse cursor: pointer lock, mouse delta moves a point, head closes on it under a speed cap (`room.js` `S.cap/follow/leash/sens/turn`, defaults = Claire's picks, Yang tunes by sliders).
+- Test room `web/room/` (run-room.bat, port 8099, devserver with POST /report): pure white, dragon only, debug overlay (spine by bend, plain spine, body radius, head hitbox, trail, velocity, mouse point + leash, grid, state text), pause/step/slow-mo, F8 = report → `reports/rNNN.png + .json` (gitignored). Enemies later = skeleton + placeholder only. Shell later = Tauri (Rust = shell only).
 - 2D, side view. Same dragon, same ink/fluid look.
 - Engine WebGL (Yang 11-18). Why: ink look already there; Godot blur was camera resampling, not engine; GTX 1650 ~4.6 ms/frame (WEBGL-TEST.md).
 
