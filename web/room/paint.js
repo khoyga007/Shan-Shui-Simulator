@@ -19,7 +19,7 @@
   const ink = document.getElementById('ink'), cMain = ink.getContext('2d'), panel = document.getElementById('panel');
   let c = cMain;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
-  const S = { peak: 0.6, cun: 0.6, dry: 0.5, body: 0.5, tex: 'muse' };   // tex: whose brush strokes the ridge is laid with (muse / gemini / gpt), or 'code' = drawn by code
+  const S = { peak: 0.6, cun: 0.6, dry: 0.5, body: 0.5, mist: 0.5, tex: 'muse' };   // tex: whose brush strokes the ridge is laid with (muse / gemini / gpt), or 'code' = drawn by code
   const TEX = ['code', 'muse', 'gemini', 'gpt'];   // peak: how far crests are drawn up into points; cun: how many texture strokes; dry: how dry the brush
   try { Object.assign(S, JSON.parse(localStorage.getItem('paint.v2') || '{}')); } catch { /* defaults */ }
   { const q = new URLSearchParams(location.search).get('tex'); if (q) S.tex = q; }
@@ -163,7 +163,7 @@
     const pad = Math.round(0.04 * H), ox = bx0 - pad - extL, oy = Math.floor(yTop - 0.1 * H),   // whole px: wash columns must sit on the pixel grid or their seams show as fine upright stripes
        cw = Math.ceil((bx1 - bx0 + 2 * pad + extL + extR) * dpr), chh = Math.ceil((yBase + 0.19 * H - oy) * dpr);
     const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
-    const [cv, g] = mk(), [body, gb] = mk(), [rib, gr] = mk(), [mist, gm] = mk();
+    const [cv, g] = mk(), [body, gb] = mk(), [rib, gr] = mk();
     const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
     // -- wash: per column, ink thinning from the ridge to nothing at the foot. A second, shorter and darker band under
     //    the ridge with an uneven lower edge: the brush belly does not touch the paper evenly
@@ -207,18 +207,6 @@
       // behind was wiped in an upright pale band beside it
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, chh - Y0);
     }
-    // -- mist behind this mountain: it takes ink only from the mountains further back (laid in render, before this one
-    //    is drawn), so one standing alone has none. Lies along the ridge: thick where the ridge runs low (saddles, the
-    //    falling ends: where two mountains meet), thin toward the summits, in banks; reaching up over the far mountain
-    //    and down through this one's foot at its ends, where its own body hides little
-    // (pkF: a summit stands clear of it)
-    raw(gm); { const rel = Math.max(0.08 * H, yBase - yTop);
-      for (let k = 0; k < nb; k++) { const x = bx0 + k * BIN, t = ts[k], l = sm(clamp((t - yTop) / rel, 0, 1) * 1.4),
-          bank = 0.55 + 0.45 * sm((N(x / (0.22 * H) + 500, 2) - 0.3) / 0.35), pkF = 0.3 + 0.7 * sm(crests.reduce((b, c) => Math.min(b, Math.abs(P[c][0] - x)), 1e9) / (0.09 * H)), hx = sm((x - bx0) / (0.08 * H)) * sm((bx1 - x) / (0.08 * H)),
-          am = Math.min(0.95, (0.5 + 0.5 * l) * bank * pkF) * hx * (1 - cliff), hA = H * (0.05 + 0.08 * l) * (0.6 + 0.8 * N(x / (0.1 * H) + 520, 2)), hB = Math.max(0.05 * H, depthAt(t, x) * 0.9), pr = hA / (hA + hB);
-        if (am < 0.01) continue;
-        const gd = gm.createLinearGradient(0, DY(t - hA), 0, DY(t + hB)); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(pr * 0.5, `rgba(0,0,0,${(am * 0.3).toFixed(3)})`); gd.addColorStop(pr, `rgba(0,0,0,${am.toFixed(3)})`); gd.addColorStop(pr + (1 - pr) * 0.4, `rgba(0,0,0,${(am * 0.6).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
-        gm.fillStyle = gd; const X = DX(x); gm.fillRect(X, DY(t - hA), DX(x + BIN) - X, (hA + hB) * dpr); } }
     home(g); home(gb);
     // -- cun: texture strokes, each a thin line of a drying brush that bends toward the fall line and fades out
     const col = (x) => clamp(Math.round((x - bx0) / BIN), 0, nb - 1);
@@ -348,10 +336,46 @@
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
-    return { cv, body, mist, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
+    // -- mist (Yang 11-18: a mask of bare paper laid over the body, so the mountain stands out of mist as in a painting
+    //    and the faults of its body lie under it). A sea of mist with a rolling, curling top: summits stand clear of it,
+    //    the low stretches of the ridge sink to their line, both ends of the mountain are lost in it. Laid in render
+    //    after this mountain's ink: it takes this mountain and those behind it, never one in front.
+    //    Built coarse (one value per MQ px) and drawn enlarged: mist has no fine edge.
+    //    (The first mist, 545dcc2, lay behind the ridge and only paled the far mountain: not what was meant.)
+    let mist = null, mxy = [0, 0, 1];
+    if (S.mist > 0.02) { const MQ = 6, rise = yBase - yTop, mg = 0.2 * H, rock = cliff > 0.5, xa = bx0 - extL, xb = bx1 + extR, mx = Math.floor(xa - mg), my = Math.floor(yTop - 0.2 * H), yBot = yBase + 0.19 * H, mw = Math.ceil((xb + mg - mx) / MQ), mh = Math.ceil((yBot - my) / MQ), x1 = mx + mw * MQ;
+      const sd = d.seed | 0, h2 = (ix, iy) => { let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + sd) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; },
+         v2 = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), a = h2(ix, iy), b = h2(ix + 1, iy), c0 = h2(ix, iy + 1), e = h2(ix + 1, iy + 1); return a + (b - a) * sx + (c0 - a + (a - b - c0 + e) * sx) * sy; },
+         f2 = (x, y, o) => { let s = 0, w = 1, t = 0; for (let i = 0; i < o; i++) { s += w * v2(x, y); t += w; w *= 0.5; x = x * 2 + 13.7; y = y * 2 + 7.1; } return s / t; };
+      // each end is lost over its own length (never more than a third of the mountain: a single narrow peak keeps its top)
+      // (measured from the end of the stroke, not of the ink drawn on past it: begun out there, the mist was thin where a
+      // near ridge starts on a far one, and that knot of two inks stayed the darkest spot of the picture)
+      const xaE = xa + E, xbE = xb - E, dlL = Math.min(H * (0.06 + 0.2 * R()) * (0.5 + S.mist), 0.33 * (xbE - xaE)), dlR = Math.min(H * (0.06 + 0.2 * R()) * (0.5 + S.mist), 0.33 * (xbE - xaE)),
+         lv0 = yBase + H * (0.13 - 0.16 * S.mist) - rise * (0.3 * S.mist + 0.25 * cliff),   // the level of the sea: a tall mountain stands deeper in it
+         cMin = H * (0.055 - 0.03 * S.mist), lift = 0.05 * H, A = 0.075 * H;   // cMin: what a low stretch of the ridge keeps of its body
+      // two bodies of mist. The sea: all that lies under its level (cM), over the whole mountain. And a bank on each end
+      // of the ridge (from cP above the line down to cD, the foot of the ink there), by which the end is lost. (As one
+      // body, standing above the ridge at the ends and reaching down from there, an end high on the paper wiped an
+      // upright white column out of the mountain behind it)
+      const cT = new Float32Array(mw), cM = new Float32Array(mw), cE = new Float32Array(mw), cS = new Float32Array(mw), cD = new Float32Array(mw);
+      for (let i = 0; i < mw; i++) { const x = mx + (i + 0.5) * MQ, k = clamp(Math.round((x - bx0) / BIN), 0, nb - 1), t = rock ? yTop : Math.min(top[k], ts[k]), lvl = lv0 + 0.07 * H * (2 * N(x / (0.45 * H) + 600, 2) - 1);
+        cT[i] = t; cE[i] = rock ? 1 : sm((x - xaE) / dlL) * sm((xbE - x) / dlR); cM[i] = rock ? lvl : Math.max(lvl, t + cMin); cD[i] = t + depthFull[k] + 0.05 * H; cS[i] = H * (0.045 + 0.09 * N(x / (0.3 * H) + 640, 2)) * (rock ? 2 : 1); }   // cS: how soft the top of the mist is there
+      const im = new ImageData(mw, mh), px = im.data, su = 1 / (0.2 * H), sv = 1 / (0.11 * H);   // banks lie longer than they are tall
+      for (let i = 0; i < mw; i++) { const x = mx + (i + 0.5) * MQ, sw = cS[i], e = cE[i], t = cT[i], band = 1.3 * A + sw, dx = Math.min(x - mx, x1 - x), u = x * su;
+        for (let j = 0; j < mh; j++) { const y = my + (j + 0.5) * MQ, relS = y - cM[i], relP = y - (t - lift), inP = e < 0.995 && relP > -band && y < cD[i];
+          if (relS < -band && !inP) continue;
+          let a = 1;
+          if (relS < band || dx < 0.27 * H) { const v = y * sv, wx = v2(u + 5.2, v + 1.3), wy = v2(u + 9.1, v + 7.7), nz = f2(u + 1.2 * wx, v + 1.2 * wy, 3), dsp = A * 1.6 * (2 * nz - 1) * (0.5 + wy);   // noise bent by noise: the top rolls, higher in places
+            a = sm((relS + dsp) / sw); if (inP) a = Math.max(a, (1 - e) * sm((relP + dsp) / sw) * sm((cD[i] - y) / (0.1 * H)));
+            a *= sm(dx / (H * (0.06 + 0.12 * wx))); }   // no upright edge where the mask ends
+          a *= 1 - e * (1 - sm((y - t - 0.012 * H) / (0.03 * H)));   // away from the ends the ridge line itself stays, and what stands above it
+          a *= sm((y - my) / (0.04 * H)) * sm((yBot - y) / (0.03 * H));
+          if (a > 0.004) px[(j * mw + i) * 4 + 3] = Math.round(a * 255); } }
+      mist = document.createElement('canvas'); mist.width = mw; mist.height = mh; mist.getContext('2d').putImageData(im, 0, 0); mxy = [mx, my, MQ]; }
+    return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
   }
 
-  const MIST = 1.0;   // seconds the mist takes to rise behind a mountain, once its ink has run down
+  const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
   const bake = document.createElement('canvas'); let bakeKey = '';
   const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
@@ -361,7 +385,8 @@
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
-      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalAlpha = mistA(d); b.drawImage(d.m.mist, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone); } }
+      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone);
+        if (d.m.mist) { const [mx, my, q] = d.m.mxy; b.globalCompositeOperation = 'destination-out'; b.globalAlpha = mistA(d); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high'; b.drawImage(d.m.mist, Math.round(mx * dpr), Math.round(my * dpr), d.m.mist.width * q * dpr, d.m.mist.height * q * dpr); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; } } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m, nb = m.ts.length;
@@ -386,7 +411,7 @@
   document.addEventListener('mousedown', (e) => { if (e.button === 0 && Rm.st.locked) penDown(); });
   document.addEventListener('mouseup', (e) => { if (e.button === 0) penUp(); });
   document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) penUp(); });
-  const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô / độ dày nét'], ['body', 'Độ đậm thân núi']];
+  const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô / độ dày nét'], ['body', 'Độ đậm thân núi'], ['mist', 'Lượng sương (0 = tắt)']];
   const pbox = document.createElement('div');
   pbox.innerHTML = `<h3>Vẽ núi (tự do)</h3><div id="p_stat" class="keys"></div>
     <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button>
