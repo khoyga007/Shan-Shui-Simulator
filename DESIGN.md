@@ -1,11 +1,14 @@
 # InkDragon — design (Go 2026-11-17)
 
-Working title. 2D side-view action-adventure, Godot 4. Player = the ink-wash dragon from DragonWallpaper (D:\Tools\DragonWallpaper\dragon.js), already ported to Godot in D:\Projects\InkDragonSpike (Ariel, 28ca6e1).
+Working title. 2D side-view action-adventure, **WebGL** (browser; Electron/Tauri wrap if Steam). Player = the ink-wash dragon from DragonWallpaper; game code = `web/dragon.js` (copy, `?game=1`). Godot spike D:\Projects\InkDragonSpike frozen, reference only.
 
-Owners: Claire design + review · Ariel Godot code · Celine controls/game-feel. Yang plays + approves.
+Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel review. Yang plays + approves.
 
 ## Settled by Yang (don't reopen)
-- 2D, side view, Godot. Same dragon, same ink/fluid look.
+- 2D, side view. Same dragon, same ink/fluid look.
+- Engine WebGL (Yang 11-18). Why: ink look already there; Godot blur was camera resampling, not engine; GTX 1650 ~4.6 ms/frame (WEBGL-TEST.md).
+- Controls: LoL-style mouse (11-17), see Controls.
+- No eye dot/glow/eye smoke in game (11-18). Head reads by ink shape.
 - Wide world + combat.
 - Camera zoomed out vs wallpaper (dragon ~2100px > screen today).
 - Fire-hits-wall impinging jet, king gold horns/mane tips, through-cloud emerge, mouth-seam leak: approved in wallpaper 11-17 → port as-is.
@@ -18,16 +21,15 @@ Owners: Claire design + review · Ariel Godot code · Celine controls/game-feel.
 ## Camera
 - Default: dragon spans 1/3–1/2 screen width.
 - Dynamic: zoom out on speed / crowd; boss framing fits boss; idle/cutscene zooms in to wallpaper scale.
-- Fluid cost: grid ~128 rows today; zoomed out → fewer cells per body → mush. Plan both:
-  - raise grid to ~256 rows (≈4× cost) — Ariel benchmarks on GTX 1650 4GB, target 60fps @1080p;
-  - camera-local sim: grid covers viewport + margin, scrolls with camera (advect-offset on scroll), world size free. Dye leaving the window is dropped.
+- Fluid: camera-local sim, done. Grid scrolls by whole sim cells (dye = integer multiple of sim, no resample); sub-cell rest in display shader. Dye leaving the window is dropped. Grid 128 rows; raise to ~256 only if zoom-out mushes (GTX headroom ~3x).
+- Sim steps capped ~60/s (`tick()`): ink passes tuned per step; uncapped 126 fps washed the dragon out. Per-frame splats scale `dt*30`.
+- Must run on the GTX: run.bat forces `--force_high_performance_gpu` (Chrome default = Intel iGPU, 37 fps).
 - Measure in slice: smallest zoom where smoke/fire still read well and holds 60fps.
 
 ## Controls (Celine owns feel)
-- Move: stick/WASD = head steering target (dragon follows path, body trails). Not direct velocity — keep the serpentine follow.
-- Boost: hold, short stamina.
-- Fire breath (hold) · Tail/body whip (tap) · Coil vortex (hold, dragon circles) · Cloud dive (near cloud) · King form (when pearl meter full).
-- Gamepad first, KB+M supported. Mouse aim optional for breath.
+- RMB = fly to point (hold = chase cursor). Head steers to target, body trails (serpentine follow).
+- Q breath at cursor (hold) · W tail whip · E coil · R cloud dive (in near dragon, out at cursor) · Shift/Space boost (stamina).
+- Camera locked on dragon. Boss attacks need clear tells. Gamepad dropped for now. King form: later.
 
 ## Combat moves
 | Move | Fluid mechanic | Use |
@@ -63,7 +65,8 @@ Regions connected by open sky; gates = ability needs, not keys.
 - Repainted regions persist; scroll seal (red stamp) per cleared region.
 
 ## Vertical slice (first milestone)
-Scope: Vân Sơn only — one scrolling area ~6 screens wide, 3 enemy types, Mặc Giao boss, breath + whip + coil + cloud dive, dynamic camera, camera-local fluid.
+Scope: Vân Sơn only — one scrolling area ~6 screens wide, 3 enemy types, Mặc Giao boss, breath + whip + coil + cloud dive, camera-local fluid.
+Step 1 (playable, 11-18): world bounds + landmarks, 3 enemies, analytic hit proxy, dragon HP, death → restart. Boss + dynamic zoom after.
 Question it must answer: **does fighting with real fluid feel good?** If no → rethink before world.
 Exit criteria:
 - 60fps @1080p on GTX 1650 with fluid at chosen grid.
