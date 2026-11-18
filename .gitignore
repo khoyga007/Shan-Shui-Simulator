@@ -1,0 +1,3 @@
+shots/*.png
+!shots/keep/
+node_modules/
