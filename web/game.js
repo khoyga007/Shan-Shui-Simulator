@@ -27,10 +27,12 @@
   const QS = new URLSearchParams(location.search);
   // r = wisp radius (U), ink = how black it is painted (1 = as black as the dragon): &hr= and &hink= to compare looks
   const H = { n: Math.max(0, +QS.get('horde') || 0), dmg: QS.get('dmg') === '1', r: +QS.get('hr') || 0.032, ink: +QS.get('hink') || 1, t: 0, acc: 0, burst: 0, alive: 0 };
-  // in the game window (run.bat has no address bar): F4 = horde test on/off, [ ] = count -/+ 25, , . = wisps smaller / bigger
+  // in the game window (run.bat has no address bar): F4 = horde test on/off, [ ] = count -/+ 25, , . = wisps smaller / bigger,
+  // \ = damage on/off
   addEventListener('keydown', (e) => {
     if (e.code === 'F4') { e.preventDefault(); H.n = H.n ? 0 : 150; if (H.n && !QS.get('hr')) H.r = 0.016; if (U) reset(); return; }
     if (!H.n) return;
+    if (e.code === 'Backslash') { H.dmg = !H.dmg; return; }   // \ = the horde can hurt the dragon or not
     if (e.code === 'BracketLeft') H.n = Math.max(25, H.n - 25); else if (e.code === 'BracketRight') H.n = Math.min(800, H.n + 25);
     else if (e.code === 'Comma' || e.code === 'Period') { H.r = clamp(H.r * (e.code === 'Comma' ? 0.85 : 1 / 0.85), 0.008, 0.04); for (const w of ens) if (w.horde) w.r = H.r; }
   });
@@ -96,9 +98,14 @@
 
   // ---- dragon queries ----------------------------------------------------------------------------------------------------
   const scr = (o) => { const G = A().G; return { x: o.x - G.camX, y: o.y - G.camY }; };
-  function nearBody(x, y, r) {   // dragon segment hit by a circle at screen (x, y): index or -1. Head, neck, chest only (front 40%):
-    const a = A(), p = a.dg.pts, n = p.length;   // the body is ~2 screens long; the tail is a weapon, not a hitbox
-    for (let i = 0; i < n * 0.4; i += 2) { const q = p[i], R = a.radAt(i / (n - 1)); if (hyp(q.x - x, q.y - y) < r + R * 0.9) return i; }
+  // dragon hit by a circle at screen (x, y): joint index or -1. The HEAD only (Yang 11-18: "anh tưởng là mỗi đầu có hitbox";
+  // was head + neck + chest, the front 40%): the body is ~2 screens long and can't be kept out of a crowd, the head can be
+  // steered. Head = the skull, joints 0..6 back from the eye line, plus the snout ahead of joint 0
+  function nearBody(x, y, r) {
+    const a = A(), p = a.dg.pts, n = p.length, R0 = a.rad();
+    const hx = p[0].x - p[2].x, hy = p[0].y - p[2].y, hl = hyp(hx, hy) || 1;
+    if (hyp(p[0].x + hx / hl * R0 * 1.6 - x, p[0].y + hy / hl * R0 * 1.6 - y) < r + R0 * 0.8) return 0;   // snout
+    for (let i = 0; i <= 6; i += 2) { const q = p[i], R = a.radAt(i / (n - 1)); if (hyp(q.x - x, q.y - y) < r + R * 0.9) return i; }
     return -1;
   }
   function breathCone() {   // analytic proxy for the fire: cone from the mouth, the way the jet leaves it
@@ -373,7 +380,7 @@
         hp.style.width = S.hp.toFixed(1) + '%';
         left.textContent = H.n ? `Thử bầy đàn · ${H.alive}/${H.n} con · diệt ${S.kills} · ${A().G.fps.toFixed(0)} fps
 chuột lái · Q lửa · W đuôi · E cuộn · R lặn · Shift tăng tốc
-[ ] số quái · , . cỡ quái (${(H.r / 0.032 * 100).toFixed(0)}%) · F4 tắt` : `Vân Sơn · còn ${S.total - S.kills}/${S.total} quái mực`;
+[ ] số quái · , . cỡ quái (${(H.r / 0.032 * 100).toFixed(0)}%) · \\ mất máu: ${H.dmg ? 'BẬT' : 'tắt'} · F4 tắt` : `Vân Sơn · còn ${S.total - S.kills}/${S.total} quái mực`;
         const dv = A().diveSt(), row = q('ig-dive'); row.style.opacity = dv.ok ? 1 : 0.4;
         dv.ch.forEach((f, i) => { const k = Math.round(f * 50) * 2, el = row.children[i + 1];
           if (el._k !== k) { el._k = k; el.style.background = k >= 100 ? '#2a2622' : `conic-gradient(rgba(42,38,34,.5) ${k}%, transparent 0)`; } });
