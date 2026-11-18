@@ -19,7 +19,7 @@
   const ink = document.getElementById('ink'), cMain = ink.getContext('2d'), panel = document.getElementById('panel');
   let c = cMain;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
-  const S = { peak: 0.6, cun: 0.6, dry: 0.5, tex: 'muse' };   // tex: whose brush strokes the ridge is laid with (muse / gemini / gpt), or 'code' = drawn by code
+  const S = { peak: 0.6, cun: 0.6, dry: 0.5, body: 0.5, tex: 'muse' };   // tex: whose brush strokes the ridge is laid with (muse / gemini / gpt), or 'code' = drawn by code
   const TEX = ['code', 'muse', 'gemini', 'gpt'];   // peak: how far crests are drawn up into points; cun: how many texture strokes; dry: how dry the brush
   try { Object.assign(S, JSON.parse(localStorage.getItem('paint.v2') || '{}')); } catch { /* defaults */ }
   { const q = new URLSearchParams(location.search).get('tex'); if (q) S.tex = q; }
@@ -154,11 +154,12 @@
       const x = f.x0 + k * BIN, t = f.ts[k], ee = envX(x), dd = depthAt(t, x), sh = f.shade[k], y0 = Math.min(f.top[k], t) - 1,
          e = ee * (folded ? sm(Math.min(k, f.m - 1 - k) / fr) : 1),   // a stretch's ink thins toward the turn, or its end stood as a plumb edge in the body
          X = DX(x), Wd = DX(x + BIN) - X, Y0 = DY(y0), T = DY(t);
-      const a0 = 0.56 * (0.85 + 0.3 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2));
-      let gd = g.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(${INK},${a0.toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * 0.34).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * 0.1).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
+      const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body,   // body: how much ink the mountain's flank holds, and how far down it stays dark
+      a0 = Math.min(0.95, 0.56 * bm * (0.85 + 0.3 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2)));
+      let gd = g.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(${INK},${a0.toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * (0.34 + mid)).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * (0.1 + mid)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
       const d2 = Math.min(dd * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
-         a2 = 0.34 * clamp(0.5 + 0.7 * sh, 0.12, 1) * e;
+         a2 = Math.min(0.9, 0.34 * bm * clamp(0.5 + 0.7 * sh, 0.12, 1) * e);
       gd = g.createLinearGradient(0, T, 0, DY(t + d2)); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0);
       gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(0,0,0,${Math.min(1, 1.6 * e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${Math.min(1, 1.4 * e).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
@@ -279,7 +280,7 @@
   document.addEventListener('mousedown', (e) => { if (e.button === 0 && Rm.st.locked) penDown(); });
   document.addEventListener('mouseup', (e) => { if (e.button === 0) penUp(); });
   document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) penUp(); });
-  const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô / độ dày nét']];
+  const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô / độ dày nét'], ['body', 'Độ đậm thân núi']];
   const pbox = document.createElement('div');
   pbox.innerHTML = `<h3>Vẽ núi (tự do)</h3><div id="p_stat" class="keys"></div>
     <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button>
