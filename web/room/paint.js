@@ -144,12 +144,15 @@
       runs.push([a, n - 1]); }
     // past both its ends the mountain goes on, falling away into the mist: the ink thins out there and not inside the
     // stroke. (Thinned inside, two mountains meeting end to end left a white upright gap between them: r007)
-    const E = runs.length > 1 ? 0 : Math.round(0.1 * H * (1 - cliff)); bx1 += E;
+    const E = runs.length > 1 ? 0 : Math.round(0.22 * H * (1 - cliff)); bx1 += E;
     const F = field(0, n - 1, E), bx0 = F.x0, nb = F.m, top = F.top, ts = F.ts, shAt = (k) => F.shade[clamp(k, 0, nb - 1)];
     // the two ends of the stroke thin out: the brush is set down and lifted there
     const te = Math.min(0.3, 0.09 * H / Math.max(1, bx1 - bx0)), envX = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / te) * sm((1 - t) / te); }, env = (k) => envX(bx0 + k * BIN);
     // how far the ink runs down the slope: to about the level of the stroke's lowest point, so tall peaks get long slopes
-    const depthAt = (t, x) => ((yBase - t) * 1.0 + 0.17 * H) * (0.45 + 0.55 * envX(x)), depth = ts.map((t, k) => depthAt(t, bx0 + k * BIN));
+    // toward both ends the ink runs less and less far down: the mountain dies out as a wedge along its falling flank.
+    // (Its ink only thinned there, column by column, so every mountain began and ended at a plumb edge: r007)
+    const tD = Math.min(0.5, (E + 0.1 * H) / Math.max(1, bx1 - bx0)), envD = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / tD) * sm((1 - t) / tD); };
+    const depthAt = (t, x) => ((yBase - t) * 1.0 + 0.17 * H) * (E ? 0.05 + 0.95 * envD(x) : 0.45 + 0.55 * envX(x)), depth = ts.map((t, k) => depthAt(t, bx0 + k * BIN));
     const folded = runs.length > 1, fields = folded ? runs.map(([a, b]) => field(a, b)) : [F];
     // -- canvases, cropped to the mountain
     const CL = Math.round(cliff * clamp(0.55 * (yBase - yTop), 0.1 * H, 0.3 * H)), extL = side < 0 ? CL : 0, extR = side > 0 ? CL : 0;   // how far a rock face's ink runs sideways
@@ -186,7 +189,7 @@
         g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e); g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
         g.globalAlpha = Math.min(1, 0.26 * bm * e); g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dd * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
       } else { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
-      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = Math.pow(sm(e), 2.5).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${hm})`); gd.addColorStop(0.6, `rgba(0,0,0,${hm})`);   // and a little less: where its ink is thin the two lie over each other, or a pale sliver stood between them   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
+      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${hm})`); gd.addColorStop(0.6, `rgba(0,0,0,${hm})`);   // and a little less: where its ink is thin the two lie over each other, or a pale sliver stood between them   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
     }
     home(g); home(gb);
@@ -217,7 +220,7 @@
     if (kitB.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.02 + 0.05 * R())) {
       const k = col(x), sh = shAt(k), r1 = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R();
       if (r1 > S.cun * (sh > 0 ? 0.9 : 0.35)) continue;
-      const big = r5 * r5, an = 1.5708 - sh * 0.8 + (r4 - 0.5) * 0.7, ln = H * (0.014 + 0.05 * big), y = ts[k] + H * 0.012 + depth[k] * 0.32 * r3 * r3, cnt = 1 + Math.floor(R() * 4);   // a few large, many small; cut in ones to fours, side by side, each shorter than the last
+      const big = r5 * r5, an = 1.5708 - sh * 0.8 + (r4 - 0.5) * 0.7, ln = H * (0.014 + 0.026 * big), y = ts[k] + H * 0.012 + depth[k] * 0.32 * r3 * r3, cnt = 1 + Math.floor(R() * 4);   // a few large, many small; cut in ones to fours, side by side, each shorter than the last
       for (let j = 0; j < cnt; j++) { const l2 = ln * (1 - 0.16 * j) * (0.8 + 0.4 * R());
         stamp(kitB[Math.floor(r2 * kitB.length + j * 3) % kitB.length], x - Math.sin(an) * j * ln * 0.36 + (R() - 0.5) * ln * 0.25, y + Math.cos(an) * j * ln * 0.36 + (R() - 0.5) * ln * 0.35, an + (R() - 0.5) * 0.3, l2, (0.3 + 0.45 * R()) * (1 - 0.3 * big) * env(k), 0.7 + 0.6 * R()); }
     }
