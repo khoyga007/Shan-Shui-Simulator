@@ -184,7 +184,8 @@
       }
       if (cc) {   // coil vortex drags small enemies in and grinds them
         const cx = cc.x - e.x, cy = cc.y - e.y, cd = hyp(cx, cy);
-        if (cd < 0.5 * U && e.k !== 'turtle') { e.vx += cx / cd * U * 3 * dt - cy / cd * U * 2 * dt; e.vy += cy / cd * U * 3 * dt + cx / cd * U * 2 * dt; hurtEnemy(e, 22 * dt, 0, 0); }
+        const d = a.G.cw ? a.G.cw.dir : 1;   // swept round the same way the coil turns
+        if (cd < 0.5 * U && e.k !== 'turtle') { e.vx += cx / cd * U * 3 * dt + d * cy / cd * U * 2 * dt; e.vy += cy / cd * U * 3 * dt - d * cx / cd * U * 2 * dt; hurtEnemy(e, 22 * dt, 0, 0); }
       }
       // enemy contact on the dragon
       if (e.hp > 0 && e.k !== 'crow' && e.hitCd <= 0 && !S.dead) {

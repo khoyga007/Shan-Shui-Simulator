@@ -6,7 +6,8 @@ Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel
 
 ## Settled by Yang (don't reopen)
 - 2D, side view. Same dragon, same ink/fluid look.
-- Engine WebGL (Yang 11-18). Why: ink look already there; Godot blur was camera resampling, not engine; GTX 1650 ~4.6 ms/frame (WEBGL-TEST.md).
+- Engine WebGL (Yang 11-18). Why: ink look already there; Godot blur was camera resampling, not engine; GTX 1650 ~4.6 ms/frame (WEBGL-TEST.md).
+
 - Look (Yang 11-18): dragon = long hồn, a soft body of smoke, as in the wallpaper. No scales, no crisp parts, no ink-wash redraw (tried 881cd2f/433788b, rejected, reverted). Ink (game): body core = dense black (`QI.body/bodyK`, ink pass `uBody`), edge stays thin smoke; wallpaper pattern left it mid-grey ("xám xám bẩn bẩn").
 - Breath = "vận khí", 3 beats (dragon.js `QI`, `dg.qi/gather/wind`): wind-up 0.2 s (fire waits until head is on aim, max 0.7 s; loose smoke thins, body goes dense black) → hold (body = flow obstacle + calm zone, far smoke decays fast, soft puffs fed round the body) → release (qi drains ~1 s, smoke returns). Why: fire and body ink share one flow; the jet shredded the smoke and the dragon lost its shape. Dropped: combing smoke back along the body (zebra bands).
 - Controls: LoL-style mouse (11-17), see Controls.
@@ -38,7 +39,7 @@ Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel
 |---|---|---|
 | Breath | 7-ray cone; impinging jet on walls rolls back | main dmg; bank shots behind rock |
 | Whip | body segments push velocity sideways | knockback, scatter smoke enemies |
-| Coil vortex | dragon loops → splat swirl ring; vorticity up | pull smoke/projectiles to centre, then breath = combo |
+| Coil vortex | body wound into an open spiral (tail centre, head on rim), turns as one piece; swirl splats | pull small enemies in + grind; Q from the coil = turret breath |
 | Cloud dive | enter cloud, emerge from another (path-follow emerge) | dodge/i-frames, traversal |
 | King form | gold horns/mane, gold fire, ×2 dmg, bigger cone | timed ult, fed by pearls |
 | Swallow | inhale fire/lightning projectiles | defence; refills breath |
@@ -75,6 +76,7 @@ Step 1 built (`web/game.js`):
 - Enemies painted into mask red (= dragon's ink channel): brushwork + smoking edges free, fire overrides, death = stop painting + gentle splat.
 - Wisp ×18 (HP 10): swarm, dive at head, bite 5, back off 1–1.6 s. Crow ×6 (HP 30): flank 0.75 U, wing-raise tell 0.45 s, ink dart 10 dmg (fire/whip destroy). Turtle ×3 (HP 80): walks ground, faces dragon, front fire ×0.08 + jet splashes back, back ×1.4; tell 0.7 s → lunge 14; whip flips it.
 - Hits: breath = cone from mouth (len 0.9 H, half 0.34) + lip splash; whip = last 18 tail pts; coil drags/grinds non-turtles. Dragon hitbox = front 40% of body (tail is a weapon).
+- Coil E (`COIL`, `gameCoil/coilHead/coilBody`, 11-18): head runs an Archimedean spiral outward from a centre at its side (cursor's side), body = exact follow of the head's track (NOT the drag chain: dragged joints cut corners, r' = sqrt(r² - s²)/joint, body heaped at the centre = black blob, Yang "cuộn chả ra cuộn"). 1.5 s wind, then rigid rotation to 3 s. Last 16 joints peel off the rim so the head reads. Qi hold on throughout (same as breath). Q once wound: whole coil swings to aim, stays wound while breathing; aim inside the coil = no turn. Camera holds the centre. Release = chain again, MAXB eased by `G.coilK`.
 - Dragon HP 100, regen 3/s after 4 s unhurt. Dead/clear → end card, any key/click restarts.
 - Per-frame fluid pushes from game code must scale `dt*30`: unscaled ones became fountains that blew fire into hard-edged bubbles.
 - Perf GTX headless, 12 enemies + breath: 5.3 ms/frame (was 4.6 without).

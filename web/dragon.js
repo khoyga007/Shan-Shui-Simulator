@@ -29,7 +29,7 @@
   // blur). What is left over (< 1 cell) is a CSS translate of the oversized canvas, rounded to device pixels.
   const G = { on: /[?&]game=1(&|$)/.test(location.search), follow: true, mx: 0, my: 0,
     accX: 0, accY: 0, remX: 0, remY: 0, leadX: 0, leadY: 0, camX: 0, camY: 0, cx: 0, cy: 0, ptr: false,
-    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, dive: false,
+    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, cw: null, coilK: 0, dive: false,
     fps: 0, fpsN: 0, fpsT: 0, hud: null, shifts: 0 };
   const mq = matchMedia('(prefers-color-scheme: dark)');
   const resolveDark = () => (cfg.theme === 'dark' ? true : cfg.theme === 'light' ? false : mq.matches);
@@ -1266,10 +1266,12 @@ void main(){
     const m = Math.min(W, Hh) * 0.14;
     if (!G.on && (dg.hx < m || dg.hx > W - m || dg.hy < m || dg.hy > Hh - m)) dg.ang += clamp(wrapA(Math.atan2(Hh / 2 - dg.hy, W / 2 - dg.hx) - dg.ang), -1.4 * dt, 1.4 * dt);
     const s = segLen();
+    if (G.cw) coilHead(dt, s);
     for (let i = 0; i < N; i++) { dg.prev[i].x = dg.pts[i].x; dg.prev[i].y = dg.pts[i].y; }
     dg.pts[0].x = dg.hx; dg.pts[0].y = dg.hy;
     if (dg.reel && (cl.ph !== 'emerge' || T - dg.reel.t0 > 4)) dg.reel = null;
-    if (dg.reel) {   // reel-out: joint i sits i*s back along the head's track; joints not yet out wait at the cloud's centre
+    if (G.cw) coilBody(s);
+    else if (dg.reel) {   // reel-out: joint i sits i*s back along the head's track; joints not yet out wait at the cloud's centre
       const P = dg.reel.P; P.unshift([dg.hx, dg.hy]);
       let k = 0, acc = 0;
       for (let i = 1; i < N; i++) {
@@ -1303,7 +1305,7 @@ void main(){
       // segment before it, so a sharp head turn becomes a wide arc down the body instead of a kink. The coil pose needs
       // ~0.11 rad/joint, well inside the limit
       if (i >= 2) {
-        const z = dg.pts[i - 2], pa = Math.atan2(a.y - z.y, a.x - z.x), na = Math.atan2(ey, ex), d = wrapA(na - pa), MAXB = 0.2;
+        const z = dg.pts[i - 2], pa = Math.atan2(a.y - z.y, a.x - z.x), na = Math.atan2(ey, ex), d = wrapA(na - pa), MAXB = 0.2 + 0.14 * G.coilK;   // coilK: fresh out of a coil the tight inner turn is let be, it opens as coilK runs out
         if (Math.abs(d) > MAXB) { const ca = pa + Math.sign(d) * MAXB; ex = Math.cos(ca); ey = Math.sin(ca); }
       }
       l = Math.hypot(ex, ey) || 1;
@@ -1319,7 +1321,7 @@ void main(){
     // smoke round the body thins out, the body goes dense black), hold (while breathing: body = obstacle, smoke combed back along it),
     // release (qi drains slowly: the smoke comes back). qi drives the hold, gather the short pull-in
     if (G.on) {
-      const on = dg.breath > 0 || dg.wind > 0;
+      const on = dg.breath > 0 || dg.wind > 0 || !!G.cw;   // the coil holds its qi too: turns stay black and apart, loose smoke clears
       dg.qi += ((on ? 1 : 0) - dg.qi) * Math.min(1, dt * (on ? 16 : 1.4));
       dg.gather += ((dg.wind > 0 ? 1 : 0) - dg.gather) * Math.min(1, dt * (dg.wind > 0 ? 24 : 3));
     }
@@ -2127,10 +2129,7 @@ void main(){
   }
   function gameMode(R) { const m = gameMode0(R); window.InkGame?.bound(dg); return m; }   // game.js keeps the target in the world
   function gameMode0(R) {
-    if (T < G.coil) {   // E: circle a fixed centre (the wallpaper's cocoon orbit)
-      const oa = Math.atan2(dg.hy - G.ccy, dg.hx - G.ccx) + 1.0, r = Hh * 0.1;
-      dg.tx = G.ccx + Math.cos(oa) * r; dg.ty = G.ccy + Math.sin(oa) * r; return 'coil';
-    }
+    if (G.cw) { dg.tx = G.ccx; dg.ty = G.ccy; return 'coil'; }   // E: coilHead() moves the head, this only names the mode
     if (G.rmb && G.ptr) G.tgt = { x: G.cx, y: G.cy };   // RMB held: follow the cursor
     if (G.tgt) {
       dg.tx = G.tgt.x; dg.ty = G.tgt.y;
@@ -2140,6 +2139,62 @@ void main(){
     const h = G.hover || (G.hover = { x: dg.hx, y: dg.hy });   // idle: slow loop round the last stop, never stands still
     dg.tx = h.x + Math.cos(T * 0.5) * Hh * 0.22; dg.ty = h.y + Math.sin(T * 0.5) * Hh * 0.14;
     return 'pearl';
+  }
+  // E coil (bàn long). The head runs an opening spiral round a centre at its side and the body follows the head's own track joint
+  // for joint, so it lays down as separate turns with paper between them: thin tail in the middle, head on the rim. Once wound,
+  // the whole spiral turns as one piece until the time is up, then the usual chain takes over and the head pulls it open.
+  // (Was: the head steered round a small circle. Dragged joint to joint the chain cuts every corner, r2 = sqrt(r^2 - s^2) per
+  // joint, so some 20 joints in the body sat in a heap at the centre: a black blob, Yang 11-18 "cuộn chả ra cuộn")
+  // r0 / pitch / neck / lift / vr in joint spacings (body = N - 1 = 75 of them, thickest 3.7 across), wind = s to lay the whole body down
+  const COIL = { r0: 3.6, pitch: 4.3, wind: 1.5, dur: 3, neck: 16, lift: 4, vr: 7.5, vs: 0.8, vin: 0.35 };
+  function gameCoil() {
+    if (T < G.coil + 0.8 || kd.ph !== 'off' || cl.ph !== 'off' || G.dead) return;
+    const s = segLen(), nx = -Math.sin(dg.ang), ny = Math.cos(dg.ang);
+    const dir = G.ptr && nx * (G.cx - dg.hx) + ny * (G.cy - dg.hy) < 0 ? -1 : 1;   // curls toward the cursor's side
+    G.ccx = dg.hx + nx * dir * COIL.r0 * s; G.ccy = dg.hy + ny * dir * COIL.r0 * s;   // the head is on the first turn already, heading along it
+    G.coil = T + COIL.dur; G.tgt = null; G.hover = null;
+    G.cw = { t0: T, dir, ph0: Math.atan2(dg.hy - G.ccy, dg.hx - G.ccx), P: dg.pts.map((q) => [q.x, q.y]), rot: 0, wound: false };
+  }
+  function coilHead(dt, s) {
+    const c = G.cw, t = T - c.t0, L = (N - 1) * s, r0 = COIL.r0 * s, p = COIL.pitch * s, TAU = Math.PI * 2;
+    const fire = dg.breath > 0 || dg.wind > 0;   // breathing from the coil keeps it wound past its time: let go mid-breath, the chain smeared it
+    if ((T >= G.coil && !fire) || cl.ph !== 'off' || kd.ph !== 'off') { G.cw = null; G.coil = Math.min(G.coil, T); G.coilK = 1; G.hover = null; return; }
+    const rhoAt = (u) => Math.sqrt(r0 * r0 + p * u / Math.PI);   // Archimedean: turns p apart, u = length run along it
+    if (t < COIL.wind) {   // fast through the middle, half that at both ends (meets the flight before and the turning after)
+      const x = t / COIL.wind, u = L * (0.5 * x + 0.5 * x * x * (3 - 2 * x)), rs = rhoAt(u), ph = c.ph0 + c.dir * TAU * (rs - r0) / p;
+      const nk = clamp((u - L + COIL.neck * s) / (COIL.neck * s), 0, 1), rho = rs + COIL.lift * s * nk * nk;   // the last stretch peels off the rim: the head stands clear of the coil
+      const hx = G.ccx + Math.cos(ph) * rho, hy = G.ccy + Math.sin(ph) * rho, q = dg.pts[0];
+      if (Math.hypot(hx - q.x, hy - q.y) > 0.01) dg.ang += clamp(wrapA(Math.atan2(hy - q.y, hx - q.x) - dg.ang), -30 * dt, 30 * dt);
+      dg.hx = hx; dg.hy = hy;
+    } else {   // wound: rigid turn, same rim speed the winding ended on
+      const q = dg.pts[0], q2 = dg.pts[2], dx = q.x - G.ccx, dy = q.y - G.ccy;
+      c.wound = true; c.rot = c.dir * (0.5 * L / COIL.wind) / rhoAt(L) * dt;
+      if (fire) {   // Q from the coil: the whole coil swings round like a turret until the head, out on the rim, points at the aim.
+        // An aim inside the coil cannot be reached by a head that looks along the rim: it stops turning instead of spinning the fire round
+        const far = Math.hypot(dg.bx - G.ccx, dg.by - G.ccy) > Math.hypot(dx, dy) * 1.2;
+        c.rot = far ? clamp(wrapA(Math.atan2(dg.by - q.y, dg.bx - q.x) - Math.atan2(q.y - q2.y, q.x - q2.x)), -2.6 * dt, 2.6 * dt) : 0;
+      }
+      const cs = Math.cos(c.rot), sn = Math.sin(c.rot);
+      dg.hx = G.ccx + dx * cs - dy * sn; dg.hy = G.ccy + dx * sn + dy * cs; dg.ang += c.rot;
+    }
+  }
+  function coilBody(s) {
+    const c = G.cw;
+    if (c.wound) {
+      const cs = Math.cos(c.rot), sn = Math.sin(c.rot);
+      for (let i = 1; i < N; i++) { const q = dg.pts[i], dx = q.x - G.ccx, dy = q.y - G.ccy; q.x = G.ccx + dx * cs - dy * sn; q.y = G.ccy + dx * sn + dy * cs; }
+      return;
+    }
+    const P = c.P; P.unshift([dg.hx, dg.hy]);   // joint i sits i*s back along the head's track (which starts out as the body itself)
+    let k = 0, acc = 0;
+    for (let i = 1; i < N; i++) {
+      const want = i * s; let sl = 0;
+      while (k < P.length - 1) { sl = Math.hypot(P[k + 1][0] - P[k][0], P[k + 1][1] - P[k][1]); if (acc + sl >= want) break; acc += sl; k++; }
+      if (k >= P.length - 1) { dg.pts[i].x = P[P.length - 1][0]; dg.pts[i].y = P[P.length - 1][1]; continue; }
+      const f = (want - acc) / (sl || 1);
+      dg.pts[i].x = P[k][0] + (P[k + 1][0] - P[k][0]) * f; dg.pts[i].y = P[k][1] + (P[k + 1][1] - P[k][1]) * f;
+    }
+    if (k + 2 < P.length) P.length = k + 2;
   }
   const gameTurn = (mode) => dg.wind > 0 ? 3.4 : dg.breath > 0 ? 2.2 : mode === 'coil' ? 2.4 : mode === 'chase' ? (G.boosting ? 1.5 : 1.9) : 0.9;
   function gameSpeed(mode, R) {   // fraction of screen height per second
@@ -2157,7 +2212,7 @@ void main(){
     kg.cx -= dx; kg.cy -= dy; if (kg.gx != null) { kg.gx -= dx; kg.gy -= dy; } kd.tx -= dx; kd.ty -= dy;
     for (const q of kg.puffs) mv(q);
     for (const b of kd.bursts) mv(b);
-    for (const P of [cl.path?.P, dg.reel?.P]) if (P) for (const p of P) { p[0] -= dx; p[1] -= dy; }
+    for (const P of [cl.path?.P, dg.reel?.P, G.cw?.P]) if (P) for (const p of P) { p[0] -= dx; p[1] -= dy; }
     // fluid: whole cells on the sim grid = whole texels (cell * r) on the dye grid; uv y is up. Exact texel copy, no blur
     const so = [nx / simW, -ny / simH];
     for (const f of [vel, prs, dye]) { pass('shift', f.b, [f.a.tex], { uOff: so }); f.swap(); }
@@ -2175,7 +2230,8 @@ void main(){
     G.boosting = G.boost && G.stam > 0.02 && moving && T >= G.coil && kd.ph === 'off';
     if (G.boosting) { G.stam = Math.max(0, G.stam - dt / 2.2); G.stamT = T; }
     else if (T - G.stamT > 0.6) G.stam = Math.min(1, G.stam + dt / 3.5);
-    if (G.q && cl.ph === 'off' && kd.ph === 'off') {   // Q held: breathe at the cursor
+    G.coilK = Math.max(0, G.coilK - dt / 2.5);
+    if (G.q && cl.ph === 'off' && kd.ph === 'off' && !(G.cw && !G.cw.wound)) {   // Q held: breathe at the cursor (not while still winding up)
       dg.bx = G.cx; dg.by = G.cy; dg.breathPearl = false; dg.roar = 0;
       if (dg.breath > 0) dg.breath = Math.max(dg.breath, 0.2);
       else if (dg.wind <= 0) dg.wind = 1e-3;   // wind-up first (gather beat); the fire follows WIND s later
@@ -2191,9 +2247,10 @@ void main(){
     if (!G.follow || !dg.pts.length || !vel) { G.accX = G.accY = 0; }
     else {
       const L = Math.min(W, Hh) * 0.14, k = Math.min(1, dt * 1.5);
-      G.leadX += (Math.cos(dg.ang) * L - G.leadX) * k; G.leadY += (Math.sin(dg.ang) * L - G.leadY) * k;
+      const cw = G.cw ? 0 : 1;   // coiling: the camera holds the coil's centre, not the head whirling round it
+      G.leadX += (Math.cos(dg.ang) * L * cw - G.leadX) * k; G.leadY += (Math.sin(dg.ang) * L * cw - G.leadY) * k;
       const f = 1 - Math.exp(-dt * 2.5);
-      G.accX += (dg.hx + G.leadX - W / 2 - G.accX) * f; G.accY += (dg.hy + G.leadY - Hh / 2 - G.accY) * f;
+      G.accX += ((cw ? dg.hx : G.ccx) + G.leadX - W / 2 - G.accX) * f; G.accY += ((cw ? dg.hy : G.ccy) + G.leadY - Hh / 2 - G.accY) * f;
       const qx = W / simW, qy = Hh / simH;
       // G.resample (F3, comparison only): naive camera, fields shifted by the exact fractional amount every frame -> bilinear resample
       const nx = G.resample ? G.accX / qx : Math.trunc(G.accX / qx), ny = G.resample ? G.accY / qy : Math.trunc(G.accY / qy);
@@ -2206,11 +2263,11 @@ void main(){
     window.InkGame?.update(dt);
   }
   function gameFx(dt, kx, ky) {
-    if (T < G.coil) {   // coil vortex: tangential pushes round the centre plus a slight inward pull, smoke there spins in
-      const r = Hh * 0.17, sp = Hh * 0.8;
+    if (G.cw && T < G.coil) {   // coil vortex: tangential pushes round the centre plus a slight inward pull, smoke there spins in
+      const r = segLen() * COIL.vr, sp = Hh * COIL.vs, d = G.cw.dir;
       for (let j = 0; j < 8; j++) {
-        const a = j / 8 * Math.PI * 2 + T * 1.7, x = G.ccx + Math.cos(a) * r, y = G.ccy + Math.sin(a) * r;
-        const tX = -Math.sin(a) - Math.cos(a) * 0.35, tY = Math.cos(a) - Math.sin(a) * 0.35;
+        const a = j / 8 * Math.PI * 2 + T * 1.7 * d, x = G.ccx + Math.cos(a) * r, y = G.ccy + Math.sin(a) * r;
+        const tX = -Math.sin(a) * d - Math.cos(a) * COIL.vin, tY = Math.cos(a) * d - Math.sin(a) * COIL.vin;
         splatVel(x / W, 1 - y / Hh, tX * sp * kx, -tY * sp * ky, 0.0012);
       }
     }
@@ -2244,7 +2301,7 @@ void main(){
       else if (c === 'ShiftLeft' || c === 'ShiftRight' || c === 'Space') G.boost = down;
       else if (!down || e.repeat) return;
       else if (c === 'KeyW') { if (T - G.whip > 0.6) { G.whip = T; G.whipS = -G.whipS; } }
-      else if (c === 'KeyE') { if (T > G.coil + 0.8 && kd.ph === 'off') { G.coil = T + 3; G.ccx = dg.hx + Math.cos(dg.ang) * Hh * 0.12; G.ccy = dg.hy + Math.sin(dg.ang) * Hh * 0.12; G.tgt = null; G.hover = null; } }
+      else if (c === 'KeyE') gameCoil();
       else if (c === 'KeyR') gameDive();
       else if (c === 'F1') G.follow = !G.follow;
       else if (c === 'F3') G.resample = !G.resample;
@@ -2610,7 +2667,7 @@ void main(){
       ink: (x, y, r, a) => dyeQ.push([x / W, 1 - y / Hh, r, (dark ? BODY.dark : BODY.light).map((v) => v * a)]),
       push: (x, y, vx, vy, r) => splatVel(x / W, 1 - y / Hh, vx * simW / W, -vy * simH / Hh, r) };
     // game test hook: drive frames deterministically (each(i) may set G.tgt / G.boost / G.q ...), returns the canvas as PNG
-    window.__game = { QI,
+    window.__game = { QI, COIL,
       G, dg, size: () => [W, Hh, simW, simH, dyeW, dyeH],
       frames(n, dt = 1 / 60, each = null, snap = true) {
         for (let i = 0; i < n; i++) {
