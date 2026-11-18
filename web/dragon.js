@@ -602,7 +602,13 @@ void main(){
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return true;
   }
+  // profiler (test hook): PROF = {} -> each pass/phase GPU-synced and timed into PROF[name] = [ms, count]
+  let PROF = null;
+  const profSync = () => { const b = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); };
+  const profRun = (name, fn) => { if (!PROF) return fn(); profSync(); const t = performance.now(); const r = fn(); profSync();
+    const e = PROF[name] || (PROF[name] = [0, 0]); e[0] += performance.now() - t; e[1]++; return r; };
   function pass(name, out, texs, uni, tx) {
+    if (PROF && !pass.in) { pass.in = true; try { return profRun('pass:' + name, () => pass(name, out, texs, uni, tx)); } finally { pass.in = false; } }
     const pr = P[name];
     gl.useProgram(pr.p);
     gl.bindFramebuffer(gl.FRAMEBUFFER, out ? out.fb : null);
@@ -956,7 +962,7 @@ void main(){
     }
     if (kg.coc > 0.01) for (const [i, rr, off] of COC) {   // cocoon: rides the joints; blows outward as it thins after the burst
       const p = dg.pts[i], q = dg.pts[Math.min(N - 1, i + 1)], dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1;
-      const r = rr * Hh * (kg.ph === 'morph' ? 0.6 + 0.5 * kg.coc : 1.1 + (1 - kg.coc) * 0.8);
+      const r = Math.max(1, rr * Hh * (kg.ph === 'morph' ? 0.6 + 0.5 * kg.coc : 1.1 + (1 - kg.coc) * 0.8));   // >0: coc can overshoot on a long frame
       const x = p.x - dy / l * off * r + Math.sin(T * 0.8 + i) * r * 0.12, y = p.y + dx / l * off * r + Math.cos(T * 0.6 + i) * r * 0.1;
       const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgb(0,0,${Math.round(105 * kg.coc)})`); g.addColorStop(1, 'rgb(0,0,0)');
       c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
@@ -2139,7 +2145,9 @@ void main(){
     G.fps = G.fpsN * 1000 / (now - G.fpsT); G.fpsN = 0; G.fpsT = now;
     if (!G.hud || G.hud.hidden) return;
     const bar = '#'.repeat(Math.round(G.stam * 12)).padEnd(12, '.');
-    G.hud.textContent = `${G.fps.toFixed(0)} fps  ${cv.width}x${cv.height}  sim ${simW}x${simH} dye ${dyeW}x${dyeH}\n`
+    if (G.gpu == null) { const d = gl.getExtension('WEBGL_debug_renderer_info'), r = d ? String(gl.getParameter(d.UNMASKED_RENDERER_WEBGL)) : '?';
+      G.gpu = /NVIDIA|GeForce/i.test(r) ? 'GTX' : /Intel/i.test(r) ? 'INTEL (iGPU!)' : /AMD|Radeon/i.test(r) ? 'AMD' : r.slice(0, 40); }
+    G.hud.textContent = `${G.fps.toFixed(0)} fps  gpu ${G.gpu}  ${cv.width}x${cv.height}  sim ${simW}x${simH} dye ${dyeW}x${dyeH}\n`
       + `stamina ${bar}\ncam ${G.follow ? 'FOLLOW' : 'FIXED'} (F1)${G.resample ? ' RESAMPLE(F3)' : ''}  world ${Math.round(G.camX)},${Math.round(G.camY)}  shifts ${G.shifts}\n`
       + 'RMB fly · Q breath · W whip · E coil · R cloud dive · Shift/Space boost · F2 hud';
   }
@@ -2488,6 +2496,17 @@ void main(){
         render();
         return snap ? cv.toDataURL('image/png') : null;
       },
+      prof(n = 30) {   // per-phase and per-pass cost, GPU-synced (sync overhead inflates totals; read as shares)
+        PROF = {}; const t0 = performance.now();
+        for (let i = 0; i < n; i++) {
+          T += 1 / 60;
+          profRun('gameFrame', () => gameFrame(1 / 60)); profRun('inputs', () => inputs(1 / 60)); profRun('flushDye', flushDye);
+          profRun('drawMask', drawMask); profRun('uploadMask', uploadMask); profRun('step', () => step(1 / 60)); profRun('render', render);
+        }
+        const tot = performance.now() - t0, out = {};
+        for (const k of Object.keys(PROF).sort((a, b) => PROF[b][0] - PROF[a][0])) out[k] = [+(PROF[k][0] / n).toFixed(2), PROF[k][1] / n];
+        PROF = null; return { frameMs: +(tot / n).toFixed(2), perFrame: out };
+      },
       perf(n = 60) {   // full game frame incl. camera shifts, GPU flushed each frame
         const b = new Uint8Array(4), t0 = performance.now();
         for (let i = 0; i < n; i++) {
@@ -2498,6 +2517,16 @@ void main(){
         return { ms: +ms.toFixed(2), fps: +(1000 / ms).toFixed(1), w: cv.width, h: cv.height, sim: [simW, simH], dye: [dyeW, dyeH], shifts: G.shifts };
       },
     };
+    if (/[?&]bench=1/.test(location.search)) (() => {   // headless bench (sync, before load: --dump-dom sees it): results into <pre id=bench> (run.bat-free perf check)
+      const g = window.__game; G.pause = true; G.ptr = true; G.rmb = true; G.clX = innerWidth * 0.9; G.clY = innerHeight * 0.5;
+      g.frames(90, 1 / 60, null, false);
+      const thr = (n) => { const b = new Uint8Array(4), t0 = performance.now();   // throughput: CPU and GPU overlap, one sync at the end
+        for (let i = 0; i < n; i++) { T += 1 / 60; gameFrame(1 / 60); inputs(1 / 60); flushDye(); drawMask(); uploadMask(); step(1 / 60); render(); }
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return +((performance.now() - t0) / n).toFixed(2); };
+      thr(30);
+      const out = { thrMs: thr(120), perf: g.perf(60), prof: g.prof(30), gpu: (() => { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d && gl.getParameter(d.UNMASKED_RENDERER_WEBGL); })() };
+      const pre = document.createElement('pre'); pre.id = 'bench'; pre.textContent = JSON.stringify(out); document.body.appendChild(pre);
+    })();
     window.__dragonDebug = {
       step(n = 1, opts = {}) {
         const dt = opts.dt > 0 ? opts.dt : 1 / 30;

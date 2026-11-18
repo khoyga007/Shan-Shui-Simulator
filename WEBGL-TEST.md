@@ -63,3 +63,10 @@ Known/open:
 - Head reads as blob when flying straight up/down (readability, not blur). No eye glow (ban).
 - Coil E balls the body up; tune later (Celine feel).
 - DESIGN.md still says Godot: update once Yang confirms WebGL.
+
+## FPS (2026-11-18)
+- 37 fps on Yang's Chrome = Intel UHD iGPU: Windows gives browsers the power-saving GPU (no UserGpuPreferences entry for chrome.exe).
+- Headless bench 1920x1080 (`bash bench.sh`, server on :8098): GTX 1650 4.6 ms/frame throughput (9.5 ms GPU-synced); Intel UHD 18.2 / 32.4 ms. GTX headroom ~3x of 60 fps budget → no quality cuts needed.
+- run.bat: own Chrome instance (`--user-data-dir` %LOCALAPPDATA%\InkDragon\chrome, `--app`) with `--force_high_performance_gpu` (verified: flag switches ANGLE renderer Intel→GTX). HUD shows `gpu GTX` / `INTEL (iGPU!)`.
+- Profile hooks: `__game.prof(n)` per pass/phase; `?bench=1` writes JSON to `<pre id=bench>`.
+- Fixed on the way: cocoon radial gradient r<0 (kg.coc negative when T < kg.t) threw in drawClouds.
