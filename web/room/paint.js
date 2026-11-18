@@ -195,7 +195,11 @@
         g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e) * soft * soft; g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
         g.globalAlpha = Math.min(1, 0.26 * bm * e) * soft * soft; g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dw * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
       } else if (soft > 0.98) { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
-      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${(hm * soft).toFixed(3)})`); gd.addColorStop(0.15, `rgba(0,0,0,${hm})`); gd.addColorStop(0.45, `rgba(0,0,0,${hm})`); gd.addColorStop(1, `rgba(0,0,0,${(hm * (E ? sm((envD(x) - 0.35) / 0.5) : 1)).toFixed(3)})`);
+      // ink does not cover ink: right under this ridge the mountain behind is still there, running on into this one's wet
+      // line and darkening it, and is lost only a little further down. (Hidden from the ridge on, the far ridge ended
+      // at the near one as if cut with a knife: two pieces of paper, Yang 11-18)
+      const bl = Math.min(0.4, 0.045 * H * (0.5 + 0.9 * N(x / (0.08 * H) + 130, 2)) / Math.max(1, dd));
+      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(bl * 0.45, `rgba(0,0,0,${(hm * 0.3).toFixed(3)})`); gd.addColorStop(bl, `rgba(0,0,0,${hm})`); gd.addColorStop(0.45, `rgba(0,0,0,${hm})`); gd.addColorStop(1, `rgba(0,0,0,${(hm * (E ? sm((envD(x) - 0.35) / 0.5) : 1)).toFixed(3)})`);
       // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007)
       // over its middle it hides all the way down: under its foot lies mist, not the mountain behind. (Stopped where its
       // own ink ends, the mountain behind came back along a line the shape of this ridge; faded out there, it showed
