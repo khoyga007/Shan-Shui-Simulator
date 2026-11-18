@@ -16,6 +16,7 @@ Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel
 - Wide world + combat.
 - Camera zoomed out vs wallpaper (dragon ~2100px > screen today).
 - Fire-hits-wall impinging jet, king gold horns/mane tips, through-cloud emerge, mouth-seam leak: approved in wallpaper 11-17 → port as-is.
+- Cloud dive rules (R, game; Yang 11-18): 2 charges, each back 14 s after spent (own clock, parallel); shared cd 5 s from the press (dive itself ~3.2 s; tail-in-cloud lock ends ~4.6 s, so 5 s is the binding number). `DIVE` in dragon.js. `G.away` = press → head out of exit cloud (~1.85 s): untargetable — wisps stop chasing, crows hang + shot timer pushed back to ≥0.9 s (full tell on return), turtles stop turning/lunging, darts + bodies pass through. `G.safe` = whole dive until control returns (~3.2 s): no damage; once visible, bites/darts bounce off harmlessly. Why longer than away: ending with away, dragon was bitten on autopilot before steerable; and with contacts skipped instead of bounced, 6 wisps sat on the head and bit the same frame (30 HP). Exit = cursor at the press (locked), clamped to world walls, screen margin 12% (was 24%: cursor in the outer band got pulled in); camera glides to the exit while the dragon is hidden. W whip locked during dive/tail-in-cloud. HUD: `R` + 2 ink dots under HP bar, pie-fill while recharging, row pale when R unusable.
 - Cloud dive exit (R, game): body reels out of the exit cloud along the head's track; joints not yet out wait INSIDE the cloud (stacked at its centre, hidden by a long soft ramp 0.5–1.3 R), cloud stays until the tail is out (`G.emer`), player gets control back after 1.4 s, E/R locked while `dg.reel`. Why: unreeled body was laid straight behind the cloud and showed all at once ("pop out of nowhere"). Idle head speed 0.3 while reeling so the tail does not sit in the cloud.
 
 ## Pillars
@@ -33,7 +34,7 @@ Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel
 
 ## Controls (Celine owns feel)
 - RMB = fly to point (hold = chase cursor). Head steers to target, body trails (serpentine follow).
-- Q breath at cursor (hold) · W tail whip · E coil · R cloud dive (in near dragon, out at cursor) · Shift/Space boost (stamina).
+- Q breath at cursor (hold) · W tail whip · E coil · R cloud dive (in near dragon, out at cursor; immune + untargetable; 2 charges) · Shift/Space boost (stamina).
 - Camera locked on dragon. Boss attacks need clear tells. Gamepad dropped for now. King form: later.
 
 ## Combat moves

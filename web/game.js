@@ -42,7 +42,7 @@
       banks.push({ x: x * U, y: y * U, wall: true, puffs: [{ dx: 0, dy: 0, r: 0.3 * U, ph: rnd(0, TAU) }] });
   }
   function reset() {
-    const a = A(); U = a.H; S.hp = 100; S.hurtT = -9; S.dead = S.won = false; a.G.dead = false;
+    const a = A(); U = a.H; S.hp = 100; S.hurtT = -9; S.dead = S.won = false; a.G.dead = false; a.G.dvC = [0, 0]; a.G.dvG = 0;
     spawnAll(); if (!banks.length) makeBanks(); ui.end.style.opacity = 0; ui.end.style.pointerEvents = 'none';
   }
 
@@ -70,7 +70,7 @@
 
   // ---- damage -------------------------------------------------------------------------------------------------------------
   function hurtDragon(n, sx, sy) {
-    if (S.dead || S.won) return;
+    if (S.dead || S.won || A().G.safe) return;   // cloud dive (R): nothing lands
     S.hp = Math.max(0, S.hp - n); S.hurtT = A().T; ui.flash();
     const a = A(); a.ink(sx, sy, 0.0009, 0.6);   // a dab of ink where it hit
     if (S.hp <= 0) die();
@@ -105,6 +105,10 @@
     const G = a.G, T = a.T, dg = a.dg, head = { x: dg.hx + G.camX, y: dg.hy + G.camY };   // head in world
     if (!S.dead && T - S.hurtT > 4) S.hp = Math.min(100, S.hp + dt * 3);
     const cone = S.dead ? null : breathCone();
+    // R cloud dive. gone = in the cloud: enemies lose it (no chase, no aim, no wind-up) and pass through it. Out of the cloud
+    // it is still safe (G.safe, hurtDragon) till the player steers again: bites and darts bounce off. Skipped instead, the
+    // wisps sat on the head through that time and all bit in the frame it ended (30 HP at once)
+    const gone = G.away;
     const whip = whipOn(), coil = coilOn();
     const tail = whip ? a.dg.pts.slice(-18).map((p) => ({ x: p.x + G.camX, y: p.y + G.camY })) : null;
     const cc = coil ? { x: G.ccx + G.camX, y: G.ccy + G.camY } : null;
@@ -119,7 +123,7 @@
       const dx = head.x - e.x, dy = head.y - e.y, d = hyp(dx, dy) || 1, R = e.r * U;
       if (e.k === 'wisp') {   // swarm: orbit home; dive at the head when close, bite, fall back (the window to burn it), dive again
         e.ph += dt * 2.2; e.back = Math.max(0, (e.back || 0) - dt);
-        const chase = d < 1.3 * U && !S.dead;
+        const chase = d < 1.3 * U && !S.dead && !gone;
         let tx, ty;
         if (chase && e.back > 0) { tx = head.x - dx / d * 0.6 * U; ty = head.y - dy / d * 0.6 * U; }   // hover off, out of bite range
         else if (chase) { tx = head.x; ty = head.y; }   // straight dive: was an orbit round the head, inside it, so it sat on the head where the fire can't reach
@@ -130,9 +134,11 @@
       } else if (e.k === 'crow') {   // hover off the dragon's flank, wind up (tell), throw an ink dart at the head
         e.ph += dt * 9;
         const want = 0.75 * U, ang = Math.atan2(-dy, -dx) + e.side * 0.5;
-        const tx = d < 2 * U ? head.x + Math.cos(ang) * want : e.hx, ty = (d < 2 * U ? head.y + Math.sin(ang) * want : e.hy) - 0.15 * U;
+        // gone: hangs where it is. Its shot is put back so the dragon gets the whole wing-raise tell when it is out again
+        const tx = gone ? e.x : d < 2 * U ? head.x + Math.cos(ang) * want : e.hx, ty = gone ? e.y : (d < 2 * U ? head.y + Math.sin(ang) * want : e.hy) - 0.15 * U;
+        if (gone) e.shotT = Math.max(e.shotT, 0.9);
         e.vx += ((tx - e.x) * 1.6 - e.vx) * Math.min(1, dt * 2); e.vy += ((ty - e.y) * 1.6 - e.vy) * Math.min(1, dt * 2);
-        if (d < 1.6 * U && !S.dead) {
+        if (d < 1.6 * U && !S.dead && !gone) {
           e.shotT -= dt;
           if (e.shotT < 0.45 && !e.wind) e.wind = 1;
           if (e.shotT <= 0) {
@@ -144,8 +150,8 @@
         } else e.wind = 0;
       } else {   // turtle: walks the ground toward the dragon, armour faces it; tell (rear up), then lunge
         const tgtF = Math.sign(dx) || 1;
-        if (!e.lunge && !e.tell) e.face += (tgtF - e.face) * Math.min(1, dt * 1.5);
-        if (d < 1.4 * U && !S.dead) {
+        if (!e.lunge && !e.tell && !gone) e.face += (tgtF - e.face) * Math.min(1, dt * 1.5);
+        if (d < 1.4 * U && !S.dead && !gone) {
           e.lungeT -= dt;
           if (e.lungeT <= 0 && !e.tell && !e.lunge) e.tell = 0.7;
         }
@@ -188,7 +194,7 @@
         if (cd < 0.5 * U && e.k !== 'turtle') { e.vx += cx / cd * U * 3 * dt + d * cy / cd * U * 2 * dt; e.vy += cy / cd * U * 3 * dt - d * cx / cd * U * 2 * dt; hurtEnemy(e, 22 * dt, 0, 0); }
       }
       // enemy contact on the dragon
-      if (e.hp > 0 && e.k !== 'crow' && e.hitCd <= 0 && !S.dead) {
+      if (e.hp > 0 && e.k !== 'crow' && e.hitCd <= 0 && !S.dead && !gone) {   // surfaced but still safe: it bounces off, no damage (hurtDragon)
         const s = scr(e), i = nearBody(s.x, s.y, R);
         if (i >= 0) {
           const dmg = e.k === 'wisp' ? 5 : e.lunge ? 14 : 6;
@@ -203,7 +209,7 @@
       const s = scr(t);
       if (cone && inCone(cone, s.x, s.y, 0.02 * U)) t.life = 0;
       if (tail && tail.some((p) => hyp(p.x - t.x, p.y - t.y) < a.rad())) t.life = 0;
-      if (t.life > 0 && !S.dead && nearBody(s.x, s.y, 0.012 * U) >= 0) { hurtDragon(10, s.x, s.y); t.life = 0; }
+      if (t.life > 0 && !S.dead && !gone && nearBody(s.x, s.y, 0.012 * U) >= 0) { hurtDragon(10, s.x, s.y); t.life = 0; }
       if (t.life > 0) a.ink(s.x, s.y, 0.00012, 0.35);   // streak
     }
     darts = darts.filter((t) => t.life > 0);
@@ -284,7 +290,10 @@
   const ui = (() => {
     const box = document.createElement('div');
     Object.assign(box.style, { position: 'fixed', left: '50%', top: '14px', transform: 'translateX(-50%)', width: '320px', pointerEvents: 'none', zIndex: 3, font: '13px/1.3 Georgia, serif', color: '#2a2622', textAlign: 'center' });
-    box.innerHTML = '<div style="height:10px;background:rgba(40,36,32,.12);border-radius:5px;overflow:hidden"><div id="ig-hp" style="height:100%;width:100%;background:#2a2622;border-radius:5px;transition:width .15s"></div></div><div id="ig-left" style="margin-top:4px;opacity:.75"></div>';
+    box.innerHTML = '<div style="height:10px;background:rgba(40,36,32,.12);border-radius:5px;overflow:hidden"><div id="ig-hp" style="height:100%;width:100%;background:#2a2622;border-radius:5px;transition:width .15s"></div></div><div id="ig-left" style="margin-top:4px;opacity:.75"></div>' +
+      // R cloud dive: two ink dots = the two charges, each fills like a pie while it comes back; the row is pale while R can't be used
+      '<div id="ig-dive" style="margin-top:7px;display:flex;gap:7px;justify-content:center;align-items:center;transition:opacity .2s"><span style="opacity:.75">R</span>' +
+      '<i style="width:13px;height:13px;border-radius:50%;border:1.5px solid #2a2622"></i>'.repeat(2) + '</div>';
     const veil = document.createElement('div');   // hurt: the edges of the painting darken briefly
     Object.assign(veil.style, { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 2, boxShadow: 'inset 0 0 160px 40px rgba(20,18,16,.55)', opacity: 0, transition: 'opacity .35s' });
     const end = document.createElement('div');
@@ -311,6 +320,9 @@
         const hp = q('ig-hp'), left = q('ig-left'); if (!hp) return;
         hp.style.width = S.hp.toFixed(1) + '%';
         left.textContent = `Vân Sơn · còn ${S.total - S.kills}/${S.total} quái mực`;
+        const dv = A().diveSt(), row = q('ig-dive'); row.style.opacity = dv.ok ? 1 : 0.4;
+        dv.ch.forEach((f, i) => { const k = Math.round(f * 50) * 2, el = row.children[i + 1];
+          if (el._k !== k) { el._k = k; el.style.background = k >= 100 ? '#2a2622' : `conic-gradient(rgba(42,38,34,.5) ${k}%, transparent 0)`; } });
         if (!near) { arrow.style.opacity = 0; return; }
         // on an inset ellipse round the screen centre, in the enemy's direction; pulses so it reads as a call, not a HUD part
         const cx = innerWidth / 2, cy = innerHeight / 2, ang = Math.atan2(near.sy - cy, near.sx - cx);

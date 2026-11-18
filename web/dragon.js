@@ -29,7 +29,7 @@
   // blur). What is left over (< 1 cell) is a CSS translate of the oversized canvas, rounded to device pixels.
   const G = { on: /[?&]game=1(&|$)/.test(location.search), follow: true, mx: 0, my: 0,
     accX: 0, accY: 0, remX: 0, remY: 0, leadX: 0, leadY: 0, camX: 0, camY: 0, cx: 0, cy: 0, ptr: false,
-    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, cw: null, coilK: 0, dive: false, emer: false,
+    rmb: false, tgt: null, q: false, boost: false, stam: 1, stamT: -9, whip: -9, whipS: 1, coil: -9, ccx: 0, ccy: 0, cw: null, coilK: 0, dive: false, emer: false, away: false, safe: false, dvC: [0, 0], dvG: 0,
     fps: 0, fpsN: 0, fpsT: 0, hud: null, shifts: 0 };
   const mq = matchMedia('(prefers-color-scheme: dark)');
   const resolveDark = () => (cfg.theme === 'dark' ? true : cfg.theme === 'light' ? false : mq.matches);
@@ -860,7 +860,7 @@ void main(){
     if (kg.ph === 'king' && e < 0.9 && kg.gx != null) { const u = e / 0.9; return [kg.gx, kg.gy, cloudR() * (0.7 + 0.9 * u), 0.7 * (1 - u) * (1 - u)]; }
     return [0, 0, 1, 0];
   }
-  function cloudSpot(x, y) { const m = Math.min(W, Hh) * 0.24; const R = cloudR(), puffs = [];
+  function cloudSpot(x, y, m = Math.min(W, Hh) * 0.24) { const R = cloudR(), puffs = [];
     for (let j = 0; j < 8; j++) { const a = j / 8 * Math.PI * 2 + Math.random() * 0.6, r = j ? R * (0.35 + Math.random() * 0.3) : 0;
       puffs.push({ dx: Math.cos(a) * r * 1.4, dy: Math.sin(a) * r * 0.7, r: R * (0.45 + Math.random() * 0.25), ph: Math.random() * 6 }); }
     return { x: clamp(x, m, W - m), y: clamp(y, m, Hh - m), hide: 0, on: true, amt: 0, puffs }; }
@@ -897,7 +897,7 @@ void main(){
           cl.ph = 'hidden'; cl.t = T; cl.path = null; A.on = false;
           kd.hop++;
           const [bx, by] = G.on && G.diveTo ? [G.diveTo.x, G.diveTo.y] : pickFarSpot(A.x, A.y, Math.hypot(W, Hh) * 0.38);   // game R: come out at the cursor
-          cl.B = cloudSpot(bx, by); cl.B.hide = 1; cl.B.amt = 0.12; cl.B.on = true;   // gathers while the dragon is away (below)
+          cl.B = cloudSpot(bx, by, G.on ? Math.min(W, Hh) * DIVE.edge : undefined); cl.B.hide = 1; cl.B.amt = 0.12; cl.B.on = true;   // gathers while the dragon is away (below)
         }
       } else if (cl.ph === 'hidden') {
         if (cl.B) cl.B.amt = Math.min(0.9, cl.B.amt + dt * 1.5);
@@ -2311,6 +2311,8 @@ void main(){
     if (G.boosting) { G.stam = Math.max(0, G.stam - dt / 2.2); G.stamT = T; }
     else if (T - G.stamT > 0.6) G.stam = Math.min(1, G.stam + dt / 3.5);
     G.coilK = Math.max(0, G.coilK - dt / 2.5);
+    if (G.away && (kd.ph !== 'dive' || (cl.ph === 'emerge' && (!cl.B || T - cl.t > 0.8 || Math.hypot(dg.hx - cl.B.x, dg.hy - cl.B.y) > cloudR() * 0.9)))) G.away = false;
+    G.safe = G.away || kd.ph === 'dive';
     if (G.q && cl.ph === 'off' && kd.ph === 'off' && !(G.cw && !G.cw.wound)) {   // Q held: breathe at the cursor (not while still winding up)
       dg.bx = G.cx; dg.by = G.cy; dg.breathPearl = false; dg.roar = 0;
       if (dg.breath > 0) dg.breath = Math.max(dg.breath, 0.2);
@@ -2330,7 +2332,8 @@ void main(){
       const cw = G.cw ? 0 : 1;   // coiling: the camera holds the coil's centre, not the head whirling round it
       G.leadX += (Math.cos(dg.ang) * L * cw - G.leadX) * k; G.leadY += (Math.sin(dg.ang) * L * cw - G.leadY) * k;
       const f = 1 - Math.exp(-dt * 2.5);
-      G.accX += ((cw ? dg.hx : G.ccx) + G.leadX - W / 2 - G.accX) * f; G.accY += ((cw ? dg.hy : G.ccy) + G.leadY - Hh / 2 - G.accY) * f;
+      const ex = cl.ph === 'hidden' && cl.B ? cl.B : null;   // dragon gone into the cloud: glide to where it will come out
+      G.accX += ((ex ? ex.x : cw ? dg.hx : G.ccx) + G.leadX - W / 2 - G.accX) * f; G.accY += ((ex ? ex.y : cw ? dg.hy : G.ccy) + G.leadY - Hh / 2 - G.accY) * f;
       const qx = W / simW, qy = Hh / simH;
       // G.resample (F3, comparison only): naive camera, fields shifted by the exact fractional amount every frame -> bilinear resample
       const nx = G.resample ? G.accX / qx : Math.trunc(G.accX / qx), ny = G.resample ? G.accY / qy : Math.trunc(G.accY / qy);
@@ -2356,14 +2359,23 @@ void main(){
       splat(p.x / W, 1 - p.y / Hh, (p.x - q.x) * id * kx * 0.8 * wk, -(p.y - q.y) * id * ky * 0.8 * wk, b.map((c) => c * 0.3 * wk), 0.0005);
     }
   }
+  // R cloud dive (Yang 11-18): 2 charges, each back cd s after it was spent (its own clock), and gcd s between any two dives.
+  // G.away = gone into the cloud: nothing can aim at it (game.js), from the press till the head is out of the exit cloud.
+  // G.safe = takes no damage: the whole dive, till the player has the dragon back (1.4 s after it surfaces). Ending with
+  // G.away, it was bitten on the way out of the cloud, before it could be steered
+  const DIVE = { cd: 14, gcd: 5, edge: 0.12 };
+  const diveSt = () => ({ ch: G.dvC.map((t) => clamp(1 - (t - T) / DIVE.cd, 0, 1)), away: G.away, safe: G.safe,
+    ok: !G.dead && cl.ph === 'off' && kd.ph === 'off' && !dg.reel && T >= G.dvG && G.dvC.some((t) => T >= t) });
   function gameDive() {   // R: into a cloud just ahead, out of one at the cursor
-    if (cl.ph !== 'off' || kd.ph !== 'off' || dg.reel) return;
+    if (!diveSt().ok) return;
+    G.dvC[G.dvC.findIndex((t) => T >= t)] = T + DIVE.cd; G.dvG = T + DIVE.gcd; G.away = G.safe = true;
     G.emer = false; if (cl.B) cl.B.hide = 0;
     const R = cloudR(), ax = dg.hx + Math.cos(dg.ang) * R * 1.2, ay = dg.hy + Math.sin(dg.ang) * R * 1.2;
     kd.ph = 'dive'; kd.hop = 0; kd.total = 1; kd.t = T; kd.bursts.length = 0;
     cl.A = cloudSpot(ax, ay); cl.A.hide = 1; cl.A.amt = 0.55; cl.A.on = true;
     cl.B = null; cl.ph = 'enter'; cl.t = T; cl.headIn = T; cl.path = null; cl.fade = 1;
-    G.diveTo = { x: G.cx, y: G.cy }; G.diveA = Math.atan2(G.cy - dg.hy, G.cx - dg.hx); G.tgt = null; G.hover = null;
+    const to = { tx: G.cx, ty: G.cy }; window.InkGame?.bound(to);   // not past the world's cloud walls
+    G.diveTo = { x: to.tx, y: to.ty }; G.diveA = Math.atan2(G.cy - dg.hy, G.cx - dg.hx); G.tgt = null; G.hover = null;
     dg.breath = 0;
     cloudMouthBurst(cl.A.x, cl.A.y, dg.ang + Math.PI, -1);
   }
@@ -2381,7 +2393,7 @@ void main(){
       if (c === 'KeyQ') G.q = down;
       else if (c === 'ShiftLeft' || c === 'ShiftRight' || c === 'Space') G.boost = down;
       else if (!down || e.repeat) return;
-      else if (c === 'KeyW') { if (T - G.whip > 0.6) { G.whip = T; G.whipS = -G.whipS; } }
+      else if (c === 'KeyW') { if (T - G.whip > 0.6 && kd.ph === 'off' && !dg.reel) { G.whip = T; G.whipS = -G.whipS; } }
       else if (c === 'KeyE') gameCoil();
       else if (c === 'KeyR') gameDive();
       else if (c === 'F1') G.follow = !G.follow;
@@ -2744,11 +2756,11 @@ void main(){
     start();
 
     // game.js API (screen px in, like dg.pts): ink(x, y, r, strength) dye dab, push(x, y, vx, vy, r) velocity in px/s
-    window.InkAPI = { G, dg, rad, radAt, mouth, get T() { return T; }, get W() { return W; }, get H() { return Hh; },
+    window.InkAPI = { G, dg, rad, radAt, mouth, diveSt, get T() { return T; }, get W() { return W; }, get H() { return Hh; },
       ink: (x, y, r, a) => dyeQ.push([x / W, 1 - y / Hh, r, (dark ? BODY.dark : BODY.light).map((v) => v * a)]),
       push: (x, y, vx, vy, r) => splatVel(x / W, 1 - y / Hh, vx * simW / W, -vy * simH / Hh, r) };
     // game test hook: drive frames deterministically (each(i) may set G.tgt / G.boost / G.q ...), returns the canvas as PNG
-    window.__game = { QI, COIL, GA,
+    window.__game = { QI, COIL, GA, DIVE,
       G, dg, size: () => [W, Hh, simW, simH, dyeW, dyeH],
       frames(n, dt = 1 / 60, each = null, snap = true) {
         for (let i = 0; i < n; i++) {
