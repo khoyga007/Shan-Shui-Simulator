@@ -163,6 +163,12 @@
     // drawn in device pixels, every column on whole pixels: at a display scale of 120% (Yang's, r006) columns of 2.4 px
     // left fine upright stripes all over the body
     raw(g); raw(gb); const DX = (x) => Math.round((x - ox) * dpr), DY = (y) => (y - oy) * dpr, fr = Math.max(2, Math.round(0.05 * H / BIN));
+    // the other sheets of the brush in use (Muse's stand in where a source has none, as GPT): _a long dry strokes,
+    // _b axe-cut strokes, _d moss dots, _c bands of wash
+    const aux = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
+    const kitA = aux('_a'), kitB = aux('_b'), kitD = aux('_d'), kitC = aux('_c'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    const qc = kitC.length ? pick(kitC) : null, qc2 = kitC.length ? pick(kitC) : null, sc1 = qc ? qc.h / (0.085 * H) : 1, sc2 = qc2 ? qc2.h / (0.3 * H) : 1, uo1 = R() * 4000, uo2 = R() * 4000;
+    const pp = (v, w) => { const m = 2 * w - 2; v = ((v % m) + m) % m; return v < w ? v : m - v; };   // there and back along a band: no seam where it runs out
     const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body;   // body: how much ink the mountain's flank holds, and how far down it stays dark
     for (const f of fields) for (let k = 0; k < f.m; k++) {
       const x = f.x0 + k * BIN, t = f.ts[k], ee = envX(x), dd = depthAt(t, x), sh = f.shade[k], y0 = Math.min(f.top[k], t) - 1,
@@ -174,7 +180,11 @@
       const d2 = Math.min(dd * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
          a2 = Math.min(0.9, 0.34 * bm * clamp(0.5 + 0.7 * sh, 0.12, 1) * e);
       gd = g.createLinearGradient(0, T, 0, DY(t + d2)); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
-      g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0);
+      if (qc) {   // a real band of wash, its dark wet edge under the ridge; a second one drawn long and faint down the body
+        const h1 = Math.min(dd * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), w1 = Math.max(1, BIN * sc1), w2 = Math.max(1, BIN * sc2);
+        g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e); g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
+        g.globalAlpha = Math.min(1, 0.26 * bm * e); g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dd * 0.7, 0.4 * H) * dpr); g.globalAlpha = 1;
+      } else { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
       gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(0,0,0,${sm(e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${sm(e).toFixed(3)})`);   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
     }
@@ -193,12 +203,22 @@
     const kit0 = (STROKES[S.tex] || []).filter((q) => q.im);
     const mark = (x, y, ang, len, w0, a0, to) => {
       if (!kit0.length) return hair(x, y, ang, len, w0, a0, to);
-      const q = kit0[Math.floor(R() * kit0.length) % kit0.length], m = 10, part = 0.3 + 0.3 * R(), u0 = (1 - part) * q.w, th = w0 * 3.2, sl = len / m;   // the piece runs to the stroke's own frayed end
+      const q = pick(kitA.length ? kitA : kit0), m = 10, part = 0.3 + 0.3 * R(), u0 = (1 - part) * q.w, th = w0 * 3.2, sl = len / m;   // the piece runs to the stroke's own frayed end
       for (let i = 0; i < m; i++) { const f = i / m; ang += (to - ang) / m; const c0 = Math.cos(ang), s0 = Math.sin(ang);
         g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); const tw = th * (0.35 + 0.65 * Math.sin(3.1416 * Math.min(1, f * 1.6 + 0.12))); g.globalAlpha = a0 * Math.min(1, 0.25 + 3 * f) * (1 - 0.5 * f);   // set down thin, pressed, lifted
         g.drawImage(q.im, u0 + part * q.w * f, 0, part * q.w / m, q.h, 0, -tw / 2, sl + 0.7, tw); x += c0 * sl; y += s0 * sl; }
       g.globalAlpha = 1; home(g);
     };
+    // a whole small piece, turned: an axe-cut stroke (its heavy head at x, y), a cluster of moss dots
+    const stamp = (q, x, y, ang, len, a0) => { const c0 = Math.cos(ang), s0 = Math.sin(ang), hh = len * q.h / q.w;
+      g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = a0; g.drawImage(q.im, 0, -hh / 2, len, hh); g.globalAlpha = 1; home(g); };
+    // axe cuts: short broad strokes hanging on the slope under the ridge, mostly on the shaded side
+    if (kitB.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.02 + 0.05 * R())) {
+      const k = col(x), sh = shAt(k), r1 = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R();
+      if (r1 > S.cun * (sh > 0 ? 0.9 : 0.35)) continue;
+      const an = 1.5708 - sh * 0.8 + (r4 - 0.5) * 0.6, ln = H * (0.018 + 0.022 * r5), y = ts[k] + H * 0.014 + depth[k] * 0.3 * r3 * r3, cnt = 2 + Math.floor(R() * 3);   // cut in twos and threes, side by side
+      for (let j = 0; j < cnt; j++) stamp(kitB[Math.floor(r2 * kitB.length + j) % kitB.length], x - Math.sin(an) * j * ln * 0.38 + (R() - 0.5) * ln * 0.2, y + Math.cos(an) * j * ln * 0.38 + (R() - 0.5) * ln * 0.3, an + (R() - 0.5) * 0.25, ln * (0.75 + 0.5 * R()), (0.45 + 0.3 * R()) * env(k));
+    }
     // hemp fibres: many faint long lines down the fall line of the slope, closer and darker on the shaded side
     for (let x = bx0 + 0.01 * H; x < bx1 - 0.01 * H; x += H * (0.007 + 0.012 * R())) {
       const k = col(x), sh = shAt(k), e = env(k), r1 = R(), r2 = R(), r3 = R(), r4 = R();
@@ -220,6 +240,10 @@
     // it an odd number of times), so the hollow of a C stays paper instead of filling to a plumb wall (r006)
     if (folded) for (const x of [g, gb]) { x.globalCompositeOperation = 'destination-in'; x.globalAlpha = 1; x.fillStyle = '#000'; x.beginPath(); x.moveTo(P[0][0], P[0][1]); for (let i = 1; i < n; i++) x.lineTo(P[i][0], P[i][1]); x.lineTo(P[n - 1][0], yBase + 0.3 * H); x.lineTo(P[0][0], yBase + 0.3 * H); x.closePath(); x.fill('evenodd'); x.globalCompositeOperation = 'source-over'; }
     else for (const x of [g, gb]) { x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.fillStyle = '#000'; x.beginPath(); x.moveTo(bx0 - pad - 5, oy - 5); x.lineTo(bx0 - pad - 5, top[0]); for (let k = 0; k < nb; k++) x.lineTo(bx0 + k * BIN, top[k]); x.lineTo(bx1 + pad + 5, top[nb - 1]); x.lineTo(bx1 + pad + 5, oy - 5); x.closePath(); x.fill(); x.globalCompositeOperation = 'source-over'; }
+    // moss dots: a few clusters set on the ridge, just inside it
+    if (kitD.length) for (let sd = (0.08 + 0.3 * R()) * H, i = 0; sd < L - 0.06 * H; sd += H * (0.12 + 0.5 * R()) / Math.max(0.2, S.cun / 0.6)) {
+      while (i < n - 1 && cum[i] < sd) i++; const sz = H * (0.016 + 0.02 * R()), an = R() * 6.2832, cx = P[i][0] + nrm[i][0] * sz * 0.9, cy = P[i][1] + nrm[i][1] * sz * 0.9;
+      stamp(pick(kitD), cx - Math.cos(an) * sz / 2, cy - Math.sin(an) * sz / 2, an, sz, 0.55 + 0.35 * R()); }
     // -- a rock face: ink running sideways from the stroke into the body, row by row, widening from the top into a
     //    shoulder and thinning toward the foot; texture strokes leaning down off the face
     if (CL > 2) { raw(g); raw(gb); const rise = yBase - yTop, rowsN = Math.max(2, Math.ceil(rise / BIN)), xs = new Array(rowsN).fill(null);
