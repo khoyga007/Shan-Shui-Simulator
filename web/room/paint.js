@@ -102,22 +102,6 @@
     for (let i = 1; i < q.length; i++) { w += (R * (0.95 - 0.6 * clamp(q[i][2] / 1.6, 0, 1)) - w) * 0.25; tc.lineWidth = Math.max(2, w); tc.beginPath(); tc.moveTo(q[i - 1][0], q[i - 1][1]); tc.lineTo(q[i][0], q[i][1]); tc.stroke(); }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = alpha; c.drawImage(tmp, 0, 0); c.restore();
   }
-  // ---- the two paintings still used whole (moon; the river, for its water) ----------------------------------------------
-  // The paintings are black ink on pure white. They are drawn as they are (opaque) and multiplied together, so white
-  // counts as empty paper everywhere: no cut-outs needed, and overlapping slices of one painting cannot double its ink.
-  const IMG = {};
-  function analyse(im) {   // where the ink is, on a 256-wide copy: box, top edge per column, all as fractions of the image
-    const w = 256, h = Math.round(256 * im.height / im.width), cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-    const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, w, h); const px = x.getImageData(0, 0, w, h).data;
-    const dark = (i, j) => 255 - (px[(j * w + i) * 4] + px[(j * w + i) * 4 + 1] + px[(j * w + i) * 4 + 2]) / 3;
-    let x0 = w, x1 = 0, y0 = h, y1 = 0; const top = new Array(w).fill(null);
-    for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) if (dark(i, j) > 30) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; if (top[i] == null && dark(i, j) > 60) top[i] = j / h; }
-    let lastT = top.find((v) => v != null) ?? 0.5; for (let i = 0; i < w; i++) { if (top[i] == null) top[i] = lastT; else lastT = top[i]; }
-    const tS = top.map((_, i) => { let a = 0, n = 0; for (let k = -13; k <= 13; k++) { a += top[clamp(i + k, 0, w - 1)]; n++; } return a / n; });   // the ridge with its crags smoothed off
-    return { b: [x0 / w, y0 / h, (x1 + 1) / w, (y1 + 1) / h], top: tS };
-  }
-  for (const n of ['moon', 'river']) { const im = new Image(); im.onload = () => { IMG[n] = { im, ...analyse(im) }; }; im.src = '../assets/scene/' + n + '.webp'; }
-
   // the stroke as an even, calm line (a hand wobbles; the painting must not)
   function calm(q, step, k) {
     const P = [[q[0][0], q[0][1]]]; let left = step;
@@ -126,14 +110,8 @@
     return P.map((_, i) => { let x = 0, y = 0, n = 0; for (let j = Math.max(0, i - k); j <= Math.min(P.length - 1, i + k); j++) { x += P[j][0]; y += P[j][1]; n++; } return [x / n, y / n]; });
   }
   const box = (P) => P.reduce((m, p) => [Math.min(m[0], p[0]), Math.min(m[1], p[1]), Math.max(m[2], p[0]), Math.max(m[3], p[1])], [1e9, 1e9, -1e9, -1e9]);
-  // painting's ink box onto a box on the paper (mirrored if asked)
-  function fit(x, A, B, flip, rot) {
-    const im = A.im, sx = (B[2] - B[0]) / ((A.b[2] - A.b[0]) * im.width), sy = (B[3] - B[1]) / ((A.b[3] - A.b[1]) * im.height);
-    x.save(); x.setTransform(dpr, 0, 0, dpr, 0, 0); if (flip) { x.translate(B[0] + B[2], 0); x.scale(-1, 1); }
-    if (rot) { const cx = (B[0] + B[2]) / 2, cy = (B[1] + B[3]) / 2; x.translate(cx, cy); x.rotate(rot); x.translate(-cx, -cy); }
-    x.drawImage(im, B[0] - A.b[0] * im.width * sx, B[1] - A.b[1] * im.height * sy, im.width * sx, im.height * sy); x.restore();
-  }
-  // a long painting (river, pine on its side) bent along the line P: cut into thin slices across, each turned to the line
+  // a long piece lying flat (water streak, pine trunk on its side) bent along the line P: cut into thin slices across,
+  // each turned to the line. A: the piece (im, and b = its ink box as fractions)
   function bend(x, A, P, vs, ends, rows) {
     const im = A.im, iw = im.width, ih = im.height, n = P.length, cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const L = cum[n - 1], u0 = A.b[0] * iw, s = L / ((A.b[2] - A.b[0]) * iw), pad = 0.03, bh = A.b[3] - A.b[1], r0 = (rows ? A.b[1] + rows[0] * bh : Math.max(0, A.b[1] - pad)) * ih, r1 = (rows ? A.b[1] + rows[1] * bh : Math.min(1, A.b[3] + pad)) * ih, mid = (A.b[1] + A.b[3]) / 2 * ih, ds = 3,
@@ -167,6 +145,11 @@
     let left = 0;
     for (const k in man) { PARTS[k] = man[k]; for (const p of man[k]) { left++; const im = new Image(); im.onload = () => { p.im = im; if (--left === 0) partsReady = true; }; im.src = '../assets/parts/' + p.f; } }
   });
+  const MOON = { im: null, b: [0.1, 0.1, 0.9, 0.9] };   // b: the disc's box in the painting, measured when it loads
+  { const im = new Image(); im.onload = () => { const w = 128, cv = document.createElement('canvas'); cv.width = cv.height = w; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, w, w);
+      const px = g.getImageData(0, 0, w, w).data; let x0 = w, x1 = 0, y0 = w, y1 = 0;
+      for (let j = 0; j < w; j++) for (let i = 0; i < w; i++) if (765 - px[(j * w + i) * 4] - px[(j * w + i) * 4 + 1] - px[(j * w + i) * 4 + 2] > 90) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
+      MOON.b = [x0 / w, y0 / w, (x1 + 1) / w, (y1 + 1) / w]; MOON.im = im; }; im.src = '../assets/scene/moon.webp'; }
   const dice = (seed) => () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const any = (R, a) => a[Math.floor(R() * a.length) % a.length];
   // one piece: its anchor (ax, ay; the middle if it has none) at (px, py), `size` px wide, turned by rot, mirrored if flip.
@@ -185,9 +168,17 @@
       const f = (d - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), p0 = P[Math.max(0, j - 3)], p1 = P[Math.min(n - 1, j + 4)];
       return [P[j][0] + (P[j + 1][0] - P[j][0]) * f, P[j][1] + (P[j + 1][1] - P[j][1]) * f, Math.atan2(p1[1] - p0[1], p1[0] - p0[0])]; } };
   }
+  const scr = document.createElement('canvas'), sc = scr.getContext('2d');
   const PAINT = {
-    // the one painting kept whole: turned and mirrored by the dice
-    moon: (x, P, R) => fit(x, IMG.moon, box(P), R() < 0.5, R() * 6.2832),
+    // moon: the one painting still used whole, turned and mirrored by the dice. Assembled from the round ink blots of
+    // sheet 5 (a pale blot as the disc, darker blots piled up as seas) it came out as stains on a dish, three tries:
+    // round blots are the wrong material for a moon's markings. Needs a sheet of uneven patches first
+    moon: (x, P, R) => {
+      const B = box(P), im = MOON.im, b = MOON.b; if (!im) return;
+      x.setTransform(dpr, 0, 0, dpr, (B[0] + B[2]) / 2 * dpr, (B[1] + B[3]) / 2 * dpr); x.rotate(R() * 6.2832);
+      x.scale((B[2] - B[0]) / ((b[2] - b[0]) * im.width) * (R() < 0.5 ? -1 : 1), (B[3] - B[1]) / ((b[3] - b[1]) * im.height));
+      x.drawImage(im, -(b[0] + b[2]) / 2 * im.width, -(b[1] + b[3]) / 2 * im.height); plain(x);
+    },
 
     // mountains: a peak on every crest of the stroke, its summit on the stroke, taller where the stroke climbs higher;
     // smaller peaks fill the line between; a pale far range behind. Near peaks hide far ones
@@ -241,9 +232,20 @@
       plain(x);
     },
 
-    // river: the water of the river painting bent along the stroke; bank strips, reeds and rocks set along both edges
+    // river: water streaks bent along the stroke, overlapping, each in its own lane; bank strips, reeds and rocks set
+    // along both edges
     river: (x, P, R) => {
-      const H = D.H, A = along(P), hw = bend(x, IMG.river, P, 0.65, 0.07, [0.2, 0.8]), things = [];
+      const H = D.H, A = along(P), hw = H * 0.042, things = [];
+      if (scr.width !== ink.width || scr.height !== ink.height) { scr.width = ink.width; scr.height = ink.height; }
+      for (let d = -0.05 * H; d < A.L - 0.08 * H;) {   // each streak is bent on a scratch canvas, then multiplied on: bent straight on, its slices would wipe the streak under it
+        const p = any(R, PARTS.streak), len = Math.min(H * (0.38 + 0.3 * R()), A.L), d0 = clamp(d, 0, A.L - len), off = hw * 0.7 * (R() - 0.5), seg = [];
+        for (let q = d0; q <= d0 + len + 0.5; q += 4) { const a = A.at(q); seg.push([a[0] - Math.sin(a[2]) * off, a[1] + Math.cos(a[2]) * off]); }
+        const thick = (p.b[3] - p.b[1]) * p.h * (len / ((p.b[2] - p.b[0]) * p.w)), want = hw * (1.1 + 0.8 * R());
+        sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, scr.width, scr.height); if (R() < 0.5) seg.reverse(); bend(sc, p, seg, want / thick, 0);
+        x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'multiply'; x.globalAlpha = clamp((0.2 + 0.22 * R()) / p.tone, 0.3, 1); x.drawImage(scr, 0, 0);
+        d += len * (0.45 + 0.3 * R());
+      }
+      plain(x);
       const put = (kind, t, side, off, size, rot, alpha) => { const q = A.at(t * A.L), nx = -Math.sin(q[2]), ny = Math.cos(q[2]); things.push({ p: any(R, PARTS[kind]), x: q[0] + nx * side * off, y: q[1] + ny * side * off, size, rot: rot + (kind === 'bank' ? q[2] : 0), flip: R() < 0.5, alpha }); };
       for (const side of [-1, 1]) for (let d = A.L * (0.03 + 0.08 * R()); d < A.L * 0.94;) { const len = H * (0.15 + 0.11 * R()); if (d + len / 2 < A.L * 0.97) put('bank', (d + len / 2) / A.L, side, hw * 1.05, len, 0, side < 0 ? 0.8 : 1); d += len * (0.7 + 0.6 * R()); }
       for (let i = 0, n = 5 + Math.floor(R() * 5); i < n; i++) put('reed', 0.06 + 0.88 * (i + R()) / n, R() < 0.5 ? -1 : 1, hw * (0.95 + 0.35 * R()), H * (0.07 + 0.06 * R()), 0.25 * (R() - 0.5), 1);
@@ -254,7 +256,7 @@
     },
   };
   function picture(d) {   // the finished painting of one figure, on a canvas of its own; null until its images are in
-    const T = TPL[d.i]; if (!partsReady || !IMG.moon || !IMG.river || d.stroke.length < 4) return null;
+    const T = TPL[d.i]; if (!partsReady || !MOON.im || d.stroke.length < 4) return null;
     const cv = document.createElement('canvas'); cv.width = ink.width; cv.height = ink.height; const x = cv.getContext('2d'); x.imageSmoothingQuality = 'high';
     x.setTransform(dpr, 0, 0, dpr, 0, 0); PAINT[T.id](x, calm(d.stroke, 4, 6), dice(d.seed)); return cv;
   }
@@ -339,6 +341,6 @@ Thả chuột giữa chừng: đứt nét
     else if (k === 'v' || k === 'V') { S.guide = !S.guide; save(); }
   });
 
-  window.__paint = { S, st, TPL, step, render, pick, reset, ready: () => partsReady && !!IMG.moon && !!IMG.river, pen: (on) => (on ? penDown() : penUp()), geo: () => { if (!geo) { layout(); geo.w = freeW(); geo.H = D.H; } return geo; },
+  window.__paint = { S, st, TPL, step, render, pick, reset, ready: () => partsReady && !!MOON.im, pen: (on) => (on ? penDown() : penUp()), geo: () => { if (!geo) { layout(); geo.w = freeW(); geo.H = D.H; } return geo; },
     info: () => ({ fig: TPL[st.cur].id, next: st.next, pen: st.pen, done: st.done.map((d) => TPL[d.i].id), last: st.last, tol: S.tol }) };
 })();

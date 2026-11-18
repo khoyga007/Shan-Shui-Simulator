@@ -13,6 +13,8 @@ Kinds and what is recorded for each (fractions of the piece image unless said):
   trunk   pine trunk, turned on its side (so it can be bent along a stroke like the river). b: ink box
   reed, rock   ax, ay: foot (bottom middle)
   bank    strip of river bank, lying flat
+  streak  flowing water lines, lying flat (bent along the river).  blot: round ink blot (the moon's disc and its seas)
+  every piece: tone = how dark its ink is on average, 0..1; fill = share of its box that is inked (a round blot: 0.75)
 All but the peaks are saved as they are, opaque on white: the room multiplies them on, white is empty paper.
 """
 import glob, json, os, shutil, sys
@@ -26,7 +28,7 @@ from split_sheet import pieces
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "art", "sheets")
 OUT = os.path.join(ROOT, "web", "assets", "parts")
-GAP = {"bang1": 4, "bang2": 24, "bang3": 8, "bang4": 8}   # px: ink nearer than this is one piece (two peaks stand close; a pale cloud falls apart under 20)
+GAP = {"bang1": 4, "bang2": 24, "bang3": 8, "bang4": 8, "bang5": 10}   # px: ink nearer than this is one piece (two peaks stand close; a pale cloud falls apart under 20)
 # bang4-v1 came out as one reed, one rock and one bank repeated: two of each are plenty
 CAP = {"bang4-v1": 2}
 
@@ -35,6 +37,7 @@ def kind_of(sheet, w, h, fill, dark, solid):
     if sheet == "bang1": return "peak"
     if sheet == "bang2": return "swirl" if dark > 0.06 else "puff"
     if sheet == "bang3": return "trunk" if h > 3 * w else "branch"
+    if sheet == "bang5": return "streak" if w > 3 * h else "blot"
     if w > 3 * h: return "bank"
     return "rock" if fill > 0.455 else "reed"   # share of its box that is inked: rocks 0.48 and up, the bushiest grass 0.43
 
@@ -58,7 +61,7 @@ def main():
             k = kind_of(sheet, iw, ih, ink.sum() / (iw * ih), ((lum < 90) & ink).sum() / (iw * ih), ndi.binary_erosion(ink, iterations=7).sum() / ink.sum())
             ver = "-".join(os.path.basename(path).split("-")[:2]); seen[(ver, k)] = seen.get((ver, k), 0) + 1
             if seen[(ver, k)] > CAP.get(ver, 99): continue
-            rec = {"w": w, "h": h, "b": [round(xs.min() / w, 4), round(ys.min() / h, 4), round((xs.max() + 1) / w, 4), round((ys.max() + 1) / h, 4)]}
+            rec = {"w": w, "h": h, "tone": round(float((255 - lum[ink]).mean()) / 255, 3), "fill": round(float(ink.sum()) / (iw * ih), 3), "b": [round(xs.min() / w, 4), round(ys.min() / h, 4), round((xs.max() + 1) / w, 4), round((ys.max() + 1) / h, 4)]}
             img = Image.fromarray(crop)
             if k == "peak":
                 top = np.full(w, np.nan)
