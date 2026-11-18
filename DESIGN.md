@@ -69,7 +69,7 @@ Scope: Vân Sơn only — one scrolling area ~6 screens wide, 3 enemy types, M�
 Step 1 (playable, 11-18): world bounds + landmarks, 3 enemies, analytic hit proxy, dragon HP, death → restart. Boss + dynamic zoom after.
 Step 1 built (`web/game.js`):
 - World 12.6 U wide (U = screen height at start), ground y 0.92 U, cloud walls at edges, 8 landmark cloud banks (mask blue).
-- Game zoom GZ 0.5 (`dragon.js`: rad, segLen; cloudR ×0.7): dragon ~1.1 U long. At wallpaper scale it filled the screen.
+- Game zoom GZ 0.75 (`dragon.js`: rad, segLen; cloudR ×0.85). Was 0.5: head became a blob, eye a speck (Yang 11-18 "phóng to"). 1.0 = wallpaper scale, fills the screen.
 - Enemies painted into mask red (= dragon's ink channel): brushwork + smoking edges free, fire overrides, death = stop painting + gentle splat.
 - Wisp ×18 (HP 10): swarm, dive at head, bite 5, back off 1–1.6 s. Crow ×6 (HP 30): flank 0.75 U, wing-raise tell 0.45 s, ink dart 10 dmg (fire/whip destroy). Turtle ×3 (HP 80): walks ground, faces dragon, front fire ×0.08 + jet splashes back, back ×1.4; tell 0.7 s → lunge 14; whip flips it.
 - Hits: breath = cone from mouth (len 0.9 H, half 0.34) + lip splash; whip = last 18 tail pts; coil drags/grinds non-turtles. Dragon hitbox = front 40% of body (tail is a weapon).

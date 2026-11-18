@@ -625,7 +625,7 @@ void main(){
   const dg = { roll: 0, rollT: 0, pts: [], prev: [], hx: 0, hy: 0, ang: 0, tx: 0, ty: 0, nextWander: 0, breath: 0, after: 0, angV: 0, bx: 0, by: 0, roar: 0, roarPearl: false, breathPearl: false, jaw: 0, fire: 0, mode: '', prevEyeX: 0, prevEyeY: 0, hasPrevEye: false };
   // game: camera pulled back (DESIGN: dragon spans 1/3-1/2 of the screen; at wallpaper scale it was ~2 screens long and the
   // enemies had nowhere to be). One factor for body size, spacing and clouds
-  const GZ = G.on ? 0.5 : 1;
+  const GZ = G.on ? 0.75 : 1;   // game zoom. 0.5 (step 1) shrank the head to a blob and the eye to a speck (Yang 11-18: phóng to)
   const segLen = () => Math.max(12, Hh * 0.03 * GZ) * (1 + 0.3 * kg.amt);
   const rad = () => Math.max(14, Hh * 0.056 * GZ) * (1 + 0.3 * kg.amt);
   function dragonInit() {
@@ -704,7 +704,7 @@ void main(){
 
   // ---- cloud & Long Vương ---------------------------------------------------------------
   const cl = { ph: 'off', next: 25, t: 0, headIn: 0, A: null, B: null, fade: 1, out: 0 };
-  const cloudR = () => Hh * 0.2 * (G.on ? 0.7 : 1);
+  const cloudR = () => Hh * 0.2 * (G.on ? 0.85 : 1);
   const KING_T = 60;
   const kg = { ph: 'off', t: 0, amt: 0, storm: 0, rain: 0, bolt: 0, nextBolt: 0, bx: 0.5, bs: 0, by: 0.3, last: -1e9, coc: 0, cx: 0, cy: 0, burst: false, puffs: [], nextPuff: 0 };
   const kd = { ph: 'off', hop: 0, total: 0, tx: 0, ty: 0, arc: 0, t: 0, bursts: [] };
