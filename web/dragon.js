@@ -1506,12 +1506,15 @@ void main(){
     // and well past the head, dipping a little so they clear the underside of the neck
     taper(strand(R * 2.75, R * 0.66, Math.PI - 0.05, -0.06, R * 10.0 * (1 + 0.3 * kg.amt), 0, 1), R * 0.2, R * 0.02);
     taper(strand(R * 2.7, R * 0.78, Math.PI - 0.13, 0.05, R * 9.0 * (1 + 0.3 * kg.amt), 2.1, 1), R * 0.18, R * 0.02);
-      // eye: cut hole from head ink and mark feathered eye shape in mask.b
+      // eye: cut hole from head ink and mark feathered eye shape in mask.b. Game: no eye at all, solid head ink (Yang 11-18:
+      // no red eye dot; the head reads by its ink shape)
+      if (!G.on) {
       c.globalCompositeOperation = 'destination-out';
       sprite(c, HEAD.eye, R);
       c.globalCompositeOperation = 'source-over';
       if (!eyeBlueCv && HEAD.eye.im.complete) buildEyeBlue(HEAD.eye.im);
       if (eyeBlueCv) c.drawImage(eyeBlueCv, HEAD.eye.x * R, HEAD.eye.y * R, HEAD.eye.w * R, HEAD.eye.h * R);
+      }
     });
     c.globalCompositeOperation = 'source-over';
     c.restore(); c.globalAlpha = 1;
@@ -1656,7 +1659,7 @@ void main(){
       uEye: [e.x / W, 1 - e.y / Hh],
       uEyeR: rad() * 0.34 / Math.max(1, Hh),
       uAsp: W / Math.max(1, Hh),
-      uEyeA: ea, uOpen: G.on ? 1 : 0,
+      uEyeA: G.on ? 0 : ea, uOpen: G.on ? 1 : 0,
     }, [1 / mcv.width, 1 / mcv.height]); dye.swap();
   }
 
@@ -1704,7 +1707,7 @@ void main(){
         return [(cx * 0.35 - G.remX) / W * f[0], clamp(-cy / Hh * f[1] * 0.12, -0.25, 0.25) + G.remY / Hh * f[1]]; })() : [0, 0],
       uDyeTx: dye.tx,
       uManual: linear ? 0 : 1,
-      uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true),
+      uEyeA: G.on ? 0 : visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true),
       uDark: dark ? 1 : 0,
       uCap: CAP_DARK,
       uBg: dark ? NIGHT : PAPER,
@@ -1766,7 +1769,7 @@ void main(){
         }
       }
       const eyeVis = visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true);
-      if (cl.ph !== 'hidden' && dg.pts.length >= 3 && eyeVis > 0.05) {
+      if (!G.on && cl.ph !== 'hidden' && dg.pts.length >= 3 && eyeVis > 0.05) {   // eye smoke trail (red/gold): wallpaper only, game has no eye
         const epNow = eye();
         const rate = clamp(dt * 30, 0.05, 1.5);
         const fNorm = dark ? [1.0, 0.50, 0.096] : [0.03, 1.05, 1.75];
