@@ -6,6 +6,7 @@
 //   waveOff   mean sideways push of the body wave over the 2nd half of the run, px: full flying straight, ~0 in a circle
 //   drawnBendMax  sharpest joint of the spine as drawn (plain + wave), rad: a zigzag tail shows here
 //   tailBendAvg   mean bend of the plain spine's last 20 joints over the 2nd half, rad a joint: a tail wound into a ring sits at the bend limit
+//   offFigurePx   dance, 2nd half: farthest any plain joint lay from the figure-8 line, px
 //   err*      held point (eye) to mouse point, body radii
 (() => {
   const D = window.__dragon, Rm = window.__room, dbg = window.__dragonDebug;
@@ -30,7 +31,7 @@
   const ONLY = new URLSearchParams(location.search).get('only');
   const run = (name, secs, mouse, pre, shots) => {
     if (ONLY && !ONLY.split(',').includes(name)) return;
-    let ovAt = '', dbAt = '';
+    let ovAt = '', dbAt = '', offFig = 0;
     // back to the middle, heading right: the mouse point is put a little left of the goal first, then drawn right. (Not
     // "14 px towards the goal from the eye, every frame": heading away, that point lies between neck and eye, where
     // the room rightly does nothing, and the dragon flew off the screen)
@@ -52,9 +53,12 @@
       for (let i = 2; i < N; i++) { const a1 = Math.atan2(wv.by[i - 1] - wv.by[i - 2], wv.bx[i - 1] - wv.bx[i - 2]), a2 = Math.atan2(wv.by[i] - wv.by[i - 1], wv.bx[i] - wv.bx[i - 1]); const b = Math.abs(wrap(a2 - a1)); bMax = Math.max(bMax, b); if (i >= N - 20 && f >= secs * 30) tailB += b / 19 / (secs * 30); }
       { const w2 = D.dg.wv; let a = 0; for (let i = 1; i < N; i++) a += Math.hypot(P[i].x - w2.bx[i], P[i].y - w2.by[i]); if (f >= secs * 30) wSum += a / (N - 1) / (secs * 30); }
       for (let i = 2; i < N; i++) { const a1 = Math.atan2(P[i - 1].y - P[i - 2].y, P[i - 1].x - P[i - 2].x), a2 = Math.atan2(P[i].y - P[i - 1].y, P[i].x - P[i - 1].x); const b = Math.abs(wrap(a2 - a1)); if (b > dMax) { dMax = b; dbAt = `f${f} j${i} f=${[i - 2, i - 1, i].map((q) => wv.f[q].toFixed(2))} g=${[i - 1, i].map((q) => wv.g[q].toFixed(2))} off=${[i - 2, i - 1, i].map((q) => Math.hypot(P[q].x - wv.bx[q], P[q].y - wv.by[q]).toFixed(0))} seg=${[i - 1, i].map((q) => Math.hypot(wv.bx[q] - wv.bx[q - 1], wv.by[q] - wv.by[q - 1]).toFixed(0))}`; } }
+      if (Rm.st.dance && f >= secs * 30) { const A = Rm.S.infA * H, cxm = (W - document.getElementById('panel').offsetWidth) / 2; let worst = 0;
+        for (let i = 0; i < N; i += 3) { let b = 1e9; for (let k = 0; k < 240; k++) { const a = k / 240 * 6.2832, d = Math.hypot(cxm + A * Math.sin(a) - wv.bx[i], H / 2 + A * 0.45 * Math.sin(2 * a) - wv.by[i]); if (d < b) b = d; } if (b > worst) worst = b; }
+        offFig = Math.max(offFig, worst); }
       const am = Rm.st.dance ? Rm.aim() : T, er = Math.hypot(am[0] - Rm.hc.x, am[1] - Rm.hc.y); mErr = Math.max(mErr, er); eSum += er; n++; yMax = Math.max(yMax, Math.abs(P[0].y - y0));
     }
-    out[name] = { faceMax: +mFace.toFixed(3), jointOver: +mOver.toFixed(1), bendMax: +bMax.toFixed(2), tailBendAvg: +tailB.toFixed(3), drawnBendMax: +dMax.toFixed(2), overAt: ovAt, drawnAt: dbAt, errMaxR: +(mErr / R).toFixed(2), errAvgR: +(eSum / n / R).toFixed(2),
+    out[name] = { faceMax: +mFace.toFixed(3), jointOver: +mOver.toFixed(1), bendMax: +bMax.toFixed(2), tailBendAvg: +tailB.toFixed(3), offFigurePx: +offFig.toFixed(0), drawnBendMax: +dMax.toFixed(2), overAt: ovAt, drawnAt: dbAt, errMaxR: +(mErr / R).toFixed(2), errAvgR: +(eSum / n / R).toFixed(2),
       errEndR: +(Math.hypot(T[0] - Rm.hc.x, T[1] - Rm.hc.y) / R).toFixed(2), sideSwingH: +(yMax / H).toFixed(2), waveOffPx: +wSum.toFixed(1), facesBackAfter: +tBack.toFixed(2) };
     if (shots) out[name].trace_neckXY_heading_face_mouseXY = tr.map((r) => r.join(' ')).join(' | ');
   };
@@ -68,6 +72,6 @@
   run('shake8Hz', 2, (t) => [(Math.floor(t * 16) % 2 ? 1 : -1) * 3 * H * dt, 0]);
   run('nudgeBack150', 1.5, (t, f) => f === 0 ? [-150, 0] : [0, 0]);
   run('nudgeSide100', 1, (t, f) => f === 0 ? [0, 100] : [0, 0]);
-  run('infinity', 8, () => [0, 0], null, [200, 300, 420]); Rm.dance(false);
+  run('infinity', 12, () => [0, 0], null, [420, 540, 700]); Rm.dance(false);
   post('bot-uturn.jpg', strip.toDataURL('image/jpeg', 0.85)).then(() => post('bot.json', json(out)));
 })();
