@@ -113,7 +113,8 @@
     for (const e of ens) {
       if (e.hp <= 0) continue;
       const on = e.x > view.x0 - U && e.x < view.x1 + U && e.y > view.y0 - U && e.y < view.y1 + U;   // only near the camera wakes up
-      if (!on) continue;
+      // asleep: drift home. Frozen in place, a wisp the fire blew out of the wake range stayed lost off-screen for good
+      if (!on) { e.vx = e.vy = 0; e.x += (e.hx - e.x) * Math.min(1, dt * 0.4); e.y += (e.hy - e.y) * Math.min(1, dt * 0.4); continue; }
       e.flash = Math.max(0, e.flash - dt); e.hitCd = Math.max(0, (e.hitCd || 0) - dt);
       const dx = head.x - e.x, dy = head.y - e.y, d = hyp(dx, dy) || 1, R = e.r * U;
       if (e.k === 'wisp') {   // swarm: orbit home; dive at the head when close, bite, fall back (the window to burn it), dive again
@@ -205,7 +206,17 @@
       if (t.life > 0) a.ink(s.x, s.y, 0.00012, 0.35);   // streak
     }
     darts = darts.filter((t) => t.life > 0);
-    ui.update();
+    // guide: nothing alive on screen -> point at the nearest living enemy (Yang 11-18: cleared zone 1, saw no more enemies;
+    // the zones sit ~1 screen apart with nothing to say which way)
+    let near = null, nd = Infinity, seen = false;
+    for (const e of ens) {
+      if (e.hp <= 0) continue;
+      const sx = e.x - G.camX - G.mx - G.remX, sy = e.y - G.camY - G.my - G.remY;   // CSS px
+      const mg = Math.min(innerWidth, innerHeight) * 0.1;   // fully in view, not just poking in at the edge
+      if (sx > mg && sx < innerWidth - mg && sy > mg && sy < innerHeight - mg) { seen = true; break; }
+      const d = hyp(e.x - head.x, e.y - head.y); if (d < nd) { nd = d; near = { sx, sy }; }
+    }
+    ui.update(seen || S.dead || S.won ? null : near);
   }
 
   // ---- painting (mask: red = ink shape, blue = cloud wash) -----------------------------------------------------------------
@@ -278,7 +289,14 @@
     const end = document.createElement('div');
     Object.assign(end.style, { position: 'fixed', inset: 0, zIndex: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(242,237,228,.78)', font: '15px/1.5 Georgia, serif', color: '#2a2622', opacity: 0, transition: 'opacity .8s', pointerEvents: 'none' });
     end.innerHTML = '<div id="ig-t" style="font-size:42px;letter-spacing:.04em"></div><div id="ig-s" style="margin-top:10px;opacity:.7"></div>';
-    const add = () => { document.body.append(veil, box, end); };
+    // guide arrow: a dry-brush chevron on the screen edge, toward the nearest enemy, with how far off it is
+    const arrow = document.createElement('div');
+    Object.assign(arrow.style, { position: 'fixed', left: 0, top: 0, width: '0', height: '0', pointerEvents: 'none', zIndex: 3, opacity: 0, transition: 'opacity .4s', font: '13px Georgia, serif', color: '#2a2622' });
+    arrow.innerHTML = '<svg id="ig-chev" width="80" height="80" viewBox="-28 -28 56 56" style="position:absolute;left:-40px;top:-40px;overflow:visible">' +
+      '<path d="M-10,-17 Q4,-6 14,0 Q4,6 -10,17" fill="none" stroke="#2a2622" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>' +
+      '<path d="M-20,-11 Q-8,-4 0,0 Q-8,4 -20,11" fill="none" stroke="#2a2622" stroke-width="3.5" stroke-linecap="round" opacity=".45"/></svg>' +
+      '<div id="ig-dist" style="position:absolute;transform:translate(-50%,-50%);white-space:nowrap;opacity:.7"></div>';
+    const add = () => { document.body.append(veil, box, end, arrow); };
     if (document.body) add(); else addEventListener('DOMContentLoaded', add);
     const q = (id) => document.getElementById(id);
     const again = () => { if ((S.dead || S.won) && A().T - S.endT > 1.2) reset(); };
@@ -288,10 +306,20 @@
       end,
       flash() { veil.style.opacity = 1; clearTimeout(ft); ft = setTimeout(() => (veil.style.opacity = 0), 140); },
       endMsg(t, s) { q('ig-t').textContent = t; q('ig-s').textContent = s; end.style.opacity = 1; },
-      update() {
+      update(near) {
         const hp = q('ig-hp'), left = q('ig-left'); if (!hp) return;
         hp.style.width = S.hp.toFixed(1) + '%';
         left.textContent = `Vân Sơn · còn ${S.total - S.kills}/${S.total} quái mực`;
+        if (!near) { arrow.style.opacity = 0; return; }
+        // on an inset ellipse round the screen centre, in the enemy's direction; pulses so it reads as a call, not a HUD part
+        const cx = innerWidth / 2, cy = innerHeight / 2, ang = Math.atan2(near.sy - cy, near.sx - cx);
+        const rx = cx - 80, ry = cy - 80, ex = Math.cos(ang), ey = Math.sin(ang), k = 1 / Math.max(Math.abs(ex) / rx, Math.abs(ey) / ry);
+        const t = A().T, bob = Math.sin(t * 5) * 6;
+        arrow.style.transform = `translate(${cx + ex * (k + bob)}px, ${cy + ey * (k + bob)}px)`;
+        q('ig-chev').style.transform = `rotate(${ang}rad)`;
+        const dl = q('ig-dist'); dl.style.left = (-ex * 60) + 'px'; dl.style.top = (-ey * 60) + 'px';
+        dl.textContent = (Math.hypot(near.sx - cx, near.sy - cy) / innerWidth).toFixed(1) + ' màn';
+        arrow.style.opacity = 0.75 + 0.25 * Math.sin(t * 5);
       },
     };
   })();
