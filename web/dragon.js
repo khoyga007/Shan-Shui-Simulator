@@ -1520,7 +1520,9 @@ void main(){
     // head, in head space: +x forward, +y = right side
     const a = Math.atan2(pts[0].y - pts[2].y, pts[0].x - pts[2].x);
     c.globalAlpha = visAt(pts[0].x, pts[0].y);
-    if (c.globalAlpha <= 0.01) { c.globalAlpha = 1; drawClouds(c); return; }
+    // head hidden (in a dive cloud): nothing more of the dragon to draw. The game's enemies and cloud banks still go in:
+    // returning without them, every enemy vanished while the dragon was in the cloud and came back with it (Yang 11-18)
+    if (c.globalAlpha <= 0.01) { c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; if (G.on) window.InkGame?.mask(c); drawClouds(c); return; }
     // the head goes to its own layer first, so it can be ringed by the same gap as a front coil when it swings over the body
     if (!hcv || hcv.width !== mcv.width || hcv.height !== mcv.height) { hcv = document.createElement('canvas'); hcv.width = mcv.width; hcv.height = mcv.height; hx = hcv.getContext('2d'); }
     hx.setTransform(1, 0, 0, 1, 0, 0); hx.clearRect(0, 0, hcv.width, hcv.height); hx.setTransform(k, 0, 0, -k, 0, mcv.height);
