@@ -4,6 +4,8 @@ alpha, plus strokes.json {key: [{f, w, h, tone}]}.
   <Source> A.png  10 long thin dry strokes: hemp-fibre texture strokes       key <source>_a
   <Source> B.png  short axe-cut strokes and clusters of moss dots            keys <source>_b (strokes), <source>_d (dots)
   <Source> C.png  6 level bands of wash, dark upper edge, thinning downward  key <source>_c
+  <Source> D.png  5 level bands of grey wash, mist eating in from below      key <source>_m  (masks, not ink)
+  <Source> E.png  3 x 2 grey patches, a bank of mist drifted into each       key <source>_e  (masks, not ink)
 Level strokes and bands are straightened: every column is slid up so the upper edge is level (they arc a little; bent
 along a ridge, the upper edge is the ridge line). usage: python tools/build_inklines.py"""
 import json, os
@@ -66,11 +68,70 @@ def loose(key, ink):
         else: save(key + '_d', kd, a); kd += 1
 
 
+# -- mist (sheets D and E): not ink to lay down but a mask. A flat grey wash that mist has eaten into: grey = the ink
+#    of the mountain stays, white = mist. Saved as the others (grey in alpha, 1 = ink stays), read as numbers by paint.js
+SKIP = {'muse_m': {0, 1}, 'muse_e': 'all'}   # Muse's came out as Western watercolour blooms (crinkled cauliflower rims), not mist
+
+
+def runs(on):
+    idx = np.nonzero(on)[0]
+    if not len(idx): return []
+    cut = np.nonzero(np.diff(idx) > 1)[0]
+    return list(zip(np.r_[idx[0], idx[cut + 1]], np.r_[idx[cut], idx[-1]] + 1))
+
+
+def shrink(a, wide):
+    h, w = a.shape
+    return np.asarray(Image.fromarray(np.round(a * 255).astype(np.uint8)).resize((wide, max(8, round(h * wide / w))), Image.LANCZOS), np.float32) / 255
+
+
+def mist_bands(key, d):
+    """sheet D: level bands, flat grey above, mist below; the rolling line between them is the top of a sea of mist.
+    'b' in the manifest: the mean row of that line (the level the game lays on its own sea level)"""
+    H, W = d.shape; x0, x1 = int(0.06 * W), int(0.94 * W)   # the ends of a band taper or pool: cut off
+    r = ndi.uniform_filter1d(d[:, x0:x1].mean(axis=1), 9)
+    rr = [(a, b) for a, b in runs(r > 0.35 * r.max()) if b - a > 0.03 * H]
+    k = 0
+    for i, (a, b) in enumerate(rr):
+        end = rr[i + 1][0] - int(0.012 * H) if i + 1 < len(rr) else H
+        if i in SKIP.get(key, ()): continue
+        top = a + int(0.012 * H)
+        g = float(np.median(d[top:top + max(4, int(0.3 * (b - a))), x0:x1]))   # the flat grey of this band = ink 1
+        ink = np.clip((d[top:end, x0:x1] - 0.06 * g) / (0.84 * g), 0, 1)
+        h = ink.shape[0]; y = np.arange(h)[:, None]
+        ink = np.maximum(ink, np.clip(1 - y / (0.06 * h), 0, 1)) * np.clip((h - 1 - y) / (0.12 * h), 0, 1)   # all ink along the top, all mist along the bottom: no seam where the band ends
+        ink = shrink(ink, 1400)
+        save(key, k, ink, 'webp'); man[key][-1]['b'] = round(float(ink.sum(axis=0).mean()), 1); k += 1
+
+
+def mist_patches(key, d):
+    """sheet E: a grid of grey patches, a bank of mist drifted into each. 'side': the side it came in by (l r t b),
+    'c': where along that side (0..1)"""
+    if SKIP.get(key) == 'all': return
+    H, W = d.shape; lim = 0.12 * np.percentile(d, 90)
+    cs = [(a, b) for a, b in runs(ndi.uniform_filter1d(d.mean(axis=0), 9) > lim) if b - a > 0.1 * W]
+    rs = [(a, b) for a, b in runs(ndi.uniform_filter1d(d.mean(axis=1), 9) > lim) if b - a > 0.1 * H]
+    k = 0
+    for ra, rb in rs:
+        for ca, cb in cs:
+            a = d[ra:rb, ca:cb]; ih, iw = int(0.04 * a.shape[0]), int(0.04 * a.shape[1]); a = a[ih:-ih, iw:-iw]
+            g = float(np.percentile(a, 80))
+            ink = np.clip((a - 0.06 * g) / (0.84 * g), 0, 1); m = 1 - ink; h, w = m.shape; sh, sw = int(0.08 * h), int(0.08 * w)
+            strips = {'l': m[:, :sw].mean(axis=1), 'r': m[:, -sw:].mean(axis=1), 't': m[:sh].mean(axis=0), 'b': m[-sh:].mean(axis=0)}
+            side = max(strips, key=lambda s: strips[s].mean()); st = strips[side]
+            c = float((st * np.arange(len(st))).sum() / max(1e-6, st.sum()) / len(st))
+            save(key, k, shrink(ink, 360), 'webp'); man[key][-1].update(side=side if st.mean() > 0.12 else '', c=round(c, 3)); k += 1
+
+
 for name in sorted(os.listdir(SRC)):
     if not name.lower().endswith('.png'): continue
     stem = os.path.splitext(name)[0].lower().split()
     src, kind = stem[0], (stem[1] if len(stem) > 1 else '')
     L = np.asarray(Image.open(os.path.join(SRC, name)).convert('L'), dtype=np.float32)
+    if kind in ('d', 'e'):
+        dark = np.clip(float(np.percentile(L, 97)) - L, 0, None)
+        (mist_bands if kind == 'd' else mist_patches)(src + ('_m' if kind == 'd' else '_e'), dark)
+        print(name, L.shape[::-1]); continue
     bg = float(np.percentile(L, 75 if kind != 'c' else 97))      # the paper (Gemini's is off-white with shading)
     bgmap = ndi.gaussian_filter(ndi.maximum_filter(L, size=61 if kind != 'c' else 301), 40)   # its slow shading, taken off
     ink = np.clip((np.minimum(bgmap, bg + 20) - 10 - L) / (bg - 40), 0, 1)

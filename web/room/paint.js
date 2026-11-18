@@ -79,7 +79,9 @@
   // Muse, Gemini and GPT paint): one is bent along the whole ridge, its upper edge on the line
   const STROKES = {}; let strokesReady = false;
   fetch('../assets/strokes/strokes.json').then((r) => r.json()).then((man) => { let left = 0;
-    for (const k in man) { STROKES[k] = man[k]; for (const q of man[k]) { left++; const im = new Image(); im.onload = () => { q.im = im; if (--left === 0) { strokesReady = true; for (const d of st.done) d.m = null; bakeKey = ''; } }; im.src = '../assets/strokes/' + q.f; } } }).catch(() => { strokesReady = true; });
+    for (const k in man) { STROKES[k] = man[k]; for (const q of man[k]) { left++; const im = new Image(); im.onload = () => { q.im = im;
+        if (/_[me]$/.test(k)) try { const cv = document.createElement('canvas'); cv.width = q.w; cv.height = q.h; const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0); const px = x.getImageData(0, 0, q.w, q.h).data; q.a = new Uint8Array(q.w * q.h); for (let i = 0; i < q.a.length; i++) q.a[i] = px[i * 4 + 3]; } catch { /* no mask: the mist falls back on noise */ }   // mist masks (sheets D, E) are read as numbers, not drawn
+        if (--left === 0) { strokesReady = true; for (const d of st.done) d.m = null; bakeKey = ''; } }; im.src = '../assets/strokes/' + q.f; } } }).catch(() => { strokesReady = true; });
   const STEP = 3, BIN = 2;   // px between points of the calmed stroke; px per column of the wash
   // One stroke -> one mountain, on canvases cropped to it: cv (the ink) and body (what it hides of the mountains behind)
   function mountain(d) {
@@ -342,8 +344,15 @@
     //    after this mountain's ink: it takes this mountain and those behind it, never one in front.
     //    Built coarse (one value per MQ px) and drawn enlarged: mist has no fine edge.
     //    (The first mist, 545dcc2, lay behind the ridge and only paled the far mountain: not what was meant.)
-    let mist = null, mxy = [0, 0, 1];
-    if (S.mist > 0.02) { const MQ = 6, rise = yBase - yTop, mg = 0.2 * H, rock = cliff > 0.5, xa = bx0 - extL, xb = bx1 + extR, mx = Math.floor(xa - mg), my = Math.floor(yTop - 0.2 * H), yBot = yBase + 0.19 * H, mw = Math.ceil((xb + mg - mx) / MQ), mh = Math.ceil((yBot - my) / MQ), x1 = mx + mw * MQ;
+    let mist = null, mxy = [0, 0, 1]; const tMist = performance.now();
+    //    Its edge is real: the top of the sea is a band of wash that mist has eaten into (sheet D, key *_m), laid level
+    //    along the sea level; each end of the ridge gets a bank that drifted in from the side (sheet E, *_e). Read as
+    //    masks (1 = ink stays). Brush 'code', or no sheets: the edge is rolled by noise as before, and reads as airbrush.
+    if (S.mist > 0.02) { const mk = (suf) => S.tex === 'code' ? [] : Object.keys(STROKES).filter((k) => k.endsWith(suf)).flatMap((k) => STROKES[k].filter((q) => q.a)),
+         kitM = mk('_m'), kitE = mk('_e').filter((q) => q.side === 'l' || q.side === 'r'), tb = kitM.length ? kitM[Math.floor(R() * kitM.length)] : null,
+         tk = tb ? tb.w / (2.6 * H) : 1, tu0 = R() * 4000, tfl = R() < 0.5 ? -1 : 1, tUp = tb ? tb.b / tk : 0, tDn = tb ? (tb.h - tb.b) / tk : 0,   // a band lies 2.6 screens long (mirrored on past its end)
+         smp = (q, u, v) => { const w = q.w, p = 2 * w; u = ((u % p) + p) % p; if (u >= w) u = p - u; u = clamp(u - 0.5, 0, w - 1.001); v = clamp(v, 0, q.h - 1.001); const i = u | 0, j = v | 0, fx = u - i, fy = v - j, o = j * w + i, a = q.a; return ((a[o] * (1 - fx) + a[o + 1] * fx) * (1 - fy) + (a[o + w] * (1 - fx) + a[o + w + 1] * fx) * fy) / 255; },
+         MQ = tb ? 4 : 6, rise = yBase - yTop, mg = 0.2 * H, rock = cliff > 0.5, xa = bx0 - extL, xb = bx1 + extR, mx = Math.floor(xa - mg), my = Math.floor(yTop - 0.2 * H), yBot = yBase + 0.19 * H, mw = Math.ceil((xb + mg - mx) / MQ), mh = Math.ceil((yBot - my) / MQ), x1 = mx + mw * MQ;
       const sd = d.seed | 0, h2 = (ix, iy) => { let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + sd) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; },
          v2 = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), a = h2(ix, iy), b = h2(ix + 1, iy), c0 = h2(ix, iy + 1), e = h2(ix + 1, iy + 1); return a + (b - a) * sx + (c0 - a + (a - b - c0 + e) * sx) * sy; },
          f2 = (x, y, o) => { let s = 0, w = 1, t = 0; for (let i = 0; i < o; i++) { s += w * v2(x, y); t += w; w *= 0.5; x = x * 2 + 13.7; y = y * 2 + 7.1; } return s / t; };
@@ -357,22 +366,35 @@
       // of the ridge (from cP above the line down to cD, the foot of the ink there), by which the end is lost. (As one
       // body, standing above the ridge at the ends and reaching down from there, an end high on the paper wiped an
       // upright white column out of the mountain behind it)
-      const cT = new Float32Array(mw), cM = new Float32Array(mw), cE = new Float32Array(mw), cS = new Float32Array(mw), cD = new Float32Array(mw);
+      const cT = new Float32Array(mw), cM = new Float32Array(mw), cE = new Float32Array(mw), cE2 = new Float32Array(mw), cS = new Float32Array(mw), cD = new Float32Array(mw), short = tb && kitE.length ? 0.45 : 1;   // cE2: the plain bank at the very end, short where a real bank does the rest
       for (let i = 0; i < mw; i++) { const x = mx + (i + 0.5) * MQ, k = clamp(Math.round((x - bx0) / BIN), 0, nb - 1), t = rock ? yTop : Math.min(top[k], ts[k]), lvl = lv0 + 0.07 * H * (2 * N(x / (0.45 * H) + 600, 2) - 1);
-        cT[i] = t; cE[i] = rock ? 1 : sm((x - xaE) / dlL) * sm((xbE - x) / dlR); cM[i] = rock ? lvl : Math.max(lvl, t + cMin); cD[i] = t + depthFull[k] + 0.05 * H; cS[i] = H * (0.045 + 0.09 * N(x / (0.3 * H) + 640, 2)) * (rock ? 2 : 1); }   // cS: how soft the top of the mist is there
+        cT[i] = t; cE[i] = rock ? 1 : sm((x - xaE) / dlL) * sm((xbE - x) / dlR); cE2[i] = rock ? 1 : sm((x - xaE) / (short * dlL)) * sm((xbE - x) / (short * dlR)); cM[i] = rock ? lvl : Math.max(lvl, t + cMin); cD[i] = t + depthFull[k] + 0.05 * H; cS[i] = H * (0.045 + 0.09 * N(x / (0.3 * H) + 640, 2)) * (rock ? 2 : 1); }   // cS: how soft the top of the mist is there
       const im = new ImageData(mw, mh), px = im.data, su = 1 / (0.2 * H), sv = 1 / (0.11 * H);   // banks lie longer than they are tall
-      for (let i = 0; i < mw; i++) { const x = mx + (i + 0.5) * MQ, sw = cS[i], e = cE[i], t = cT[i], band = 1.3 * A + sw, dx = Math.min(x - mx, x1 - x), u = x * su;
-        for (let j = 0; j < mh; j++) { const y = my + (j + 0.5) * MQ, relS = y - cM[i], relP = y - (t - lift), inP = e < 0.995 && relP > -band && y < cD[i];
-          if (relS < -band && !inP) continue;
+      const banks = []; if (tb && kitE.length && !rock) for (const [endX, dl, sd] of [[xaE, dlL, 'l'], [xbE, dlR, 'r']]) { const p = kitE[Math.floor(R() * kitE.length)], pw = 1.8 * dl, ph = pw * p.h / p.w, i0 = clamp(Math.round((endX - mx) / MQ), 0, mw - 1);
+        banks.push({ p, sd, pw, ph, flip: p.side !== sd, x0: sd === 'l' ? endX - 0.25 * pw : endX - 0.75 * pw, y0: cT[i0] + 0.03 * H - p.c * ph }); }   // the side the mist came in by lies on the end of the ridge
+      const vm = new Float32Array(mh); for (let j = 0; j < mh; j++) { const y = my + (j + 0.5) * MQ; vm[j] = sm((y - my) / (0.04 * H)) * sm((yBot - y) / (0.03 * H)); }
+      for (let i = 0; i < mw; i++) { const x = mx + (i + 0.5) * MQ, sw = cS[i], e = cE[i], e2 = cE2[i], t = cT[i], band = 1.3 * A + sw, dx = Math.min(x - mx, x1 - x), u = x * su, ut = tfl * x * tk + tu0, edge = dx < 0.27 * H,
+           j0 = !tb ? 0 : Math.max(0, Math.floor((banks.reduce((m, bk) => x > bk.x0 && x < bk.x0 + bk.pw ? Math.min(m, bk.y0) : m, (e2 < 0.995 ? Math.min(cM[i], t - lift) : cM[i]) - tUp) - my) / MQ - 0.5));   // above the sea and the banks: nothing
+        for (let j = j0; j < mh; j++) { const y = my + (j + 0.5) * MQ, relS = y - cM[i], relP = y - (t - lift), inP = e < 0.995 && relP > -band && y < cD[i];
+          if (tb && relS >= tDn && !edge) { px[(j * mw + i) * 4 + 3] = Math.round(vm[j] * 255); continue; }   // deep in the sea
           let a = 1;
-          if (relS < band || dx < 0.27 * H) { const v = y * sv, wx = v2(u + 5.2, v + 1.3), wy = v2(u + 9.1, v + 7.7), nz = f2(u + 1.2 * wx, v + 1.2 * wy, 3), dsp = A * 1.6 * (2 * nz - 1) * (0.5 + wy);   // noise bent by noise: the top rolls, higher in places
+          if (tb) { a = relS <= -tUp ? 0 : relS >= tDn ? 1 : 1 - smp(tb, ut, tb.b + relS * tk);
+            if (y < cD[i]) { const foot = sm((cD[i] - y) / (0.1 * H));
+              // the plain bank only takes the line of the ridge at its very end (down to the foot of the ink it stood as an upright white column, wiped out of whatever lay behind)
+              if (e2 < 0.995 && relP > -tUp) a = Math.max(a, (1 - e2) * (relP >= tDn ? 1 : 1 - smp(tb, ut + 517, tb.b + relP * tk)) * foot * sm((t + 0.1 * H - y) / (0.07 * H)));
+              for (const bk of banks) { const fu = (x - bk.x0) / bk.pw, fv = (y - bk.y0) / bk.ph; if (fu <= 0 || fu >= 1 || fv <= 0 || fv >= 1) continue; const fi = bk.sd === 'l' ? fu : 1 - fu;
+                a = Math.max(a, (1 - smp(bk.p, (bk.flip ? 1 - fu : fu) * bk.p.w, fv * bk.p.h)) * sm(fi / 0.1) * sm((1 - fi) / 0.14) * sm(fv / 0.14) * sm((1 - fv) / 0.14) * foot); } }   // faded on all four sides: left open on the side it came in by, the patch showed as an upright edge
+            if (a < 0.004) continue;
+            if (dx < 0.27 * H) a *= sm(dx / (H * (0.06 + 0.12 * v2(u + 5.2, y * sv + 1.3)))); }   // no upright edge where the mask ends
+          else if (relS < -band && !inP) continue;
+          else if (relS < band || dx < 0.27 * H) { const v = y * sv, wx = v2(u + 5.2, v + 1.3), wy = v2(u + 9.1, v + 7.7), nz = f2(u + 1.2 * wx, v + 1.2 * wy, 3), dsp = A * 1.6 * (2 * nz - 1) * (0.5 + wy);   // noise bent by noise: the top rolls, higher in places
             a = sm((relS + dsp) / sw); if (inP) a = Math.max(a, (1 - e) * sm((relP + dsp) / sw) * sm((cD[i] - y) / (0.1 * H)));
             a *= sm(dx / (H * (0.06 + 0.12 * wx))); }   // no upright edge where the mask ends
           a *= 1 - e * (1 - sm((y - t - 0.012 * H) / (0.03 * H)));   // away from the ends the ridge line itself stays, and what stands above it
-          a *= sm((y - my) / (0.04 * H)) * sm((yBot - y) / (0.03 * H));
+          a *= vm[j];
           if (a > 0.004) px[(j * mw + i) * 4 + 3] = Math.round(a * 255); } }
       mist = document.createElement('canvas'); mist.width = mw; mist.height = mh; mist.getContext('2d').putImageData(im, 0, 0); mxy = [mx, my, MQ]; }
-    return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
+    return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }
 
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
@@ -440,5 +462,5 @@ Vẽ thấp: núi gần, đậm</div>`;
   });
 
   window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
-    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), S: { ...S } }) };
+    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), S: { ...S } }) };
 })();
