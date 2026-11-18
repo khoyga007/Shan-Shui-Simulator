@@ -11,7 +11,8 @@
 (() => {
   const D = window.__dragon, Rm = window.__room;
   if (!D || !Rm) return;
-  const ink = document.getElementById('ink'), c = ink.getContext('2d'), panel = document.getElementById('panel');
+  const ink = document.getElementById('ink'), cMain = ink.getContext('2d'), panel = document.getElementById('panel');
+  let c = cMain;   // swapped to the cache canvas while finished pictures are baked
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const S = { tol: 0.055, guide: true };   // tol: how near a point the stroke must pass, screen heights
   try { Object.assign(S, JSON.parse(localStorage.getItem('paint.v1') || '{}')); } catch { /* defaults */ }
@@ -114,10 +115,17 @@
     const b = L.reduce((m, p) => [Math.min(m[0], p[0]), Math.max(m[1], p[1])], [1e9, -1e9]); c.fillText('hình tạm: ' + TPL[i].name.split('→')[1].trim(), b[0], b[1] + 0.07 * H);
     c.restore();
   }
+  const bake = document.createElement('canvas'); let bakeKey = '';
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     if (!geo) return;
-    for (const d of st.done) { const a = clamp((T - d.t0) / 1.5, 0, 1); scene(d.i, a); strokePath(d.stroke, 0.85 - 0.45 * a); }
+    // finished pictures do not change: baked once into a canvas (redrawing three strokes and pictures every frame cost
+    // frame time for nothing). Only one still fading in is drawn live
+    const old = st.done.filter((d) => T - d.t0 >= 1.5), key = old.map((d) => d.i + ':' + d.t0).join() + '|' + ink.width + 'x' + ink.height;
+    if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; c = bake.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (const d of old) { scene(d.i, 1); strokePath(d.stroke, 0.4); } c = cMain; }
+    if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
+    for (const d of st.done) if (T - d.t0 < 1.5) { const a = clamp((T - d.t0) / 1.5, 0, 1); scene(d.i, a); strokePath(d.stroke, 0.85 - 0.45 * a); }
     if (st.fade) { const a = 1 - (T - st.fade.t0) / 0.8; if (a > 0) strokePath(st.fade.s, 0.6 * a); else st.fade = null; }
     if (st.stroke.length > 1) strokePath(st.stroke, 0.85);
     if (S.guide && !st.done.some((d) => d.i === st.cur)) {
@@ -138,7 +146,7 @@
     }
   }
   const d0 = Rm.G.draw;
-  Rm.G.draw = (dt) => { if (dt > 0) step(dt); render(); d0(dt); };
+  Rm.G.draw = (dt) => { const t0 = performance.now(); if (dt > 0) step(dt); render(); d0(dt); Rm.st.jsMs = (Rm.st.jsMs || 0) * 0.9 + (performance.now() - t0) * 0.1; };   // jsMs: what paint + overlay cost a frame
 
   // ---- input + panel ------------------------------------------------------------------------------------------------
   document.addEventListener('mousedown', (e) => { if (e.button === 0 && Rm.st.locked) penDown(); });
