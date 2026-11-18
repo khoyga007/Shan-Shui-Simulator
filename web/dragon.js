@@ -69,6 +69,18 @@ void main(){ vec4 a = texture2D(t0, v);
   float s = max(a.x, max(a.y, a.z)); a.rgb *= min(1., 5. / max(s, 1e-4));   // a long breath piles up dye without bound: cap it, keeping the hue
   a.a = clamp(a.a, 0., 3.2);
   gl_FragColor = a; }`,
+    // dye laid along line segments (game: the gathering wisps). uA = start.xy, end.zw; uC = colour, w = radius. A thin core with a
+    // faint wide veil; along the segment the weight ramps over +-sqrt(r) past each end, so chained segments add up to one even
+    // stroke (round caps doubled up at every joint: a string of beads)
+    seg4: H + `uniform sampler2D t0; uniform float uAsp; uniform vec4 uA[4], uC[4];
+void main(){ vec4 a = texture2D(t0, v);
+  for (int i = 0; i < 4; i++) { vec2 pa = v - uA[i].xy, ba = uA[i].zw - uA[i].xy; pa.x *= uAsp; ba.x *= uAsp;
+    float L = max(length(ba), 1e-5), r = max(uC[i].w, 1e-7), e = sqrt(r); vec2 u = ba / L;
+    float s = dot(pa, u), d = pa.x * u.y - pa.y * u.x;
+    float al = clamp((s + e) / (2. * e), 0., 1.) * clamp((L - s + e) / (2. * e), 0., 1.);
+    a.rgb += uC[i].rgb * al * (exp(-d * d / r) + .22 * exp(-d * d / (r * 9.))); }
+  float s = max(a.x, max(a.y, a.z)); a.rgb *= min(1., 5. / max(s, 1e-4));
+  gl_FragColor = a; }`,
     advect: H + BIL + `uniform sampler2D t0, t1; uniform vec2 uSrcTx, uVelTx; uniform float uDt, uDiss, uManual;
 void main(){
   vec2 vel = uManual > .5 ? bil(t0, v, uVelTx).xy : texture2D(t0, v).xy;
@@ -681,7 +693,7 @@ void main(){
   // ---- dragon ----------------------------------------------------------------------------
   const N = 76;
   const HS = 1.0;
-  const dg = { roll: 0, rollT: 0, pts: [], prev: [], hx: 0, hy: 0, ang: 0, tx: 0, ty: 0, nextWander: 0, breath: 0, after: 0, angV: 0, bx: 0, by: 0, roar: 0, roarPearl: false, breathPearl: false, jaw: 0, fire: 0, qi: 0, gather: 0, wind: 0, mode: '', prevEyeX: 0, prevEyeY: 0, hasPrevEye: false };
+  const dg = { roll: 0, rollT: 0, pts: [], prev: [], hx: 0, hy: 0, ang: 0, tx: 0, ty: 0, nextWander: 0, breath: 0, after: 0, angV: 0, bx: 0, by: 0, roar: 0, roarPearl: false, breathPearl: false, jaw: 0, fire: 0, qi: 0, gather: 0, wind: 0, core: 0, wisps: [], wispAcc: 0, mode: '', prevEyeX: 0, prevEyeY: 0, hasPrevEye: false };
   // game: camera pulled back (DESIGN: dragon spans 1/3-1/2 of the screen; at wallpaper scale it was ~2 screens long and the
   // enemies had nowhere to be). One factor for body size, spacing and clouds
   const GZ = G.on ? 0.75 : 1;   // game zoom. 0.5 (step 1) shrank the head to a blob and the eye to a speck (Yang 11-18: phóng to)
@@ -1685,8 +1697,18 @@ void main(){
     splatVel(x, y, dx, dy, r);
     dyeQ.push([x, y, r, color]);
   }
-  const dyeQ = [];
+  const dyeQ = [], segQ = [];   // segQ: [x0, y0, x1, y1, r, colour]
   function flushDye() {
+    while (segQ.length) {
+      const b = segQ.splice(0, 4), A4 = new Float32Array(16), C4 = new Float32Array(16);
+      b.forEach(([x0, y0, x1, y1, r, c], i) => { A4.set([x0, y0, x1, y1], i * 4); C4.set([c[0], c[1], c[2], r], i * 4); });
+      const pr = P.seg4; gl.useProgram(pr.p);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dye.b.fb); gl.viewport(0, 0, dye.b.w, dye.b.h);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dye.a.tex); gl.uniform1i(pr.u('t0'), 0);
+      gl.uniform1f(pr.u('uAsp'), cv.width / Math.max(1, cv.height));
+      gl.uniform4fv(pr.u('uA[0]'), A4); gl.uniform4fv(pr.u('uC[0]'), C4);
+      gl.drawArrays(gl.TRIANGLES, 0, 3); dye.swap();
+    }
     while (dyeQ.length) {
       const b = dyeQ.splice(0, 4), P4 = new Float32Array(16), C4 = new Float32Array(16);
       b.forEach(([x, y, r, c, ea], i) => { P4.set([x, y, r, 1], i * 4); C4.set([c[0], c[1], c[2], ea || 0], i * 4); });
@@ -1789,7 +1811,7 @@ void main(){
       uAsp: W / Math.max(1, Hh),
       uEye: [e.x / W, 1 - e.y / Hh],
       uEyeR: rad() * 0.34 / Math.max(1, Hh),
-      uGape: (() => { const g = gape(); return [g.x / W, 1 - g.y / Hh, rad() * 0.9 / Math.max(1, Hh), clamp(Math.min(dg.jaw, dg.fire), 0, 1)]; })(),
+      uGape: (() => { const g = gape(); return [g.x / W, 1 - g.y / Hh, rad() * 0.9 / Math.max(1, Hh), clamp(Math.max(Math.min(dg.jaw, dg.fire), Math.min(dg.jaw * 1.6, dg.core) * 0.8), 0, 1)]; })(),
       uKing: [kg.amt, kg.storm, 0, 0],
       uStorm: [cfg.rainLightning ? boltFlash() : 0, kg.bx * W / Math.max(1, Hh), kg.bs, cfg.rainLightning ? kg.rain : 0],
       uBoltY: 1 - kg.by,
@@ -1905,6 +1927,48 @@ void main(){
         const side = Math.random() < 0.5 ? -1 : 1, r = radAt(i / (N - 1)), o = r * (0.7 + Math.random() * 1.2), along = (Math.random() - 0.5) * r * 3;
         const x = p.x - dy / l * o * side + dx / l * along, y = p.y + dx / l * o * side + dy / l * along;
         dyeQ.push([x / W, 1 - y / Hh, 0.00018 + Math.random() * 0.0006, b.map(c => c * QI.shroud * dg.qi)]);
+      }
+    }
+    // game, gathering beat ("tụ khí", Yang 11-18): while the jaws open for the breath, thin wisps of fire-smoke are drawn in from
+    // the air in front of the head and spiral into the mouth, where an ember swells; then the breath goes off. A converging
+    // FLOW cannot do this (the pressure solve removes any sink), so each wisp is a point on a set spiral path round the mouth
+    // that leaves dye along its way: the fluid only blurs and curls the trail
+    if (G.on && dg.pts.length >= 3) {
+      const m = mouth(), R = rad(), pal = dark ? FIRE.dark : FIRE.light, winding = dg.wind > 0 && cl.ph === 'off';
+      dg.core = winding ? clamp(dg.wind / GA.wind, 0, 1) : Math.max(0, dg.core - dt * 9);
+      if (winding) {
+        // none set off in the last 0.1 s before the fire (still on its way in when the jet lit, it was blown about as loose blobs);
+        // a wind-up drawn out by the head still turning keeps a thinner stream going
+        const left = GA.wind - dg.wind;
+        if (dg.wind <= dt * 1.5) dg.wispAcc += GA.burst;
+        dg.wispAcc += dt * (left > 0.1 ? GA.rate : left > 0 ? 0 : GA.rate * 0.35);
+        while (dg.wispAcc >= 1) { dg.wispAcc--;
+          const side = Math.random() < 0.5 ? -1 : 1, aE = side * Math.random() * 0.75;   // arrives through the open gape, not through the jaw
+          dg.wisps.push({ p: 0, life: clamp(left, 0.14, GA.wind) * (0.85 + 0.15 * Math.random()), aE, aS: m.a + aE + side * (0.6 + Math.random() * 1.1),
+            r: R * (GA.r0 + Math.random() * (GA.r1 - GA.r0)), k: 0.35 + 1.0 * Math.random() * Math.random() + 0.3 * Math.random(), f: Math.random(), ph: Math.random() * 6.283 });
+        }
+        for (let j = 0; j < 2; j++) {   // the ember: swells in the mouth as the wisps arrive
+          const tr = R * Math.random() * 0.3 * dg.core, ta = Math.random() * 6.283;
+          dyeQ.push([(m.x + Math.cos(ta) * tr) / W, 1 - (m.y + Math.sin(ta) * tr) / Hh, 0.00006 + 0.0002 * dg.core, pal[0].map((v) => v * GA.core * dg.core * wakeK * (left < 0 ? 0.35 : 1))]);   // held past its time (head still turning): only kept alive, or it swells into a blob over the snout
+        }
+      }
+      // the path wobbles (smoke, not a ruled arc): the swing dies out as the wisp closes in on the lips. It starts from a bearing
+      // fixed in the air (aS) and comes round to the gape's own bearing (m.a + aE), so a turning head does not swing the far ends
+      // round with it
+      const at = (w, p) => { const q = 1 - p, r = w.r * Math.pow(q, 0.6) * (1 + GA.wob * 0.5 * q * Math.sin(p * 11 + w.ph)), aG = m.a + w.aE,
+        a = aG + wrapA(w.aS - aG) * Math.pow(q, 1.6) + GA.wob * q * Math.sin(p * 7 + w.ph * 1.7);
+        return [m.x + Math.cos(a) * r, m.y + Math.sin(a) * r]; };
+      for (let i = dg.wisps.length - 1; i >= 0; i--) {
+        const w = dg.wisps[i], p0 = w.p; w.p = Math.min(1, w.p + dt / w.life);
+        if (w.lx == null) [w.lx, w.ly] = at(w, p0);
+        // each stretch runs on from where the last one ended in the air (lx, ly: moved with the camera in worldShift), not from
+        // where the path says it was: with the mouth or the camera moving, those differ and the stroke broke into dashes
+        const x0 = w.lx, y0 = w.ly, [x1, y1] = at(w, w.p), pm = (p0 + w.p) / 2; w.lx = x1; w.ly = y1;
+        // far out a wisp is grey smoke; it catches fire on the way in (ig) and is gold by the time it reaches the lips
+        const ig = clamp((pm - GA.ig0) / (GA.ig1 - GA.ig0), 0, 1), fade = Math.min(1, pm * 6) * w.k, bI = dark ? BODY.dark : BODY.light;
+        const col = pal[0].map((v, c) => ((v + (pal[1][c] - v) * w.f * pm) * GA.str * ig * (0.5 + 0.5 * pm) + bI[c] * GA.ink * (1 - ig)) * fade);
+        segQ.push([x0 / W, 1 - y0 / Hh, x1 / W, 1 - y1 / Hh, GA.rad * (1.6 - 1.0 * pm) * (0.5 + w.k), col]);
+        if (w.p >= 1) dg.wisps.splice(i, 1);
       }
     }
     // after-breath (Yang 11-17): once the jaws close, a little leftover fire and smoke seeps out of the lip seam in small puffs,
@@ -2211,6 +2275,7 @@ void main(){
     mv(cl.A); mv(cl.B); mv(G.tgt); mv(G.hover); mv(G.diveTo); G.ccx -= dx; G.ccy -= dy;
     kg.cx -= dx; kg.cy -= dy; if (kg.gx != null) { kg.gx -= dx; kg.gy -= dy; } kd.tx -= dx; kd.ty -= dy;
     for (const q of kg.puffs) mv(q);
+    for (const w of dg.wisps) if (w.lx != null) { w.lx -= dx; w.ly -= dy; }
     for (const b of kd.bursts) mv(b);
     for (const P of [cl.path?.P, dg.reel?.P, G.cw?.P]) if (P) for (const p of P) { p[0] -= dx; p[1] -= dy; }
     // fluid: whole cells on the sim grid = whole texels (cell * r) on the dye grid; uv y is up. Exact texel copy, no blur
@@ -2222,7 +2287,10 @@ void main(){
   // round it, calm = how much the outline's churn drops, smooth = dye-velocity smoothing, shroud = ink fed into the calm zone,
   // far = decay of loose smoke away from the body
   const QI = { haloG: 0.5, obst: 0.9, smooth: 0.85, calm: 0.3, zone: 0.6, shroud: 0.32, far: 2.5, body: 0.8, bodyK: 1 };
-  const WIND = 0.2;   // s of wind-up before the breath (telegraph + gather beat)
+  // gathering beat ("tụ khí", Yang 11-18: wisps of energy smoke drawn into the open mouth, then spat out). wind = s of wind-up
+  // before the breath; rate/burst = wisps per s / at the start; r0..r1 = start distance (head radii); str/rad = ink strength /
+  // splat size of a wisp; core = ember in the mouth; ink = grey of a wisp far out, ig0..ig1 = where along its way it catches fire; wob = path wobble
+  const GA = { wind: 0.3, rate: 50, burst: 7, r0: 2.6, r1: 5.8, str: 0.8, rad: 0.00002, core: 0.5, ink: 0.3, ig0: 0.2, ig1: 0.55, wob: 0.16 };
   function gameFrame(dt) {
     if (G.dead) { G.q = G.rmb = G.boost = false; G.tgt = null; }   // game.js: dead until restart
     G.cx = (G.clX ?? innerWidth / 2) + G.mx + G.remX; G.cy = (G.clY ?? innerHeight / 2) + G.my + G.remY;   // cursor in canvas px
@@ -2242,7 +2310,7 @@ void main(){
       // across the screen while the head was still turning
       const hA = dg.pts.length >= 3 ? Math.atan2(dg.pts[0].y - dg.pts[2].y, dg.pts[0].x - dg.pts[2].x) : dg.ang;
       const off = Math.abs(wrapA(Math.atan2(dg.by - dg.hy, dg.bx - dg.hx) - hA));
-      if (dg.wind >= WIND && (off < 0.45 || dg.wind > 0.7)) { dg.wind = 0; if (cl.ph === 'off' && kd.ph === 'off') dg.breath = Math.max(dg.breath, 0.3); }
+      if (dg.wind >= GA.wind && (off < 0.45 || dg.wind > 0.7)) { dg.wind = 0; if (cl.ph === 'off' && kd.ph === 'off') dg.breath = Math.max(dg.breath, 0.3); }
     }
     if (!G.follow || !dg.pts.length || !vel) { G.accX = G.accY = 0; }
     else {
@@ -2667,7 +2735,7 @@ void main(){
       ink: (x, y, r, a) => dyeQ.push([x / W, 1 - y / Hh, r, (dark ? BODY.dark : BODY.light).map((v) => v * a)]),
       push: (x, y, vx, vy, r) => splatVel(x / W, 1 - y / Hh, vx * simW / W, -vy * simH / Hh, r) };
     // game test hook: drive frames deterministically (each(i) may set G.tgt / G.boost / G.q ...), returns the canvas as PNG
-    window.__game = { QI, COIL,
+    window.__game = { QI, COIL, GA,
       G, dg, size: () => [W, Hh, simW, simH, dyeW, dyeH],
       frames(n, dt = 1 / 60, each = null, snap = true) {
         for (let i = 0; i < n; i++) {
@@ -2710,6 +2778,10 @@ void main(){
         gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return +((performance.now() - t0) / n).toFixed(2); };
       thr(30);
       const out = { thrMs: thr(120), perf: g.perf(60), prof: g.prof(30), gpu: (() => { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d && gl.getParameter(d.UNMASKED_RENDERER_WEBGL); })() };
+      // the gathering beat held open (wind-up frozen mid-way, twice the wisps): its dye passes run for 0.3 s a breath only
+      G.q = false; dg.breath = 0; const r0 = GA.rate; GA.rate = r0 * 2; const b4 = new Uint8Array(4); let tg = performance.now();
+      for (let i = 0; i < 150; i++) { if (i === 30) tg = performance.now(); dg.wind = 0.1; T += 1 / 60; gameFrame(1 / 60); inputs(1 / 60); flushDye(); drawMask(); uploadMask(); step(1 / 60); render(); }
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b4); out.gatherMs = +((performance.now() - tg) / 120).toFixed(2); out.wisps = dg.wisps.length; GA.rate = r0; dg.wind = 0;
       const pre = document.createElement('pre'); pre.id = 'bench'; pre.textContent = JSON.stringify(out); document.body.appendChild(pre);
     });
     window.__dragonDebug = {
