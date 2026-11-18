@@ -113,6 +113,8 @@
     fly((t) => [fw * (0.1 + 0.62 * t), H * (0.34 - 0.09 * Math.sin(t * 9.42) - 0.02 * Math.sin(t * 21))], 0.7);                 // far range, three tops
     fly((t) => [fw * (0.36 + 0.6 * t), H * (0.66 - 0.24 * Math.sin(t * 3.1416) - 0.06 * Math.sin(t * 9.42))], 0.6);              // near, one big mountain with shoulders
     fly((t) => [fw * (0.04 + 0.42 * t), H * (0.82 - 0.09 * Math.sin(t * 6.2832) * (t < 0.5 ? 1 : 0.4) - 0.03 * t)], 1.5);          // low hills in front, flown fast (dry)
+    fly((t) => [fw * (0.62 + 0.3 * t), H * (0.9 - 0.75 * Math.sin(t * 3.1416))], 2.0);   // a tall steep peak flown fast, as Yang drew in r005 (steep sides broke the ribbon)
+    fly((t) => [fw * (0.9 + 0.03 * Math.sin(t * 5)), H * (0.75 - 0.4 * t)], 1.2);   // a nearly upright stroke
     Rm.S.cap = cap0;
     const snap = () => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
       x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };

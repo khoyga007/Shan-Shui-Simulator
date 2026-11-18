@@ -76,7 +76,7 @@
   const STEP = 3, BIN = 2;   // px between points of the calmed stroke; px per column of the wash
   // One stroke -> one mountain, on canvases cropped to it: cv (the ink) and body (what it hides of the mountains behind)
   function mountain(d) {
-    const H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 4), n = P.length;
+    const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 4), n = P.length;
     if (n < 8) return null;
     // -- peaks: every crest of the path (a top, standing at least a little above both its sides) is drawn up into a point;
     //    the saddles between are cut a little deeper. A tent laid on a round top gives the break of a real summit
@@ -93,7 +93,10 @@
     // -- the tremor of a hand on rough paper
     const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const L = cum[n - 1], nrm = [];
-    for (let i = 0; i < n; i++) { const a = P[Math.max(0, i - 2)], b = P[Math.min(n - 1, i + 2)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, ny = (b[0] - a[0]) / l; if (ny < 0) { nx = -nx; ny = -ny; } nrm.push([nx, ny]); }   // the normal that points down the paper
+    for (let i = 0; i < n; i++) { const a = P[Math.max(0, i - 2)], b = P[Math.min(n - 1, i + 2)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; nrm.push([-(b[1] - a[1]) / l, (b[0] - a[0]) / l]); }
+    // the mountain's side of the line: one side for the whole stroke, the one that looks down the paper over most of it.
+    // (Chosen point by point, it jumped across on every steep stretch and the ribbon came out in shifted slabs: r005)
+    { let sy = 0; for (const q of nrm) sy += q[1]; if (sy < 0) for (const q of nrm) { q[0] = -q[0]; q[1] = -q[1]; } }
     for (let i = 0; i < n; i++) { const s = cum[i], j = H * (0.0035 * (N(s / (0.018 * H), 2) - 0.5) + 0.009 * (N(s / (0.07 * H) + 9, 2) - 0.5)) * 2 * sm(Math.min(s, L - s) / (0.03 * H)); P[i][0] += nrm[i][0] * j; P[i][1] += nrm[i][1] * j; }
     // -- the ridge as seen: the highest point of the path over every column
     let bx0 = 1e9, bx1 = -1e9, yTop = 1e9, yBase = -1e9; for (const p of P) { bx0 = Math.min(bx0, p[0]); bx1 = Math.max(bx1, p[0]); yTop = Math.min(yTop, p[1]); yBase = Math.max(yBase, p[1]); }
@@ -103,27 +106,32 @@
     for (let k = 0, last = P[0][1]; k < nb; k++) { if (top[k] > 1e8) top[k] = last; else last = top[k]; }
     const blur = (A, it) => { let B = A.slice(); for (let q = 0; q < it; q++) { const Cc = B.slice(); for (let k = 1; k < nb - 1; k++) Cc[k] = (B[k - 1] + 2 * B[k] + B[k + 1]) / 4; B = Cc; } return B; };
     const ts = blur(top, 5), wide = blur(top, 40), slope = (k) => (wide[Math.min(nb - 1, k + 4)] - wide[Math.max(0, k - 4)]) / (8 * BIN);
+    // lit side / shaded side, turning over gently across a summit (taken straight from the slope it flipped in one
+    // column under a steep peak and left a ruled upright seam: r005)
+    const shade = blur(top.map((_, k) => clamp(slope(k) * 1.3, -1, 1)), 60), shAt = (k) => shade[clamp(k, 0, nb - 1)];
     // the two ends of the stroke thin out: the brush is set down and lifted there
     const te = Math.min(0.3, 0.09 * H / Math.max(1, bx1 - bx0)), env = (k) => { const t = k / (nb - 1); return sm(t / te) * sm((1 - t) / te); };
     // how far the ink runs down the slope: to about the level of the stroke's lowest point, so tall peaks get long slopes
     const depth = ts.map((t, k) => ((yBase - t) * 1.0 + 0.17 * H) * (0.45 + 0.55 * env(k)));
     // -- canvases, cropped to the mountain
-    const pad = 0.04 * H, ox = bx0 - pad, oy = yTop - 0.1 * H, cw = Math.ceil((bx1 - bx0 + 2 * pad) * dpr), chh = Math.ceil((yBase + 0.19 * H - oy) * dpr);
+    const pad = Math.round(0.04 * H), ox = bx0 - pad, oy = Math.floor(yTop - 0.1 * H),   // whole px: wash columns must sit on the pixel grid or their seams show as fine upright stripes
+       cw = Math.ceil((bx1 - bx0 + 2 * pad) * dpr), chh = Math.ceil((yBase + 0.19 * H - oy) * dpr);
     const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
     const [cv, g] = mk(), [body, gb] = mk(), [rib, gr] = mk();
     const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
     // -- wash: per column, ink thinning from the ridge to nothing at the foot. A second, shorter and darker band under
     //    the ridge with an uneven lower edge: the brush belly does not touch the paper evenly
     for (let k = 0; k < nb; k++) {
-      const x = bx0 + k * BIN, t = ts[k], dd = depth[k], e = env(k), sh = clamp(slope(k) * 1.3, -1, 1), y0 = Math.min(top[k], t) - 1;
+      const x = bx0 + k * BIN, t = ts[k], dd = depth[k], e = env(k), sh = shAt(k), y0 = Math.min(top[k], t) - 1;
       const a0 = 0.56 * (0.8 + 0.4 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2));
       let gd = g.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(${INK},${a0.toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * 0.34).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * 0.1).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
-      g.fillStyle = gd; g.fillRect(x, y0, BIN + 0.05, t + dd - y0);
-      const d2 = dd * 0.3 * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)), a2 = 0.34 * clamp(0.5 + 0.7 * sh, 0.12, 1) * e;
+      g.fillStyle = gd; g.fillRect(x, y0, BIN, t + dd - y0);
+      const d2 = Math.min(dd * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
+         a2 = 0.34 * clamp(0.5 + 0.7 * sh, 0.12, 1) * e;
       gd = g.createLinearGradient(0, t, 0, t + d2); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
-      g.fillStyle = gd; g.fillRect(x, y0, BIN + 0.05, t + d2 - y0);
-      gd = gb.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(0,0,0,${(0.95 * e).toFixed(3)})`); gd.addColorStop(0.55, `rgba(0,0,0,${(0.8 * e).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
-      gb.fillStyle = gd; gb.fillRect(x, y0, BIN + 0.05, t + dd - y0);
+      g.fillStyle = gd; g.fillRect(x, y0, BIN, t + d2 - y0);
+      gd = gb.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(0,0,0,${(0.95 * e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${(0.92 * e).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
+      gb.fillStyle = gd; gb.fillRect(x, y0, BIN, t + dd - y0);
     }
     // -- cun: texture strokes, each a thin line of a drying brush that bends toward the fall line and fades out
     const col = (x) => clamp(Math.round((x - bx0) / BIN), 0, nb - 1);
@@ -136,7 +144,7 @@
     };
     // hemp fibres: many faint long lines down the fall line of the slope, closer and darker on the shaded side
     for (let x = bx0 + 0.01 * H; x < bx1 - 0.01 * H; x += H * (0.007 + 0.012 * R())) {
-      const k = col(x), sh = clamp(slope(k) * 1.3, -1, 1), e = env(k), r1 = R(), r2 = R(), r3 = R(), r4 = R();
+      const k = col(x), sh = shAt(k), e = env(k), r1 = R(), r2 = R(), r3 = R(), r4 = R();
       if (r1 > S.cun * 1.5 * (sh > 0 ? 1 : 0.6)) continue;
       const fall = 1.5708 - sh * 0.8;
       hair(x, ts[k] + H * (0.004 + 0.07 * r2 * r2), fall + (r3 - 0.5) * 0.9, depth[k] * (0.12 + 0.3 * r4 * r4), H * 0.0026 * (0.5 + R()), (0.2 + 0.25 * R()) * (sh > 0 ? 1 : 0.6) * e, fall + (r3 - 0.5) * 0.3);
@@ -152,7 +160,7 @@
     const near = (i) => { let b = 1e9; for (const k of crests) b = Math.min(b, Math.abs(cum[k] - cum[i])); return b; };
     const wAt = [], dryAt = [];
     for (let i = 0; i < n; i++) {
-      const s = cum[i], slow = 1 - clamp(P[i][2] / 1.5, 0, 1), sh = clamp(slope(col(P[i][0])) * 1.3, -1, 1), press = 0.5 * slow + 0.4 * N(s / (0.09 * H) + 70, 2) + 0.7 * Math.exp(-Math.pow(near(i) / (0.018 * H), 2)) + 0.2 * Math.max(0, sh);
+      const s = cum[i], slow = 1 - clamp(P[i][2] / 1.5, 0, 1), sh = shAt(col(P[i][0])), press = 0.5 * slow + 0.4 * N(s / (0.09 * H) + 70, 2) + 0.7 * Math.exp(-Math.pow(near(i) / (0.018 * H), 2)) + 0.2 * Math.max(0, sh);
       const taper = (0.3 + 0.7 * sm(s / (0.02 * H))) * (0.1 + 0.9 * sm((L - s) / (0.09 * H)));
       wAt.push(H * 0.0105 * taper * (0.5 + 0.65 * press) * (0.8 + 0.4 * N(s / (0.006 * H) + 200, 1)));
       dryAt.push(clamp(S.dry * (0.2 + 0.9 * clamp(P[i][2] / 1.4, 0, 1) + 0.8 * Math.pow(s / L, 2) * clamp(L / (1.2 * H), 0.3, 1)) - 0.3 * press, 0, 0.95));
@@ -180,7 +188,7 @@
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
-    return { cv, body, ox, oy, bx0, ts, depth, yBase, tone, peaks: crests.length };
+    return { cv, body, ox, oy, bx0, ts, depth, yBase, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
   }
 
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
@@ -192,7 +200,7 @@
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), key = old.map((d) => d.seed + ':' + d.t0).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
-      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 0.92; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone); } }
+      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone); } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m, nb = m.ts.length;
@@ -241,5 +249,5 @@ Vẽ thấp: núi gần, đậm</div>`;
   });
 
   window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => true, pen: (on) => (on ? penDown() : penUp()),
-    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), S: { ...S } }) };
+    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), S: { ...S } }) };
 })();
