@@ -8,7 +8,7 @@ Owners: Claire design + code (Yang 11-18, Max plan) · Celine controls/game-feel
 - 2D, side view. Same dragon, same ink/fluid look.
 - Engine WebGL (Yang 11-18). Why: ink look already there; Godot blur was camera resampling, not engine; GTX 1650 ~4.6 ms/frame (WEBGL-TEST.md).
 - Controls: LoL-style mouse (11-17), see Controls.
-- Eye = original red eye + glow + eye smoke, same as wallpaper (Yang 11-18: "cái chấm đỏ đấy là con mắt"). Never remove it.
+- Eye = original red eye, painted to fit the socket exactly (display pass, mask cut-out). Eye ink outside the socket turns grey; no eye smoke trail in game (Yang 11-18: "vẽ vừa khớp với hốc mắt"). Never remove the eye.
 - Wide world + combat.
 - Camera zoomed out vs wallpaper (dragon ~2100px > screen today).
 - Fire-hits-wall impinging jet, king gold horns/mane tips, through-cloud emerge, mouth-seam leak: approved in wallpaper 11-17 → port as-is.
