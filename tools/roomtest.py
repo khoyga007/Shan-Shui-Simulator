@@ -8,7 +8,7 @@ if os.path.exists(OUT): os.remove(OUT)
 srv = subprocess.Popen([sys.executable, os.path.join(ROOT, 'tools', 'devserver.py'), str(PORT)])
 prof = tempfile.mkdtemp(prefix='roomtest-')
 q = '?bot=1' + ('&set=' + urllib.parse.quote(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1] else '') + ('&only=' + sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else '') + ('&' + sys.argv[3] if len(sys.argv) > 3 else '')
-ch = subprocess.Popen([CHROME, '--headless=new', '--enable-gpu', '--use-angle=d3d11', '--force_high_performance_gpu', '--hide-scrollbars',
+ch = subprocess.Popen([CHROME, '--headless=new', '--enable-gpu', '--use-angle=d3d11', '--force_high_performance_gpu', '--hide-scrollbars', *([f"--force-device-scale-factor={os.environ['DSF']}"] if os.environ.get('DSF') else []),
     '--disable-background-timer-throttling', '--window-size=1936,1175', f'--user-data-dir={prof}', f'http://127.0.0.1:{PORT}/room/{q}'],
     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 try:
