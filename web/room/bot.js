@@ -134,6 +134,8 @@
     Rm.S.cap = cap0;
     out.paint = pr; out.paintDone = Pt.info().done;
     post('bot-paint.jpg', snap());
+    { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);
+      post('bot-scene.jpg', m.toDataURL('image/jpeg', 0.9)); }   // the painting alone, without the dragon lying on it
   }
   post('bot-uturn.jpg', strip.toDataURL('image/jpeg', 0.85)).then(() => post('bot.json', json(out)));
 })();
