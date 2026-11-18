@@ -19,8 +19,10 @@
   const ink = document.getElementById('ink'), cMain = ink.getContext('2d'), panel = document.getElementById('panel');
   let c = cMain;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
-  const S = { peak: 0.6, cun: 0.6, dry: 0.5 };   // peak: how far crests are drawn up into points; cun: how many texture strokes; dry: how dry the brush
+  const S = { peak: 0.6, cun: 0.6, dry: 0.5, tex: 'muse' };   // tex: whose brush strokes the ridge is laid with (muse / gemini / gpt), or 'code' = drawn by code
+  const TEX = ['code', 'muse', 'gemini', 'gpt'];   // peak: how far crests are drawn up into points; cun: how many texture strokes; dry: how dry the brush
   try { Object.assign(S, JSON.parse(localStorage.getItem('paint.v2') || '{}')); } catch { /* defaults */ }
+  { const q = new URLSearchParams(location.search).get('tex'); if (q) S.tex = q; }
   const save = () => { try { localStorage.setItem('paint.v2', JSON.stringify(S)); } catch { /* ok */ } };
   const freeW = () => D.W - (panel.classList.contains('hide') ? 0 : panel.offsetWidth);
   const INK = '18,18,24';
@@ -73,6 +75,11 @@
   const grain = document.createElement('canvas');
   { grain.width = grain.height = 128; const g = grain.getContext('2d'), d = g.createImageData(128, 128); for (let i = 0; i < d.data.length; i += 4) { const r = Math.random(); d.data[i + 3] = Math.round(r * r * r * 255); } g.putImageData(d, 0, 0); }
 
+  // real brush strokes (web/assets/strokes, cut and straightened by tools/build_inklines.py from the sheets Yang had
+  // Muse, Gemini and GPT paint): one is bent along the whole ridge, its upper edge on the line
+  const STROKES = {}; let strokesReady = false;
+  fetch('../assets/strokes/strokes.json').then((r) => r.json()).then((man) => { let left = 0;
+    for (const k in man) { STROKES[k] = man[k]; for (const q of man[k]) { left++; const im = new Image(); im.onload = () => { q.im = im; if (--left === 0) { strokesReady = true; for (const d of st.done) d.m = null; bakeKey = ''; } }; im.src = '../assets/strokes/' + q.f; } } }).catch(() => { strokesReady = true; });
   const STEP = 3, BIN = 2;   // px between points of the calmed stroke; px per column of the wash
   // One stroke -> one mountain, on canvases cropped to it: cv (the ink) and body (what it hides of the mountains behind)
   function mountain(d) {
@@ -90,6 +97,7 @@
         else if (hi && y[k] - Math.max(l2, r2) > 0.01 * H) found.push([k, y[k] - Math.max(l2, r2), -1]);
       }
       for (const [k, prom, up] of found) { const h = S.peak * clamp(prom * 0.9, 0.015 * H, 0.085 * H) * (0.7 + 0.6 * R()); tent(k, up > 0 ? h : -0.45 * h, (R() - 0.5) * 0.9); if (up > 0) crests.push(k); } }
+    const real = (STROKES[S.tex] || []).some((q) => q.im), shake = real ? 0.35 : 1;   // a real stroke brings its own rough edge: shaken as much as a drawn one it read as a wobbly marker line
     // -- the tremor of a hand on rough paper
     const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const L = cum[n - 1], nrm = [];
@@ -97,7 +105,7 @@
     // the mountain's side of the line: one side for the whole stroke, the one that looks down the paper over most of it.
     // (Chosen point by point, it jumped across on every steep stretch and the ribbon came out in shifted slabs: r005)
     { let sy = 0; for (const q of nrm) sy += q[1]; if (sy < 0) for (const q of nrm) { q[0] = -q[0]; q[1] = -q[1]; } }
-    for (let i = 0; i < n; i++) { const s = cum[i], j = H * (0.0035 * (N(s / (0.018 * H), 2) - 0.5) + 0.009 * (N(s / (0.07 * H) + 9, 2) - 0.5)) * 2 * sm(Math.min(s, L - s) / (0.03 * H)); P[i][0] += nrm[i][0] * j; P[i][1] += nrm[i][1] * j; }
+    for (let i = 0; i < n; i++) { const s = cum[i], j = shake * H * (0.0035 * (N(s / (0.018 * H), 2) - 0.5) + 0.009 * (N(s / (0.07 * H) + 9, 2) - 0.5)) * 2 * sm(Math.min(s, L - s) / (0.03 * H)); P[i][0] += nrm[i][0] * j; P[i][1] += nrm[i][1] * j; }
     // -- the ridge as seen: the highest point of the path over every column
     let bx0 = 1e9, bx1 = -1e9, yTop = 1e9, yBase = -1e9; for (const p of P) { bx0 = Math.min(bx0, p[0]); bx1 = Math.max(bx1, p[0]); yTop = Math.min(yTop, p[1]); yBase = Math.max(yBase, p[1]); }
     bx0 = Math.floor(bx0); const nb = Math.max(2, Math.ceil((bx1 - bx0) / BIN) + 1), top = new Array(nb).fill(1e9);
@@ -130,7 +138,7 @@
          a2 = 0.34 * clamp(0.5 + 0.7 * sh, 0.12, 1) * e;
       gd = g.createLinearGradient(0, t, 0, t + d2); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(x, y0, BIN, t + d2 - y0);
-      gd = gb.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(0,0,0,${(0.95 * e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${(0.92 * e).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
+      gd = gb.createLinearGradient(0, t, 0, t + dd); gd.addColorStop(0, `rgba(0,0,0,${Math.min(1, 1.6 * e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${Math.min(1, 1.4 * e).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
       gb.fillStyle = gd; gb.fillRect(x, y0, BIN, t + dd - y0);
     }
     // -- cun: texture strokes, each a thin line of a drying brush that bends toward the fall line and fades out
@@ -158,31 +166,49 @@
     for (const x of [g, gb]) { x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.fillStyle = '#000'; x.beginPath(); x.moveTo(bx0 - pad - 5, oy - 5); x.lineTo(bx0 - pad - 5, top[0]); for (let k = 0; k < nb; k++) x.lineTo(bx0 + k * BIN, top[k]); x.lineTo(bx1 + pad + 5, top[nb - 1]); x.lineTo(bx1 + pad + 5, oy - 5); x.closePath(); x.fill(); x.globalCompositeOperation = 'source-over'; }
     // -- the ridge line: a ribbon along the path, a little more of it on the mountain's side
     const near = (i) => { let b = 1e9; for (const k of crests) b = Math.min(b, Math.abs(cum[k] - cum[i])); return b; };
-    const wAt = [], dryAt = [];
+    const wAt = [], dryAt = [], prAt = [];
     for (let i = 0; i < n; i++) {
       const s = cum[i], slow = 1 - clamp(P[i][2] / 1.5, 0, 1), sh = shAt(col(P[i][0])), press = 0.5 * slow + 0.4 * N(s / (0.09 * H) + 70, 2) + 0.7 * Math.exp(-Math.pow(near(i) / (0.018 * H), 2)) + 0.2 * Math.max(0, sh);
+      prAt.push(press);
       const taper = (0.3 + 0.7 * sm(s / (0.02 * H))) * (0.1 + 0.9 * sm((L - s) / (0.09 * H)));
       wAt.push(H * 0.0105 * taper * (0.5 + 0.65 * press) * (0.8 + 0.4 * N(s / (0.006 * H) + 200, 1)));
       dryAt.push(clamp(S.dry * (0.2 + 0.9 * clamp(P[i][2] / 1.4, 0, 1) + 0.8 * Math.pow(s / L, 2) * clamp(L / (1.2 * H), 0.3, 1)) - 0.3 * press, 0, 0.95));
     }
-    // side-brush: the tip leaves a solid dark edge on the sky side, the belly a broad paler band on the mountain side
-    const band = (out, inn, alpha, ph = 300) => { gr.globalAlpha = alpha; gr.fillStyle = `rgb(${INK})`; gr.beginPath();
-      for (let i = 0; i < n; i++) { const x = P[i][0] - nrm[i][0] * wAt[i] * out, y = P[i][1] - nrm[i][1] * wAt[i] * out; if (i) gr.lineTo(x, y); else gr.moveTo(x, y); }
-      for (let i = n - 1; i >= 0; i--) { const v = inn * (0.75 + 0.5 * N(cum[i] / (0.05 * H) + ph, 2)); gr.lineTo(P[i][0] + nrm[i][0] * wAt[i] * v, P[i][1] + nrm[i][1] * wAt[i] * v); }
-      gr.closePath(); gr.fill(); gr.globalAlpha = 1; };
-    band(0.35, 4.2, 0.1, 310); band(0.35, 3.0, 0.13, 340); band(0.35, 2.0, 0.16, 370); band(0.35, 1.2, 0.2, 400);   // paler the further from the tip
-    // flying white: the hairs of a dry or fast brush leave streaks of bare paper along the stroke, in the belly
-    const streaks = (u0, u1, per, gate) => { gr.globalCompositeOperation = 'destination-out'; gr.strokeStyle = '#000'; gr.lineCap = 'butt';
-      for (let q = 0, cnt = Math.round(L / (per * H)); q < cnt; q++) {
-        const i0 = Math.floor(R() * (n - 2)), len = Math.round(H * (0.03 + 0.12 * R()) / STEP), u = u0 + (u1 - u0) * R(), ph = R() * 90; gr.lineWidth = 0.6 + 1.3 * R(); gr.globalAlpha = 0.5 + 0.5 * R(); gr.beginPath(); let on = false;
-        for (let i = i0; i < Math.min(n, i0 + len); i++) { const x = P[i][0] + nrm[i][0] * wAt[i] * u, y = P[i][1] + nrm[i][1] * wAt[i] * u;
-          if (N(cum[i] / (0.03 * H) + ph, 2) < gate + 0.45 * dryAt[i]) { if (on) gr.lineTo(x, y); else { gr.moveTo(x, y); on = true; } } else on = false; }
-        gr.stroke(); }
-      gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1; };
-    streaks(0.5, 4.0, 0.003, 0.3);
-    band(0.4, 0.6, 1);
-    for (const k of crests) { const rr = 0.013 * H, gd = gr.createRadialGradient(P[k][0], P[k][1] + rr * 0.5, 0, P[k][0], P[k][1] + rr * 0.5, rr); gd.addColorStop(0, `rgba(${INK},0.55)`); gd.addColorStop(1, `rgba(${INK},0)`); gr.fillStyle = gd; gr.fillRect(P[k][0] - rr, P[k][1] - rr, 2 * rr, 3 * rr); }   // ink pooled where the brush was pressed and turned
-    streaks(-0.1, 0.6, 0.02, 0.08);
+    const kit = (STROKES[S.tex] || []).filter((q) => q.im);
+    if (kit.length) {
+      // a real stroke, cut into thin slices across and each slice turned to the line: its dark upper edge on the ridge,
+      // the rest on the mountain's side; pressed wider where the hand was slow and on crests
+      const q = kit[Math.floor(R() * kit.length) % kit.length], ds = 2, back = R() < 0.25; let j = 0;
+      for (let a = 0; a < L; a += ds) {
+        while (j < n - 2 && cum[j + 1] < a) j++;
+        const f = (a - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), px = P[j][0] + (P[j + 1][0] - P[j][0]) * f, py = P[j][1] + (P[j + 1][1] - P[j][1]) * f;
+        const p0 = P[Math.max(0, j - 2)], p1 = P[Math.min(n - 1, j + 3)], tl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, tx = (p1[0] - p0[0]) / tl, ty = (p1[1] - p0[1]) / tl;
+        const th = H * 0.044 * (0.6 + 0.55 * clamp(prAt[j], 0, 1.6)) * (0.8 + 0.4 * S.dry), u = (back ? 1 - (a + ds) / L : a / L) * q.w;
+        gr.setTransform(dpr * tx, dpr * ty, dpr * nrm[j][0], dpr * nrm[j][1], dpr * (px - ox), dpr * (py - oy));
+        gr.drawImage(q.im, clamp(u, 0, q.w - 1), 0, Math.max(1, (ds + 0.8) / L * q.w), q.h, 0, -0.1 * th, ds + 0.8, th);
+      }
+      home(gr);
+      for (const k of crests) { const rr = 0.013 * H, gd = gr.createRadialGradient(P[k][0], P[k][1] + rr * 0.5, 0, P[k][0], P[k][1] + rr * 0.5, rr); gd.addColorStop(0, `rgba(${INK},0.55)`); gd.addColorStop(1, `rgba(${INK},0)`); gr.fillStyle = gd; gr.fillRect(P[k][0] - rr, P[k][1] - rr, 2 * rr, 3 * rr); }   // ink pooled where the brush was pressed and turned
+    } else {
+      // side-brush: the tip leaves a solid dark edge on the sky side, the belly a broad paler band on the mountain side
+      const band = (out, inn, alpha, ph = 300) => { gr.globalAlpha = alpha; gr.fillStyle = `rgb(${INK})`; gr.beginPath();
+        for (let i = 0; i < n; i++) { const x = P[i][0] - nrm[i][0] * wAt[i] * out, y = P[i][1] - nrm[i][1] * wAt[i] * out; if (i) gr.lineTo(x, y); else gr.moveTo(x, y); }
+        for (let i = n - 1; i >= 0; i--) { const v = inn * (0.75 + 0.5 * N(cum[i] / (0.05 * H) + ph, 2)); gr.lineTo(P[i][0] + nrm[i][0] * wAt[i] * v, P[i][1] + nrm[i][1] * wAt[i] * v); }
+        gr.closePath(); gr.fill(); gr.globalAlpha = 1; };
+      band(0.35, 4.2, 0.1, 310); band(0.35, 3.0, 0.13, 340); band(0.35, 2.0, 0.16, 370); band(0.35, 1.2, 0.2, 400);   // paler the further from the tip
+      // flying white: the hairs of a dry or fast brush leave streaks of bare paper along the stroke, in the belly
+      const streaks = (u0, u1, per, gate) => { gr.globalCompositeOperation = 'destination-out'; gr.strokeStyle = '#000'; gr.lineCap = 'butt';
+        for (let q = 0, cnt = Math.round(L / (per * H)); q < cnt; q++) {
+          const i0 = Math.floor(R() * (n - 2)), len = Math.round(H * (0.03 + 0.12 * R()) / STEP), u = u0 + (u1 - u0) * R(), ph = R() * 90; gr.lineWidth = 0.6 + 1.3 * R(); gr.globalAlpha = 0.5 + 0.5 * R(); gr.beginPath(); let on = false;
+          for (let i = i0; i < Math.min(n, i0 + len); i++) { const x = P[i][0] + nrm[i][0] * wAt[i] * u, y = P[i][1] + nrm[i][1] * wAt[i] * u;
+            if (N(cum[i] / (0.03 * H) + ph, 2) < gate + 0.45 * dryAt[i]) { if (on) gr.lineTo(x, y); else { gr.moveTo(x, y); on = true; } } else on = false; }
+          gr.stroke(); }
+        gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1; };
+      streaks(0.5, 4.0, 0.003, 0.3);
+      band(0.4, 0.6, 1);
+      for (const k of crests) { const rr = 0.013 * H, gd = gr.createRadialGradient(P[k][0], P[k][1] + rr * 0.5, 0, P[k][0], P[k][1] + rr * 0.5, rr); gd.addColorStop(0, `rgba(${INK},0.55)`); gd.addColorStop(1, `rgba(${INK},0)`); gr.fillStyle = gd; gr.fillRect(P[k][0] - rr, P[k][1] - rr, 2 * rr, 3 * rr); }   // ink pooled where the brush was pressed and turned
+      streaks(-0.1, 0.6, 0.02, 0.08);
+    }
     gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1;
     raw(g); g.filter = `blur(${(0.0045 * H * dpr).toFixed(1)}px)`; g.globalAlpha = 0.3; g.drawImage(rib, 0, 0); g.filter = 'none'; g.globalAlpha = 0.93; g.drawImage(rib, 0, 0);   // a soft halo first: wet ink creeping off the line
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
@@ -223,10 +249,10 @@
   document.addEventListener('mousedown', (e) => { if (e.button === 0 && Rm.st.locked) penDown(); });
   document.addEventListener('mouseup', (e) => { if (e.button === 0) penUp(); });
   document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) penUp(); });
-  const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô của bút']];
+  const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô / độ dày nét']];
   const pbox = document.createElement('div');
   pbox.innerHTML = `<h3>Vẽ núi (tự do)</h3><div id="p_stat" class="keys"></div>
-    <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button>
+    <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button>
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
 Thả chuột: nét thành núi
@@ -235,19 +261,22 @@ Vẽ thấp: núi gần, đậm</div>`;
   panel.insertBefore(pbox, panel.firstChild);
   const $ = (id) => document.getElementById(id);
   const redo = (reseed) => { for (const d of st.done) { d.m = null; if (reseed) d.seed = (Math.random() * 2147483647) | 0; } bakeKey = ''; };
+  const nextTex = () => { S.tex = TEX[(TEX.indexOf(S.tex) + 1) % TEX.length]; save(); redo(false); say('Nét bút: ' + S.tex); sync(); };
+  $('p_tex').onclick = nextTex;
   $('p_clear').onclick = reset; $('p_undo').onclick = undo; $('p_again').onclick = () => redo(true);
   for (const [k] of SL) $('p_' + k).addEventListener('input', (e) => { S[k] = +e.target.value; save(); redo(false); sync(); });
   function sync() {
     if (!$('p_stat')) return;
     $('p_stat').textContent = st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét';
+    $('p_tex').textContent = `Nét bút: ${S.tex} (B)`;
     for (const [k] of SL) { $('p_' + k).value = S[k]; $('p_' + k + 'v').textContent = S[k].toFixed(2); }
   }
   sync();
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
-    if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true);
+    if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true); else if (k === 'b') nextTex();
   });
 
-  window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => true, pen: (on) => (on ? penDown() : penUp()),
+  window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
     info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), S: { ...S } }) };
 })();
