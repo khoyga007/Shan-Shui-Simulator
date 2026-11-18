@@ -142,13 +142,13 @@ void main(){
   gl_FragColor = vec4(u, 0., 1.);
 }`,
     // velocity: mask edges curl and push outward -> the outline keeps smoking off
-    stir: H + NOISE + `uniform sampler2D t0, t1; uniform float uAmp, uT, uDt;
+    stir: H + NOISE + `uniform sampler2D t0, t1; uniform float uAmp, uT, uDt, uPush;
 void main(){
   vec2 vel = texture2D(t0, v).xy;
   float l = texture2D(t1, vL).r, r = texture2D(t1, vR).r, t = texture2D(t1, vT).r, b = texture2D(t1, vB).r;
   vec2 g = vec2(r - l, t - b);
   float n = fbm(v * 9. + vec2(uT * .35, -uT * .22)) * 2. - 1.;
-  vec2 f = vec2(-g.y, g.x) * n * 2.0 - g * .7;
+  vec2 f = vec2(-g.y, g.x) * n * 2.0 - g * .7 * uPush;
   vec4 mc = texture2D(t1, v); float m = mc.r;
   // Long Vương's antler (mask R+G) churns at its own outline too, and is not calmed inside, so its gold ink smokes like the body's edge
   vec4 cL = texture2D(t1, vL), cR = texture2D(t1, vR), cT = texture2D(t1, vT), cB = texture2D(t1, vB);
@@ -159,7 +159,7 @@ void main(){
   gl_FragColor = vec4(clamp((vel + f * uAmp * uDt * 60.) * damp, -1000., 1000.), 0., 1.);   // calm inside the body, turbulent at its edge
 }`,
     // dye: re-ink inside the mask toward the body colour, brush-textured
-    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA, uOpen, uEyeK;
+    ink: H + NOISE + BIL + `uniform sampler2D t0, t1, t2; uniform vec3 uInk, uGold, uEyeInk; uniform vec2 uVelTx, uDyeTx, uEye; uniform float uK, uT, uDk, uManual, uDiff, uEyeR, uAsp, uEyeA, uOpen, uEyeK, uBodyInk;
 float fireOf(vec3 d){ return clamp(((uDk > .5 ? d.r - d.b : max(d.g, d.b) - d.r) / (max(d.r, max(d.g, d.b)) + 1e-4) - .04) * 1.35, 0., 1.); }
 void main(){
   vec4 d = texture2D(t0, v);
@@ -245,13 +245,14 @@ void main(){
   float k = clamp(uK, 0., 1.);
   float m_comb = max(m, eyeM);
   vec3 o = d.rgb * (1. - (1. - m_comb) * k * (.45 + killF * 1.85));          // outside the silhouette stagnant/wall fire burns out fast
-  float ink_mix = clamp(smoothstep(.12, .9, m) * k * 2., 0., 1.) * (1. - fire * .82);
+  // game (uBodyInk 0): the body is drawn by the display pass; the fluid carries only the cloud the emitters lay on it
+  float ink_mix = clamp(smoothstep(.12, .9, m) * k * 2., 0., 1.) * (1. - fire * .82) * uBodyInk;
   o = mix(o, tgt, ink_mix);            // inside it is pulled back to the brush pattern: shape holds
   o = mix(o, eyeTgt, clamp(smoothstep(.06, .62, eyeM) * k * 2.6 * uEyeK, 0., 1.));   // uEyeK: game fills the socket faster (the head moves fast)
   // cloud (mask blue): a paler, billowing wash held in place the same way as the body
   float bill = fbm(v * 7. + vec2(uT * .05, -uT * .03));
   o = mix(o, uInk * (.25 + .55 * bill), clamp(smoothstep(.04, .8, cb) * k * 1.5, 0., 1.));
-  vec3 rimGlow = max(ink * e * 1.3 * wisp - o, 0.) + max(uEyeInk * eye_e * 1.15 * wisp - o, 0.);
+  vec3 rimGlow = max(ink * e * 1.3 * wisp - o, 0.) * mix(.6, 1., uBodyInk) + max(uEyeInk * eye_e * 1.15 * wisp - o, 0.);
   float eye_src = smoothstep(.04, .58, eyeM) * (.90 + .45 * wisp + .22 * streak) * 1.40 * uEyeA;
   float detached = 1. - smoothstep(.02, .35, eyeM);
   // game (uEyeK > 1): the eye marker (alpha) must outlive the eye's red, or the display pass can't tell old eye ink from fire
@@ -279,7 +280,7 @@ void main(){
   }
   gl_FragColor = vec4(o + rimGlow * k, ea);   // edge wisps: soft, or they trace the skeleton
 }`,
-    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual, uGameEye; uniform vec2 uEye; uniform vec3 uEyeInkD; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud, uLandO;
+    display: H + NOISE + BIL + `uniform sampler2D t0, t1, t2, t3; uniform float uLand; uniform vec2 uLandS, uDyeTx; uniform float uDark, uCap, uT, uAsp, uEyeR, uEyeA, uCalli, uManual, uGameEye; uniform vec2 uEye; uniform vec3 uEyeInkD; uniform vec4 uGape, uPearl; uniform vec2 uPK; uniform vec3 uBg, uInk; uniform vec3 uRing; uniform vec4 uStorm; uniform float uBoltY; uniform vec4 uKing, uGlow; uniform vec2 uMud, uLandO, uWorld; uniform float uBody;
 float gp(vec2 p){ vec4 t = texture2D(t1, p); return t.g * (1. - t.r); }
 void main(){
   vec4 dye4 = uManual > .5 ? bil(t0, v, uDyeTx) : texture2D(t0, v);
@@ -304,6 +305,40 @@ void main(){
     vec3 eyeP = uEyeInkD * min(clamp(eg / 1.4, 0., 1.2), min(d.g / max(uEyeInkD.g, 1e-3), d.b / max(uEyeInkD.b, 1e-3))) * out_ * (1. - inB);   // whole-colour scale: see ink pass
     d = mix(d - eyeP + vec3((eyeP.r + eyeP.g + eyeP.b) / 3.), vec3((d.r + d.g + d.b) / 3.), out_ * inB);
     eg *= keep;
+  }
+  // ---- ink body (game look) -----------------------------------------------------------------------------------------
+  // Yang 11-18: a cloud dragon as in ink-wash painting. The smoke is what hides the rig ("khoi la de che cai khung"), yet the
+  // dragon must still read as a dragon. The fluid alone could not do both: nothing thin or fast ever gathered ink (horns, mane,
+  // whiskers, claws, fins), so it read as a grey eel. So, three layers:
+  //   mass  - broad shapes (trunk, skull) as a soft wash with a bleeding edge, never a contour: taken from the mask blurred
+  //           over ~half a body radius, its threshold pushed about by noise
+  //   thin  - what a brush would put down as strokes (horn, whisker, claw, fin tip): dark, dry-brush broken
+  //   cloud - the fluid's smoke laid OVER both as an opaque mid-grey mist: where it is thick the body under it is gone
+  // (first try: the mask straight on screen with scales and a dark rim. It read at once, as a vector cut-out: the rig exposed)
+  // pw = world-anchored noise coords (height units)
+  float mass = 0., thin = 0., thick = 0., scl = 0.;
+  vec2 pw = v * vec2(uAsp, 1.) + uWorld;
+  if (uBody > .5) {
+    float hd = length((v - uEye) * vec2(uAsp, 1.)) / max(uEyeR, 1e-5) * .34;   // distance from the eye, in body radii
+    vec2 wb = (vec2(fbm(pw * 8. + uT * .22), fbm(pw * 8. + 5.2 - uT * .19)) - .5) * .010
+            + (vec2(vnoise(pw * 55. + uT * 1.2), vnoise(pw * 55. + 9.1 - uT * 1.05)) - .5) * .0030;
+    wb *= smoothstep(.8, 3., hd);   // none round the eye: the socket must stay where the eye ink is
+    vec2 vb = v + wb * vec2(1. / uAsp, 1.), qs = vec2(uEyeR / uAsp, uEyeR);
+    vec4 mb = texture2D(t1, vb);
+    float mB = mb.r * (1. - .85 * smoothstep(.2, .6, mb.g));   // gold antler (r+g) is gold ink in the fluid, not black
+    // the eye socket is a hole in the mask (the eye ink lives there): the stroke runs through it, the eye glows on top
+    mB = max(mB, clamp(mb.b * (1. - smoothstep(2.2, 2.6, hd / .34)) * 1.6, 0., 1.) * step(.01, uEyeA));
+    float br = vnoise(RO * pw * vec2(230., 34.)) * .65 + vnoise(pw * 120.) * .35;
+    float line = smoothstep(.12, .72, mB - br * .5 * (1. - smoothstep(.72, .98, mB)));
+    // two rings of 6, turned by a per-pixel hash: fixed taps gave the average 9 levels, which showed as bands along the body
+    float ja = hash(gl_FragCoord.xy) * 1.0472; thick = mB;
+    for (int i = 0; i < 6; i++) { float a = ja + float(i) * 1.0472; vec2 dq = vec2(cos(a), sin(a)) * qs;
+      thick += texture2D(t1, vb + dq * 1.9).r + texture2D(t1, vb - dq * 1.05).r; }
+    thick /= 13.;
+    mass = smoothstep(.34, .78, thick + (fbm(pw * 16. + uT * .1) - .5) * .32);
+    thin = line * (1. - smoothstep(.3, .62, thick));
+    scl = smoothstep(.02, .09, mb.g) * (1. - smoothstep(.2, .4, mb.g)) * smoothstep(.6, .9, mb.r)   // scale / belly-plate hints
+      * smoothstep(.3, .55, fbm(pw * 4.5 + 11.));                                                   // in patches only
   }
   vec3 col;
   // paper with calligraphy (r) and a red seal (g), dry-brush broken; the smoke drifts over it
@@ -361,6 +396,14 @@ void main(){
   } else {
     float s = max(d.r, max(d.g, d.b)), sk = s < 1.5 ? s : 1.5 + 1.3 * (1. - exp(-(s - 1.5) / 1.3));
     vec3 k = d * (sk / max(s, 1e-4));
+    if (uBody > .5) {
+      // the wash is uneven like ink on paper: slow pools, paper grain; denser down the middle of a broad shape
+      float pool = .55 + .9 * fbm(pw * 5. + 3.), grn = .85 + .3 * vnoise(pw * 330.);
+      vec3 kB = vec3(1., .977, .93) * (mass * (mix(.5, 1.45, smoothstep(.72, 1., thick)) * pool * grn + scl * .7) + thin * 2.1);
+      // the cloud: capped at a mid grey (as dark as the body it would only make a blob again) and opaque by its thickness
+      float sN = max(k.r, max(k.g, k.b)), cov = (1. - exp(-sN * 2.4)) * .92;
+      k = k * (.9 * (1. - exp(-sN / .9)) / max(sN, 1e-4)) + kB * (1. - cov);
+    }
     col = bg * exp(-k);
     vec3 kf = max(k - vec3(min(k.r, min(k.g, k.b))), 0.);
     float fa = 1. - exp(-max(kf.g, kf.b) * uMud.x);
@@ -619,7 +662,7 @@ void main(){
     simH = SIM_H; simW = Math.round(SIM_H * asp); dyeH = DYE_H; dyeW = Math.round(DYE_H * asp);
     if (G.on) { const r = Math.max(1, Math.round(DYE_H / SIM_H)); dyeW = simW * r; dyeH = simH * r; }   // one sim cell = r whole dye texels, so a cell shift moves both exactly
     vel = pair(simW, simH); prs = pair(simW, simH); div = target(simW, simH); crl = target(simW, simH); dye = pair(dyeW, dyeH);
-    mcv.height = MASK_H; mcv.width = Math.round(MASK_H * asp);
+    mcv.height = G.on ? Math.round(MASK_H * 4 / 3) : MASK_H; mcv.width = Math.round(mcv.height * asp);   // game: the mask is on screen now (ink body), not only a guide for the fluid
   }
   function initGL() {
     gl = cv.getContext('webgl', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false });
@@ -1332,6 +1375,27 @@ void main(){
     const segA = (t, i) => (t > 0.68 ? 0.45 + 0.55 * Math.pow(1 - (t - 0.68) / 0.32, 1.6) : 1) * visAt(pts[i].x, pts[i].y);   // last third: shape loosens, but stays joined to the flame tuft
     const seg = (i, w, al) => { c.lineWidth = w; c.globalAlpha = al; c.beginPath(); c.moveTo(pts[i - 1].x, pts[i - 1].y); c.lineTo(pts[i].x, pts[i].y); c.stroke(); };
     const GAP = R * 0.5, NB = 6;
+    const nrm = (i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N - 1, i + 1)], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l, dx / l, dy / l]; };
+    const bs = (ny) => -Math.max(-1, Math.min(1, ny * 4));   // back = +n * bs (see below)
+    // game: scales and belly plates, as faint green lines on the body (the display pass inks them dark on the wash). One row of
+    // arcs per spine point, every other row shifted half a scale, open toward the head like roof tiles; the belly third has
+    // cross lines instead. A row is drawn only once the strokes still to come can no longer cover it (each step repaints NB
+    // neighbours), so a coil lying on top wipes the rows under it and the overlap stays right
+    const SCB = NB + 3;
+    const scales = (p) => {
+      const t = p / (N - 1); if (!G.on || p < 1 || p > N - 2 || t < 0.05 || t > 0.74) return;
+      const al = segA(t, p) * Math.min(1, (0.74 - t) / 0.12, (t - 0.05) / 0.03); if (al < 0.05) return;
+      const [nx, ny, tx, ty] = nrm(p), r = radAt(t), q = pts[p], sg = bs(ny), a0 = Math.atan2(ty, tx), rr = r * 0.3;
+      c.globalCompositeOperation = 'lighter'; c.strokeStyle = 'rgb(0,30,0)'; c.lineWidth = Math.max(1.3 / k, r * 0.065); c.globalAlpha = al; c.lineCap = 'butt';
+      c.beginPath();
+      for (const u of p & 1 ? [-0.63, -0.21, 0.21, 0.63] : [-0.42, 0, 0.42]) {
+        if (u * sg < -0.4) continue;   // belly side
+        const cx = q.x + nx * u * r, cy = q.y + ny * u * r;
+        c.moveTo(cx + Math.cos(a0 - 1.25) * rr, cy + Math.sin(a0 - 1.25) * rr); c.arc(cx, cy, rr, a0 - 1.25, a0 + 1.25);
+      }
+      if (Math.abs(sg) > 0.3) { c.moveTo(q.x - nx * sg * r * 0.5, q.y - ny * sg * r * 0.5); c.lineTo(q.x - nx * sg * r * 0.96 + tx * r * 0.12, q.y - ny * sg * r * 0.96 + ty * r * 0.12); }
+      c.stroke(); c.globalCompositeOperation = 'source-over'; c.strokeStyle = '#f00'; c.globalAlpha = 1; c.lineCap = 'round';
+    };
     for (let i = N - 1; i >= 1; i--) {
       const t = i / (N - 1), al = segA(t, i);
       if (al > 0.02) {
@@ -1342,14 +1406,14 @@ void main(){
         for (let j = Math.min(N - 1, i + NB); j > i; j--) { const tj = j / (N - 1); seg(j, radAt(tj) * 2, segA(tj, j)); }
       }
       seg(i, radAt(t) * 2, al);
+      scales(i + SCB);
     }
+    for (let p = SCB; p >= 1; p--) scales(p);
     c.globalAlpha = 1;
-    const nrm = (i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N - 1, i + 1)], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l, dx / l, dy / l]; };
     // back / belly per body segment: the back is whichever side of the tube faces up on screen, the belly the side facing down.
     // (Fixed sides put the spikes under the belly and legs on the back when the dragon swam leftwards; taking the side from the
     // head's roll failed too wherever the body coils away from the head's heading.) bs() passes 0 where a segment is vertical,
     // so spikes and legs fold into the body there and come out on the other side.
-    const bs = (ny) => -Math.max(-1, Math.min(1, ny * 4));   // back = +n * bs
     // dorsal fins (Yang's sketch 11-17): separate wave crests, not a saw. Each fin: long gentle S-curved front edge rising toward the
     // tail to a sharp tip, then a steep concave back edge curling down to a small hook at the foot; feet nearly touch. Outline in
     // (u along the back toward the tail, v up off the back), laid onto the spine by arc length so every fin bends with the body
@@ -1564,6 +1628,7 @@ void main(){
       c.globalAlpha = 0.55; for (let j = 0; j < 8; j++) c.drawImage(hcv, Math.cos(j * Math.PI / 4) * d * 0.85, Math.sin(j * Math.PI / 4) * d * 0.85);
       c.restore(); c.globalCompositeOperation = 'source-over';
       for (let j = Math.min(N - 1, 15); j >= 1; j--) { const tj = j / (N - 1); seg(j, radAt(tj) * 2, segA(tj, j)); }
+      for (let p = 17; p >= 1; p--) scales(p);   // the neck was repainted: its scales again
       c.globalAlpha = 1;
       c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(hcv, 0, 0); c.restore(); }
     if (G.on) window.InkGame?.mask(c);   // game.js: enemies (ink), landmark clouds
@@ -1671,7 +1736,7 @@ void main(){
   function step(dt) {
     pass('curl', crl, [vel.a.tex], {});
     pass('vorticity', vel.b, [vel.a.tex, crl.tex], { uCurl: CFG.curl, uCMax: 12, uDt: dt, uOpen: G.on ? 1 : 0 }); vel.swap();
-    pass('stir', vel.b, [vel.a.tex, maskTex], { uAmp: T < coilUntil ? 8 : 6, uT: T, uDt: dt }); vel.swap();
+    pass('stir', vel.b, [vel.a.tex, maskTex], { uAmp: T < coilUntil ? 8 : 6, uT: T, uDt: dt, uPush: G.on ? 0.1 : 1 }); vel.swap();
     pass('divergence', div, [vel.a.tex], { uOpen: G.on ? 1 : 0 });
     pass('clear', prs.b, [prs.a.tex], { uK: CFG.pressK }); prs.swap();
     for (let i = 0; i < ITER; i++) { pass('pressure', prs.b, [prs.a.tex, div.tex], {}); prs.swap(); }
@@ -1699,7 +1764,7 @@ void main(){
       uEye: [e.x / W, 1 - e.y / Hh],
       uEyeR: rad() * 0.34 / Math.max(1, Hh),
       uAsp: W / Math.max(1, Hh),
-      uEyeA: G.noEyeInk ? 0 : ea, uOpen: G.on ? 1 : 0, uEyeK: G.on ? 3 : 1,
+      uEyeA: G.noEyeInk ? 0 : ea, uOpen: G.on ? 1 : 0, uEyeK: G.on ? 3 : 1, uBodyInk: G.on ? 0 : 1,
     }, [1 / mcv.width, 1 / mcv.height]); dye.swap();
   }
 
@@ -1746,6 +1811,7 @@ void main(){
       uLandO: G.on ? (() => { const f = landFit(), cx = G.camX + G.remX, cy = G.camY + G.remY;
         return [(cx * 0.35 - G.remX) / W * f[0], clamp(-cy / Hh * f[1] * 0.12, -0.25, 0.25) + G.remY / Hh * f[1]]; })() : [0, 0],
       uDyeTx: dye.tx,
+      uBody: G.on ? 1 : 0, uWorld: G.on ? [G.camX / Hh, -G.camY / Hh] : [0, 0],
       uManual: linear ? 0 : 1,
       uEyeA: visAt(dg.pts[0]?.x ?? 0, dg.pts[0]?.y ?? 0, true), uGameEye: G.on ? 1 : 0, uEyeInkD: lastEyeInk,
       uDark: dark ? 1 : 0,
@@ -1853,7 +1919,7 @@ void main(){
     }
     {
       const v = Math.hypot(dg.pts[0].x - dg.prev[0].x, dg.pts[0].y - dg.prev[0].y) / Math.max(dt, 1e-3) / Hh, b = dark ? BODY.dark : BODY.light;
-      if (cl.ph === 'off' && kg.coc <= 0 && Math.random() < (0.06 + v * 0.5) * wakeK) {   // chance per frame: x wakeK = same puffs per second at any fps
+      if (!G.on && cl.ph === 'off' && kg.coc <= 0 && Math.random() < (0.06 + v * 0.5) * wakeK) {   // game: round dots beside the crisp body read as dirt; flecks are particles there   // chance per frame: x wakeK = same puffs per second at any fps
         const i = 3 + Math.floor(Math.random() * (N * 0.6)), p = dg.pts[i], q = dg.pts[i + 1], dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1;
         const side = Math.random() < 0.5 ? -1 : 1, r = radAt(i / (N - 1));
         for (let j = 0, n = 1 + (Math.random() * 3 | 0); j < n; j++) {
@@ -2147,6 +2213,24 @@ void main(){
     window.InkGame?.update(dt);
   }
   function gameFx(dt, kx, ky) {
+    // cloud emitters: the smoke that hides the rig (Yang 11-18). Stations along the body lay puffs of grey ink on it. The fluid
+    // keeps a puff where it was laid while the body slides on under it, so each station trails a bank of cloud over the coils
+    // behind it; the head, ahead of the first station, comes out of the cloud clear. Each station swells and thins on its own
+    // slow beat, so the gaps the body shows through keep moving. 30 puffs a second per station, whatever the frame rate
+    G.smk = (G.smk || 0) + dt;
+    if (G.smk >= 1 / 30 && dg.pts.length === N && cl.ph !== 'hidden') {
+      const n = Math.min(3, Math.floor(G.smk * 30)); G.smk = 0;
+      const b = dark ? BODY.dark : BODY.light, spd = Math.hypot(dg.pts[0].x - dg.prev[0].x, dg.pts[0].y - dg.prev[0].y) / Math.max(dt, 1e-3) / Hh;
+      const flow = clamp(spd / 0.36, 0.3, 1.3);   // a slow dragon sits in its own smoke: lay less
+      for (let j = 0; j < SMOKE_AT.length; j++) {
+        const beat = 0.5 + 0.5 * Math.sin(T * (0.31 + 0.07 * j) + j * 2.4), a = clamp((beat - 0.22) / 0.4, 0, 1); if (a < 0.02) continue;
+        const i = Math.round(clamp(SMOKE_AT[j] + 0.035 * Math.sin(T * 0.23 + j * 1.7), 0, 1) * (N - 1)), p = dg.pts[i], r = radAt(i / (N - 1));
+        const vis = visAt(p.x, p.y); if (vis < 0.3) continue;
+        const ang = Math.random() * Math.PI * 2, d = Math.random() * r * 0.9, x = p.x + Math.cos(ang) * d, y = p.y + Math.sin(ang) * d;
+        const sg = (r * (1.0 + 0.5 * Math.random())) / Hh;
+        dyeQ.push([x / W, 1 - y / Hh, sg * sg, b.map((c) => c * 0.2 * a * flow * n * vis)]);
+      }
+    }
     if (T < G.coil) {   // coil vortex: tangential pushes round the centre plus a slight inward pull, smoke there spins in
       const r = Hh * 0.17, sp = Hh * 0.8;
       for (let j = 0; j < 8; j++) {
@@ -2160,6 +2244,7 @@ void main(){
       splat(p.x / W, 1 - p.y / Hh, (p.x - q.x) * id * kx * 0.8 * wk, -(p.y - q.y) * id * ky * 0.8 * wk, b.map((c) => c * 0.3 * wk), 0.0005);
     }
   }
+  const SMOKE_AT = [0.17, 0.29, 0.41, 0.53, 0.65, 0.78, 0.9];   // cloud emitter stations, along the body (0 head .. 1 tail)
   function gameDive() {   // R: into a cloud just ahead, out of one at the cursor
     if (cl.ph !== 'off' || kd.ph !== 'off') return;
     const R = cloudR(), ax = dg.hx + Math.cos(dg.ang) * R * 1.2, ay = dg.hy + Math.sin(dg.ang) * R * 1.2;
