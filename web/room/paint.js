@@ -108,17 +108,26 @@
     // the mountain's side of the line: one side for the whole stroke, the one that looks down the paper over most of it.
     // (Chosen point by point, it jumped across on every steep stretch and the ribbon came out in shifted slabs: r005)
     { let sy = 0; for (const q of nrm) sy += q[1]; if (sy < 0) for (const q of nrm) { q[0] = -q[0]; q[1] = -q[1]; } }
+    // an upright stroke is a rock face, its body beside it and not under it. Which side: the one the stroke leans over;
+    // a stroke that stands plumb is read as it was drawn, as the flank of a mountain painted left to right: going up, the
+    // body lies to the right, coming down, to the left
+    let side = 0, cliff = 0; { let ya = 1e9, yb = -1e9, xa = 1e9, xb = -1e9, sx = 0, sy = 0; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); }
+      for (const q of nrm) { sx += q[0]; sy += q[1]; } cliff = sm(((yb - ya) / Math.max(1, xb - xa) - 1.3) / 1.2) * sm((Math.abs(P[n - 1][1] - P[0][1]) / Math.max(1, yb - ya) - 0.5) / 0.3);   // tall and narrow, and going one way: a tall peak flown up and down is no rock face
+      if (cliff > 0) { side = sy / n < 0.12 ? (P[n - 1][1] < P[0][1] ? 1 : -1) : (sx < 0 ? -1 : 1); if (sx * side < 0) for (const q of nrm) { q[0] = -q[0]; q[1] = -q[1]; } } }
     for (let i = 0; i < n; i++) { const s = cum[i], j = shake * H * (0.0035 * (N(s / (0.018 * H), 2) - 0.5) + 0.009 * (N(s / (0.07 * H) + 9, 2) - 0.5)) * 2 * sm(Math.min(s, L - s) / (0.03 * H)); P[i][0] += nrm[i][0] * j; P[i][1] += nrm[i][1] * j; }
     // -- the ridge as seen: the highest point of the path over every column. field(i0, i1) reads a stretch of the path
     //    that way: its columns, its top, the lit / shaded side
     let bx1 = -1e9, yTop = 1e9, yBase = -1e9; for (const p of P) { bx1 = Math.max(bx1, p[0]); yTop = Math.min(yTop, p[1]); yBase = Math.max(yBase, p[1]); }
     const blur = (A, it) => { let B = A.slice(); const m = A.length; for (let q = 0; q < it; q++) { const Cc = B.slice(); for (let k = 1; k < m - 1; k++) Cc[k] = (B[k - 1] + 2 * B[k] + B[k + 1]) / 4; B = Cc; } return B; };
     const boxb = (A, r) => { const m = A.length, c0 = [0]; for (let k = 0; k < m; k++) c0.push(c0[k] + A[k]); return A.map((_, k) => { const a = Math.max(0, k - r), b = Math.min(m - 1, k + r); return (c0[b + 1] - c0[a]) / (b - a + 1); }); };
-    const field = (i0, i1) => {
+    const field = (i0, i1, E = 0) => {
       let x0 = 1e9, x1 = -1e9; for (let i = i0; i <= i1; i++) { x0 = Math.min(x0, P[i][0]); x1 = Math.max(x1, P[i][0]); }
-      x0 = Math.floor(x0); const m = Math.max(2, Math.ceil((x1 - x0) / BIN) + 1), top = new Array(m).fill(1e9);
+      x0 = Math.floor(x0) - E; x1 += E; const m = Math.max(2, Math.ceil((x1 - x0) / BIN) + 1), top = new Array(m).fill(1e9);
       for (let i = i0 + 1; i <= i1; i++) { const a = P[i - 1], b = P[i], k0 = (a[0] - x0) / BIN, k1 = (b[0] - x0) / BIN, lo = Math.floor(Math.min(k0, k1)), hi = Math.ceil(Math.max(k0, k1));
         for (let k = Math.max(0, lo); k <= Math.min(m - 1, hi); k++) { const f = k1 === k0 ? 0 : clamp((k - k0) / (k1 - k0), 0, 1), y = a[1] + (b[1] - a[1]) * f; if (y < top[k]) top[k] = y; } }
+      if (E) { let kA = 0, kB = m - 1; while (kA < m - 1 && top[kA] > 1e8) kA++; while (kB > kA && top[kB] > 1e8) kB--;
+        const q = Math.min(8, kB - kA), gA = clamp((top[kA] - top[kA + q]) / Math.max(1, q * BIN), 0.55, 2.5), gB = clamp((top[kB] - top[kB - q]) / Math.max(1, q * BIN), 0.55, 2.5);   // falling at least a little, whatever way the stroke ended
+        for (let k = 0; k < kA; k++) top[k] = top[kA] + gA * (kA - k) * BIN; for (let k = kB + 1; k < m; k++) top[k] = top[kB] + gB * (k - kB) * BIN; }
       for (let k = 0, last = P[i0][1]; k < m; k++) { if (top[k] > 1e8) top[k] = last; else last = top[k]; }
       const ts = blur(top, 5), wide = blur(top, 40), slope = (k) => (wide[Math.min(m - 1, k + 4)] - wide[Math.max(0, k - 4)]) / (8 * BIN);
       // lit side / shaded side, turning over gently across a summit: spread over about a sixth of a screen (three box
@@ -126,11 +135,6 @@
       const rs = Math.max(4, Math.round(0.055 * H / BIN)), shade = boxb(boxb(boxb(top.map((_, k) => clamp(slope(k) * 1.3, -1, 1)), rs), rs), rs);
       return { x0, m, top, ts, shade };
     };
-    const F = field(0, n - 1), bx0 = F.x0, nb = F.m, top = F.top, ts = F.ts, shAt = (k) => F.shade[clamp(k, 0, nb - 1)];
-    // the two ends of the stroke thin out: the brush is set down and lifted there
-    const te = Math.min(0.3, 0.09 * H / Math.max(1, bx1 - bx0)), envX = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / te) * sm((1 - t) / te); }, env = (k) => envX(bx0 + k * BIN);
-    // how far the ink runs down the slope: to about the level of the stroke's lowest point, so tall peaks get long slopes
-    const depthAt = (t, x) => ((yBase - t) * 1.0 + 0.17 * H) * (0.45 + 0.55 * envX(x)), depth = ts.map((t, k) => depthAt(t, bx0 + k * BIN));
     // a stroke that doubles back across the paper (r006: a C, a hook, then a peak over it) is read in stretches, each
     // going one way; each stretch is a ridge with its own ink under it. A turn counts once the path has come back 2.5%
     const runs = []; { let a = 0, dir = 0, ext = P[0][0], ie = 0; const tol = 0.025 * H;
@@ -138,10 +142,19 @@
         if (!dir) { if (Math.abs(x - P[0][0]) > tol) { dir = Math.sign(x - P[0][0]); ext = x; ie = i; } continue; }
         if ((x - ext) * dir > 0) { ext = x; ie = i; } else if ((ext - x) * dir > tol) { if (ie - a > 3) runs.push([a, ie]); a = ie; dir = -dir; ext = x; ie = i; } }
       runs.push([a, n - 1]); }
+    // past both its ends the mountain goes on, falling away into the mist: the ink thins out there and not inside the
+    // stroke. (Thinned inside, two mountains meeting end to end left a white upright gap between them: r007)
+    const E = runs.length > 1 ? 0 : Math.round(0.1 * H * (1 - cliff)); bx1 += E;
+    const F = field(0, n - 1, E), bx0 = F.x0, nb = F.m, top = F.top, ts = F.ts, shAt = (k) => F.shade[clamp(k, 0, nb - 1)];
+    // the two ends of the stroke thin out: the brush is set down and lifted there
+    const te = Math.min(0.3, 0.09 * H / Math.max(1, bx1 - bx0)), envX = (x) => { const t = clamp((x - bx0) / Math.max(1, bx1 - bx0), 0, 1); return sm(t / te) * sm((1 - t) / te); }, env = (k) => envX(bx0 + k * BIN);
+    // how far the ink runs down the slope: to about the level of the stroke's lowest point, so tall peaks get long slopes
+    const depthAt = (t, x) => ((yBase - t) * 1.0 + 0.17 * H) * (0.45 + 0.55 * envX(x)), depth = ts.map((t, k) => depthAt(t, bx0 + k * BIN));
     const folded = runs.length > 1, fields = folded ? runs.map(([a, b]) => field(a, b)) : [F];
     // -- canvases, cropped to the mountain
-    const pad = Math.round(0.04 * H), ox = bx0 - pad, oy = Math.floor(yTop - 0.1 * H),   // whole px: wash columns must sit on the pixel grid or their seams show as fine upright stripes
-       cw = Math.ceil((bx1 - bx0 + 2 * pad) * dpr), chh = Math.ceil((yBase + 0.19 * H - oy) * dpr);
+    const CL = Math.round(cliff * clamp(0.55 * (yBase - yTop), 0.1 * H, 0.3 * H)), extL = side < 0 ? CL : 0, extR = side > 0 ? CL : 0;   // how far a rock face's ink runs sideways
+    const pad = Math.round(0.04 * H), ox = bx0 - pad - extL, oy = Math.floor(yTop - 0.1 * H),   // whole px: wash columns must sit on the pixel grid or their seams show as fine upright stripes
+       cw = Math.ceil((bx1 - bx0 + 2 * pad + extL + extR) * dpr), chh = Math.ceil((yBase + 0.19 * H - oy) * dpr);
     const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
     const [cv, g] = mk(), [body, gb] = mk(), [rib, gr] = mk();
     const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
@@ -150,19 +163,19 @@
     // drawn in device pixels, every column on whole pixels: at a display scale of 120% (Yang's, r006) columns of 2.4 px
     // left fine upright stripes all over the body
     raw(g); raw(gb); const DX = (x) => Math.round((x - ox) * dpr), DY = (y) => (y - oy) * dpr, fr = Math.max(2, Math.round(0.05 * H / BIN));
+    const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body;   // body: how much ink the mountain's flank holds, and how far down it stays dark
     for (const f of fields) for (let k = 0; k < f.m; k++) {
       const x = f.x0 + k * BIN, t = f.ts[k], ee = envX(x), dd = depthAt(t, x), sh = f.shade[k], y0 = Math.min(f.top[k], t) - 1,
-         e = ee * (folded ? sm(Math.min(k, f.m - 1 - k) / fr) : 1),   // a stretch's ink thins toward the turn, or its end stood as a plumb edge in the body
+         e = ee * (1 - cliff) * (folded ? sm(Math.min(k, f.m - 1 - k) / fr) : 1),   // a stretch's ink thins toward the turn, or its end stood as a plumb edge in the body
          X = DX(x), Wd = DX(x + BIN) - X, Y0 = DY(y0), T = DY(t);
-      const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body,   // body: how much ink the mountain's flank holds, and how far down it stays dark
-      a0 = Math.min(0.95, 0.56 * bm * (0.85 + 0.3 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2)));
+      const a0 = Math.min(0.95, 0.56 * bm * (0.85 + 0.3 * sh) * e * (0.85 + 0.3 * N(x / (0.12 * H) + 3, 2)));
       let gd = g.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(${INK},${a0.toFixed(3)})`); gd.addColorStop(0.1, `rgba(${INK},${(a0 * 0.7).toFixed(3)})`); gd.addColorStop(0.3, `rgba(${INK},${(a0 * (0.34 + mid)).toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a0 * (0.1 + mid)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
       const d2 = Math.min(dd * 0.3, 0.075 * H) * (0.45 + 1.1 * N(x / (0.13 * H) + 40, 2)),   // capped: on a tall peak its lower edge showed as a level line across the body
          a2 = Math.min(0.9, 0.34 * bm * clamp(0.5 + 0.7 * sh, 0.12, 1) * e);
       gd = g.createLinearGradient(0, T, 0, DY(t + d2)); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0);
-      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(0,0,0,${Math.min(1, 1.6 * e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${Math.min(1, 1.4 * e).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
+      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); gd.addColorStop(0, `rgba(0,0,0,${sm(e).toFixed(3)})`); gd.addColorStop(0.6, `rgba(0,0,0,${sm(e).toFixed(3)})`);   // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007) gd.addColorStop(1, 'rgba(0,0,0,0)');
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, DY(t + dd) - Y0);
     }
     home(g); home(gb);
@@ -175,23 +188,54 @@
         x = nx; y = ny; }
       g.globalAlpha = 1;
     };
+    // with real strokes loaded, a texture stroke is a piece of one (its drier far half), laid in short slices that turn
+    // toward the fall line; w0 is the width of the drawn hair it stands for
+    const kit0 = (STROKES[S.tex] || []).filter((q) => q.im);
+    const mark = (x, y, ang, len, w0, a0, to) => {
+      if (!kit0.length) return hair(x, y, ang, len, w0, a0, to);
+      const q = kit0[Math.floor(R() * kit0.length) % kit0.length], m = 10, part = 0.3 + 0.3 * R(), u0 = (1 - part) * q.w, th = w0 * 3.2, sl = len / m;   // the piece runs to the stroke's own frayed end
+      for (let i = 0; i < m; i++) { const f = i / m; ang += (to - ang) / m; const c0 = Math.cos(ang), s0 = Math.sin(ang);
+        g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); const tw = th * (0.35 + 0.65 * Math.sin(3.1416 * Math.min(1, f * 1.6 + 0.12))); g.globalAlpha = a0 * Math.min(1, 0.25 + 3 * f) * (1 - 0.5 * f);   // set down thin, pressed, lifted
+        g.drawImage(q.im, u0 + part * q.w * f, 0, part * q.w / m, q.h, 0, -tw / 2, sl + 0.7, tw); x += c0 * sl; y += s0 * sl; }
+      g.globalAlpha = 1; home(g);
+    };
     // hemp fibres: many faint long lines down the fall line of the slope, closer and darker on the shaded side
     for (let x = bx0 + 0.01 * H; x < bx1 - 0.01 * H; x += H * (0.007 + 0.012 * R())) {
       const k = col(x), sh = shAt(k), e = env(k), r1 = R(), r2 = R(), r3 = R(), r4 = R();
       if (r1 > S.cun * 1.5 * (sh > 0 ? 1 : 0.6)) continue;
       const fall = 1.5708 - sh * 0.8;
-      hair(x, ts[k] + H * (0.004 + 0.07 * r2 * r2), fall + (r3 - 0.5) * 0.9, depth[k] * (0.12 + 0.3 * r4 * r4), H * 0.0026 * (0.5 + R()), (0.2 + 0.25 * R()) * (sh > 0 ? 1 : 0.6) * e, fall + (r3 - 0.5) * 0.3);
+      mark(x, ts[k] + H * (0.004 + 0.07 * r2 * r2), fall + (r3 - 0.5) * 0.9, depth[k] * (0.12 + 0.3 * r4 * r4), H * 0.0026 * (0.5 + R()), (0.2 + 0.25 * R()) * (sh > 0 ? 1 : 0.6) * e, fall + (r3 - 0.5) * 0.3);
     }
+    if (kit0.length) { g.globalCompositeOperation = 'source-atop';   // broad faint drags of a dry brush down the slope, only where the wash lies: the grain of the body
+      for (let x = bx0 + 0.03 * H; x < bx1 - 0.03 * H; x += H * (0.035 + 0.05 * R())) { const k = col(x), fall = 1.5708 - shAt(k) * 0.8;
+        mark(x, ts[k] + H * 0.01, fall + (R() - 0.5) * 0.3, depth[k] * (0.45 + 0.4 * R()), H * 0.012 * (0.6 + 0.8 * R()), (0.1 + 0.1 * R()) * env(k) * S.cun / 0.6, fall); }
+      g.globalCompositeOperation = 'source-over'; }
     for (const k of crests) {   // the spurs running down from a summit, to both sides
       const way = P[Math.min(n - 1, k + 2)][0] >= P[Math.max(0, k - 2)][0] ? 1 : -1, dc = depth[col(P[k][0])], cnt = Math.round((2 + 3 * R()) * S.cun * 1.6);
       for (let q = 0; q < cnt; q++) { const side = q === 0 ? (R() < 0.5 ? 1 : -1) * 0.25 : (q % 2 ? 1 : -1), i2 = clamp(k + way * Math.sign(side) * Math.round((q === 0 ? 0 : R()) * 0.03 * H / STEP), 0, n - 1);
-        hair(P[i2][0], P[i2][1] + 0.003 * H, 1.5708 - side * (0.35 + 0.5 * R()), Math.min(0.2 * H, dc * (0.3 + 0.45 * R())), H * 0.0048 * (0.6 + 0.8 * R()), 0.6, 1.5708 - Math.sign(side) * (0.1 + 0.5 * R())); }
+        mark(P[i2][0], P[i2][1] + 0.003 * H, 1.5708 - side * (0.35 + 0.5 * R()), Math.min(0.2 * H, dc * (0.3 + 0.45 * R())), H * 0.0048 * (0.6 + 0.8 * R()), 0.6, 1.5708 - Math.sign(side) * (0.1 + 0.5 * R())); }
     }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
     // it an odd number of times), so the hollow of a C stays paper instead of filling to a plumb wall (r006)
     if (folded) for (const x of [g, gb]) { x.globalCompositeOperation = 'destination-in'; x.globalAlpha = 1; x.fillStyle = '#000'; x.beginPath(); x.moveTo(P[0][0], P[0][1]); for (let i = 1; i < n; i++) x.lineTo(P[i][0], P[i][1]); x.lineTo(P[n - 1][0], yBase + 0.3 * H); x.lineTo(P[0][0], yBase + 0.3 * H); x.closePath(); x.fill('evenodd'); x.globalCompositeOperation = 'source-over'; }
     else for (const x of [g, gb]) { x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.fillStyle = '#000'; x.beginPath(); x.moveTo(bx0 - pad - 5, oy - 5); x.lineTo(bx0 - pad - 5, top[0]); for (let k = 0; k < nb; k++) x.lineTo(bx0 + k * BIN, top[k]); x.lineTo(bx1 + pad + 5, top[nb - 1]); x.lineTo(bx1 + pad + 5, oy - 5); x.closePath(); x.fill(); x.globalCompositeOperation = 'source-over'; }
+    // -- a rock face: ink running sideways from the stroke into the body, row by row, widening from the top into a
+    //    shoulder and thinning toward the foot; texture strokes leaning down off the face
+    if (CL > 2) { raw(g); raw(gb); const rise = yBase - yTop, rowsN = Math.max(2, Math.ceil(rise / BIN)), xs = new Array(rowsN).fill(null);
+      for (let i = 1; i < n; i++) { const a = P[i - 1], b = P[i];
+        for (let r = Math.max(0, Math.floor((Math.min(a[1], b[1]) - yTop) / BIN)); r <= Math.min(rowsN - 1, Math.ceil((Math.max(a[1], b[1]) - yTop) / BIN)); r++) { const y = yTop + r * BIN, f = b[1] === a[1] ? 0 : clamp((y - a[1]) / (b[1] - a[1]), 0, 1), x = a[0] + (b[0] - a[0]) * f; if (xs[r] === null || (x - xs[r]) * side < 0) xs[r] = x; } }
+      for (let r = 0; r < rowsN; r++) { if (xs[r] === null) continue;
+        const y = yTop + r * BIN, f = r / rowsN, len = CL * sm(f / 0.3) * (0.6 + 0.8 * N(y / (0.1 * H) + 11, 2)), a = Math.min(0.95, 0.5 * bm * cliff * sm(f / 0.12) * (1 - sm((f - 0.35) / 0.65)) * (0.8 + 0.4 * N(y / (0.05 * H) + 5, 2)));
+        if (len < 2) continue; const Y = Math.round((y - oy) * dpr), Hd = Math.round((y + BIN - oy) * dpr) - Y, X0 = (xs[r] - ox) * dpr, X1 = (xs[r] + side * len - ox) * dpr;
+        let gd = g.createLinearGradient(X0, 0, X1, 0); gd.addColorStop(0, `rgba(${INK},${a.toFixed(3)})`); gd.addColorStop(0.15, `rgba(${INK},${(a * 0.7).toFixed(3)})`); gd.addColorStop(0.45, `rgba(${INK},${(a * (0.3 + mid)).toFixed(3)})`); gd.addColorStop(0.75, `rgba(${INK},${(a * (0.08 + mid * 0.6)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
+        g.fillStyle = gd; g.fillRect(Math.min(X0, X1), Y, Math.abs(X1 - X0), Hd);
+        const fb = 1 - sm((f - 0.5) / 0.5); gd = gb.createLinearGradient(X0, 0, X1, 0); gd.addColorStop(0, `rgba(0,0,0,${Math.min(1, 1.6 * cliff * fb).toFixed(3)})`); gd.addColorStop(0.5, `rgba(0,0,0,${Math.min(1, 1.3 * cliff * fb).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
+        gb.fillStyle = gd; gb.fillRect(Math.min(X0, X1), Y, Math.abs(X1 - X0), Hd); }
+      home(g); home(gb); g.globalCompositeOperation = 'source-atop';
+      for (let r = 4; r < rowsN - 4; r += Math.max(1, Math.round((0.012 + 0.03 * R()) * H / BIN))) { if (xs[r] === null) continue; const an = 0.5 + 0.8 * R(), lean = 1.2;
+        mark(xs[r] + side * 0.004 * H, yTop + r * BIN, side > 0 ? an : 3.1416 - an, CL * (0.25 + 0.5 * R()) * sm(r / rowsN / 0.3 + 0.2), H * 0.006 * (0.6 + 0.8 * R()), (0.25 + 0.3 * R()) * cliff * S.cun / 0.6, side > 0 ? lean : 3.1416 - lean); }
+      g.globalCompositeOperation = 'source-over'; }
     // -- the ridge line: a ribbon along the path, a little more of it on the mountain's side
     const near = (i) => { let b = 1e9; for (const k of crests) b = Math.min(b, Math.abs(cum[k] - cum[i])); return b; };
     const wAt = [], dryAt = [], prAt = [];
@@ -245,7 +289,7 @@
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
-    return { cv, body, ox, oy, bx0, ts, depth, yBase, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
+    return { cv, body, ox, oy, bx0, ts, depth, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB) };
   }
 
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
@@ -263,7 +307,9 @@
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m, nb = m.ts.length;
       c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.moveTo(m.bx0 - 0.05 * H, m.ts[0] - 0.12 * H);
       for (let k = 0; k < nb; k += 4) c.lineTo(m.bx0 + k * BIN, m.ts[k] - 0.12 * H); c.lineTo(m.bx0 + nb * BIN + 0.05 * H, m.ts[nb - 1] - 0.12 * H);
-      for (let k = nb - 1; k >= 0; k -= 4) c.lineTo(m.bx0 + k * BIN + (k > nb - 5 ? 0.05 * H : 0), m.ts[k] + 0.02 * H + e * m.depth[k]); c.lineTo(m.bx0 - 0.05 * H, m.ts[0] + 0.02 * H + e * m.depth[0]); c.closePath(); c.clip();
+      for (let k = nb - 1; k >= 0; k -= 4) c.lineTo(m.bx0 + k * BIN + (k > nb - 5 ? 0.05 * H : 0), m.ts[k] + 0.02 * H + e * m.depth[k]); c.lineTo(m.bx0 - 0.05 * H, m.ts[0] + 0.02 * H + e * m.depth[0]); c.closePath();
+      if (m.extL + m.extR > 0) c.rect(m.bx0 - m.extL - 0.05 * H, m.yTop - 0.12 * H, nb * BIN + m.extL + m.extR + 0.1 * H, 0.14 * H + e * (m.yBase - m.yTop + 0.2 * H));   // a rock face: its ink lies beside the stroke
+      c.clip();
       lay(c, m, m.tone * clamp(a * 3, 0, 1)); c.restore();
       strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1)));
     }
