@@ -18,6 +18,7 @@
     rho: 1.8,      // turning circle of the neck, body radii; the spine's bend limit is set to match it
     hold: 1.6,     // where on the head the mouse holds it, body radii ahead of the neck joint: 0 = neck (pts[0]), 1.6 = the eye
     waveAmp: D.WAVE.amp, waveLen: D.WAVE.len,
+    track: 1,      // 1: the body lies on the track the head flew (no corner cutting, no curled tail); 0: follow-the-leader chain
     waveTurn: 0,   // how much of the body wave is kept where the body is turning: 0 = a clean arc, 1 = wriggles all the way round
     infV: 1.2,     // infinity dance: speed along the figure, screen heights per second
     infW: 0.5,     // its half width, screen heights (height of a lobe = 0.45 of that)
@@ -31,6 +32,7 @@
     ['turn', 'Tốc độ quay đầu (rad/s)', 4, 30, 1],
     ['rho', 'Bán kính vòng cua (thân)', 0.8, 4, 0.1],
     ['hold', 'Điểm cầm (0 gáy · 1.6 mắt)', 0, 3, 0.1],
+    ['track', 'Thân bám vệt đầu (0 tắt · 1 bật)', 0, 1, 1],
     ['waveAmp', 'Sóng thân: biên độ', 0, 3, 0.1],
     ['waveLen', 'Sóng thân: bước sóng (đốt)', 8, 60, 1],
     ['waveTurn', 'Sóng thân khi cua (0 tắt · 1 giữ)', 0, 1, 0.1],
@@ -104,7 +106,7 @@
   function advance(dt) { if (st.dance) danceStep(dt); moveHead(dt); }
 
   function moveHead(dt) {
-    D.WAVE.amp = S.waveAmp; D.WAVE.len = S.waveLen; G.waveTurn = S.waveTurn;
+    D.WAVE.amp = S.waveAmp; D.WAVE.len = S.waveLen; G.waveTurn = S.waveTurn; G.track = S.track >= 0.5;
     // The neck (the dragon's own head point) is flown like a swimmer: it only moves forwards, along its heading fa, and fa
     // comes round at S.turn rad/s on a circle of S.rho body radii. It heads for the mouse point and stops S.hold radii
     // short of it, so the held point hc (the eye) lands on the mouse point. Swinging fa moves hc sideways at once (lever
@@ -116,8 +118,9 @@
     // segment turned faster than the limit lets the joints behind bend, the limit swings the front of the body round with
     // it in a frame. So: never push (speed >= 0), never turn tighter than the body can bend (G.bend = segment / rho, the
     // body threads the neck's own track).
-    // - the turning circle shrinks for a mouse point nearer than 2.2 rho (else the neck orbits a point inside its circle),
-    //   and the turn slows with it (PIV): a long stiff body cannot spin on the spot
+    // - the turning circle shrinks for a mouse point nearer than 2.2 rho, down to half (PIV), and the turn slows with it;
+    //   a point still inside that circle is left alone (the neck would orbit it). Not smaller than half: the body lies
+    //   on the neck's track (G.track), and a pivot on a 20 px circle left a kink of 0.85 rad running down the body
     // - a mouse point between neck and eye, or within a quarter of S.hold of the neck: nothing to do, the cursor is on the head
     // - braking is eased at the follow rate, so a reversal at speed coasts into its U-turn instead of stopping dead
     // Tried and dropped (all with hc glued to the mouse): facing = drawn pts[2] -> pts[0] (flipped end over end at a hover,
@@ -125,14 +128,16 @@
     // even with the spine walked in half-segment steps (1.2 rad a frame); facing = the way hc is pulled, block measured
     // against fa (a plain circle then whipped 0.85 rad a frame); neck allowed 0.8 segment backwards then blocked, head
     // swung round hc (r001 / Yang 11-18: still jerked on every sharp reversal).
-    const H = D.H, R = D.rad(), o = S.hold * R, rho = S.rho * R, PIV = 0.35;
+    const H = D.H, R = D.rad(), o = S.hold * R, rho = S.rho * R, PIV = 0.5;
     const dx = tx - G.x, dy = ty - G.y, dn = Math.hypot(dx, dy), k = S.follow >= 60 ? 1 / dt : (1 - Math.exp(-dt * S.follow)) / dt;
     let wW = 0, vW = 0, dA = 0, re = rho;
     if (dn > Math.max(2, 0.25 * o)) {
       dA = Math.atan2(dy, dx) - fa; dA = Math.atan2(Math.sin(dA), Math.cos(dA));
-      const e = dn - o; re = Math.min(rho, 0.45 * dn);
-      const wm = S.turn * clamp(re / rho, PIV, 1);
-      if (!(e <= 0 && Math.abs(dA) * dn < 1.5)) wW = clamp(k * dA, -wm, wm);
+      const e = dn - o; re = clamp(0.45 * dn, PIV * rho, rho);
+      const wm = S.turn * re / rho;
+      // a mouse point inside the turning circle cannot be reached by turning towards it (the neck would orbit it): left alone
+      const inCircle = dn < 2 * re * Math.abs(Math.sin(dA));
+      if (!inCircle && !(e <= 0 && Math.abs(dA) * dn < 1.5)) wW = clamp(k * dA, -wm, wm);
       vW = Math.max(Math.min(k * Math.max(0, e), S.cap * H) * Math.max(0, Math.cos(dA)), re * Math.abs(wW));
     }
     sv = Math.max(vW, sv * Math.exp(-dt * Math.max(20, S.follow)));

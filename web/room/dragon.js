@@ -1307,7 +1307,30 @@ void main(){
       const m = X.t >= 1 ? 1 : X.t * X.t * (3 - 2 * X.t);
       for (let i = 1; i < N; i++) { dg.pts[i].x += (F[i].x - dg.pts[i].x) * m; dg.pts[i].y += (F[i].y - dg.pts[i].y) * m; }
       if (X.t >= 1) dg.xf = null;
+    } else if (gm && GM.track) {
+      // game, GM.track (Yang 11-18: "the tail still curls up"): the body lies on the track the head has flown, joint i that
+      // far back along it, instead of follow-the-leader. A dragged chain cuts every corner (each joint turns on a smaller
+      // circle than the one before, r^2 - s^2), so round a tight turn the joints far back ran out of radius, the bend limit
+      // wound them into a ring, and the ring sat in the tail; and a body flown in a figure-8 drew a smaller 8 than the
+      // head. On the track the body repeats the head's path exactly and no joint ever moves faster than the head did. It
+      // needs a head that only moves forwards on a bounded turning circle (the room's steering): a track with a kink in it
+      // is drawn with the kink. So: the arc between two frames gets its midpoint (headings known: at 45 px a frame the
+      // chords of a 109 px circle are corners of 0.4 rad), and the joints are smoothed three times (rounds what a pivot
+      // on the spot leaves; on the tightest flown turn it pulls the body in 7 px)
+      let R = dg.gt;
+      if (!R || Math.hypot(dg.hx - R.P[0][0], dg.hy - R.P[0][1]) > Hh * 0.25) {   // first frame, or the dragon was put somewhere else
+        const P = dg.pts.map((q) => [q.x, q.y]), e = P[N - 1], f = P[N - 2], l = Math.hypot(e[0] - f[0], e[1] - f[1]) || 1;
+        R = dg.gt = { P, L: (N - 1) * s, stack: false, bx: (e[0] - f[0]) / l, by: (e[1] - f[1]) / l, a: dg.ang };
+      }
+      { const p1 = R.P[0], cx = dg.hx - p1[0], cy = dg.hy - p1[1], ch = Math.hypot(cx, cy), dA = wrapA(dg.ang - R.a);
+        if (ch > s * 0.4 && Math.abs(dA) > 0.05 && Math.abs(dA) < 1.5) { const sg = ch / 2 * Math.tan(dA / 4), c = Math.atan2(cy, cx);
+          const m = [p1[0] + cx / 2 + Math.sin(c) * sg, p1[1] + cy / 2 - Math.cos(c) * sg]; R.L += Math.hypot(m[0] - p1[0], m[1] - p1[1]); R.P.unshift(m); }
+        R.a = dg.ang; }
+      onTrack(R); wOut = Infinity;   // joints past the track's end lie straight on behind it, they are not in a cloud
+      for (let pass = 0; pass < 3; pass++) { let px = dg.pts[0].x, py = dg.pts[0].y;
+        for (let i = 1; i < N - 1; i++) { const q = dg.pts[i], n = dg.pts[i + 1], x = (px + 2 * q.x + n.x) / 4, y = (py + 2 * q.y + n.y) / 4; px = q.x; py = q.y; q.x = x; q.y = y; } }
     } else {
+      dg.gt = null;
       if (gm) {   // game: a head carried more than a segment in one frame straight back lands beyond joint 1, and the chain
         // turns inside out (the facing flipped in a frame). So the head is walked there in half-segment steps
         const ox = dg.prev[0].x, oy = dg.prev[0].y, n = Math.min(12, Math.ceil(Math.hypot(dg.hx - ox, dg.hy - oy) / (s * 0.5)));
@@ -2522,9 +2545,10 @@ void main(){
     start();
 
     window.__dragon = {
-      // o = { on, x, y, ang, turn, bend, waveTurn, bg, tick(dt) -> dt, draw(dt) }; null hands the dragon back to the wallpaper
+      // o = { on, x, y, ang, turn, bend, track, waveTurn, bg, tick(dt) -> dt, draw(dt) }; null hands the dragon back to the wallpaper
       game(o) {
         GM = o || null;
+        dg.gt = null;
         if (GM) { if (GM.x == null) { GM.x = dg.hx; GM.y = dg.hy; } coilUntil = -9; dg.roar = 0; dg.breath = 0; dg.wind = 0; pl.drag = false; setGrab(''); }
         return window.__dragon;
       },
