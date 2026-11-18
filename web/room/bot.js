@@ -3,6 +3,7 @@
 // What it guards: a sudden reversal must not jerk the head or swing the body (Yang 11-18).
 //   faceMax   most the drawn facing (joint 2 -> neck) turned in one frame, rad      (old controller: 1.2 and up)
 //   jointOver most any plain joint moved in a frame beyond what the neck moved, px   (a whipped body shows here)
+//   waveOff   mean sideways push of the body wave over the 2nd half of the run, px: full flying straight, ~0 in a circle
 //   err*      held point (eye) to mouse point, body radii
 (() => {
   const D = window.__dragon, Rm = window.__room, dbg = window.__dragonDebug;
@@ -33,7 +34,7 @@
     if (pre) for (let i = 0; i < pre.n; i++) fr(pre.m);
     const tr = []; const snap = () => [Math.round(D.dg.pts[0].x), Math.round(D.dg.pts[0].y), +Rm.G.ang.toFixed(2), +Math.atan2(D.dg.pts[0].y - D.dg.pts[2].y, D.dg.pts[0].x - D.dg.pts[2].x).toFixed(2), Math.round(T[0]), Math.round(T[1])];
     if (shots) tr.push(snap());
-    let pf = null, mFace = 0, mOver = 0, mErr = 0, eSum = 0, n = 0, yMax = 0, bMax = 0, tBack = -1; const y0 = D.dg.pts[0].y;
+    let pf = null, mFace = 0, mOver = 0, mErr = 0, eSum = 0, n = 0, wSum = 0, yMax = 0, bMax = 0, tBack = -1; const y0 = D.dg.pts[0].y;
     for (let f = 0; f < secs * 60; f++) {
       const P = D.dg.pts, wv = D.dg.wv, old = Array.from({ length: N }, (_, i) => [wv.bx[i], wv.by[i]]), o0 = [P[0].x, P[0].y];
       const sh = shots && shots.includes(f); fr(mouse(f * dt, f), sh); if (sh) shot(`${name} +${(f / 60).toFixed(2)}s`);
@@ -43,14 +44,16 @@
       const fa = Math.atan2(P[0].y - P[2].y, P[0].x - P[2].x); if (pf != null) mFace = Math.max(mFace, Math.abs(wrap(fa - pf))); pf = fa;
       if (tBack < 0 && Math.cos(fa) < -0.95) tBack = f * dt;
       for (let i = 2; i < N; i++) { const a1 = Math.atan2(wv.by[i - 1] - wv.by[i - 2], wv.bx[i - 1] - wv.bx[i - 2]), a2 = Math.atan2(wv.by[i] - wv.by[i - 1], wv.bx[i] - wv.bx[i - 1]); bMax = Math.max(bMax, Math.abs(wrap(a2 - a1))); }
+      { const w2 = D.dg.wv; let a = 0; for (let i = 1; i < N; i++) a += Math.hypot(P[i].x - w2.bx[i], P[i].y - w2.by[i]); if (f >= secs * 30) wSum += a / (N - 1) / (secs * 30); }
       const er = Math.hypot(T[0] - Rm.hc.x, T[1] - Rm.hc.y); mErr = Math.max(mErr, er); eSum += er; n++; yMax = Math.max(yMax, Math.abs(P[0].y - y0));
     }
     out[name] = { faceMax: +mFace.toFixed(3), jointOver: +mOver.toFixed(1), bendMax: +bMax.toFixed(2), errMaxR: +(mErr / R).toFixed(2), errAvgR: +(eSum / n / R).toFixed(2),
-      errEndR: +(Math.hypot(T[0] - Rm.hc.x, T[1] - Rm.hc.y) / R).toFixed(2), sideSwingH: +(yMax / H).toFixed(2), facesBackAfter: +tBack.toFixed(2) };
+      errEndR: +(Math.hypot(T[0] - Rm.hc.x, T[1] - Rm.hc.y) / R).toFixed(2), sideSwingH: +(yMax / H).toFixed(2), waveOffPx: +wSum.toFixed(1), facesBackAfter: +tBack.toFixed(2) };
     if (shots) out[name].trace_neckXY_heading_face_mouseXY = tr.map((r) => r.join(' ')).join(' | ');
   };
   const v2 = 2 * H * dt;
   run('hover', 2, () => [0, 0]);
+  run('straight', 3, () => [1.0 * H * dt, 0]);
   run('circle', 4, (t) => { const a = t * 1.2 / 0.25; return [-Math.sin(a) * 1.2 * H * dt, Math.cos(a) * 1.2 * H * dt]; });
   run('reverse2H', 1.2, () => [-v2, 0], { n: 24, m: [v2, 0] }, [4, 10, 18]);
   run('jumpBehind', 1.5, (t, f) => f === 0 ? [-(0.3 * H + 1.6 * R), 0] : [0, 0], null, [6, 14, 40]);

@@ -1334,7 +1334,16 @@ void main(){
         const tx = wv.bx[i - 1] - wv.bx[j1], ty = wv.by[i - 1] - wv.by[j1], l = Math.hypot(tx, ty);
         if (l > 1e-3) {
           // none for joints still in the cloud or bunched up; eased in time, as wOut jumps when the last joint comes out
-          const e = clamp(u / 0.3, 0, 1), fo = wv.f[i] += clamp(clamp((wOut - i) / 8, 0, 1) * clamp(2 * l / ((j1 - i + 1) * s) - 0.5, 0, 1) - wv.f[i], -dt * 4, dt * 2);
+          // game (GM.waveTurn 0..1, Yang 11-18: flown in a circle the body still wriggled instead of going round): the wave is
+          // for flying straight. Where the plain spine itself bends, the joint keeps only GM.waveTurn of it: all of it up to
+          // 0.025 rad a joint (a curve 1.2 screens across), none from 0.075 (0.4 screens). The wallpaper never sets it
+          let cf = 1;
+          if (gm && GM.waveTurn < 1 && j1 > i) {
+            const ax = wv.bx[i] - wv.bx[i - 1], ay = wv.by[i] - wv.by[i - 1], cx = wv.bx[j1] - wv.bx[i], cy = wv.by[j1] - wv.by[i];
+            const q = clamp((Math.abs(Math.atan2(ax * cy - ay * cx, ax * cx + ay * cy)) - 0.025) / 0.05, 0, 1);
+            cf = 1 - (1 - Math.max(0, GM.waveTurn)) * q * q * (3 - 2 * q);
+          }
+          const e = clamp(u / 0.3, 0, 1), fo = wv.f[i] += clamp(cf * clamp((wOut - i) / 8, 0, 1) * clamp(2 * l / ((j1 - i + 1) * s) - 0.5, 0, 1) - wv.f[i], -dt * 4, dt * 2);
           const off = A * e * e * (3 - 2 * e) * (0.8 + 0.4 * u) * g * g * (3 - 2 * g) * fo * Math.sin(kq * (wv.D - i) + wv.ph);
           dg.pts[i].x -= ty / l * off; dg.pts[i].y += tx / l * off;
         } else wv.f[i] = 0;
@@ -2504,7 +2513,7 @@ void main(){
     start();
 
     window.__dragon = {
-      // o = { on, x, y, ang, turn, bend, bg, tick(dt) -> dt, draw(dt) }; null hands the dragon back to the wallpaper
+      // o = { on, x, y, ang, turn, bend, waveTurn, bg, tick(dt) -> dt, draw(dt) }; null hands the dragon back to the wallpaper
       game(o) {
         GM = o || null;
         if (GM) { if (GM.x == null) { GM.x = dg.hx; GM.y = dg.hy; } coilUntil = -9; dg.roar = 0; dg.breath = 0; dg.wind = 0; pl.drag = false; setGrab(''); }

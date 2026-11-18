@@ -18,6 +18,7 @@
     rho: 1.8,      // turning circle of the neck, body radii; the spine's bend limit is set to match it
     hold: 1.6,     // where on the head the mouse holds it, body radii ahead of the neck joint: 0 = neck (pts[0]), 1.6 = the eye
     waveAmp: D.WAVE.amp, waveLen: D.WAVE.len,
+    waveTurn: 0,   // how much of the body wave is kept where the body is turning: 0 = a clean arc, 1 = wriggles all the way round
     L: { spine: true, base: false, body: false, hit: true, trail: true, vel: true, aim: true, grid: false, text: true },
   };
   const SL = [   // key, label, min, max, step
@@ -30,6 +31,7 @@
     ['hold', 'Điểm cầm (0 gáy · 1.6 mắt)', 0, 3, 0.1],
     ['waveAmp', 'Sóng thân: biên độ', 0, 3, 0.1],
     ['waveLen', 'Sóng thân: bước sóng (đốt)', 8, 60, 1],
+    ['waveTurn', 'Sóng thân khi cua (0 tắt · 1 giữ)', 0, 1, 0.1],
   ];
   const LAYERS = [['spine', 'Xương sống'], ['base', 'Xương gốc (chưa sóng)'], ['body', 'Bề dày thân'], ['hit', 'Hitbox đầu'], ['trail', 'Vệt bay'],
     ['vel', 'Mũi tên tốc độ'], ['aim', 'Điểm chuột + dây'], ['grid', 'Lưới'], ['text', 'Chữ trạng thái']];
@@ -72,7 +74,7 @@
   D.game(G); seat();
 
   function moveHead(dt) {
-    D.WAVE.amp = S.waveAmp; D.WAVE.len = S.waveLen;
+    D.WAVE.amp = S.waveAmp; D.WAVE.len = S.waveLen; G.waveTurn = S.waveTurn;
     // The neck (the dragon's own head point) is flown like a swimmer: it only moves forwards, along its heading fa, and fa
     // comes round at S.turn rad/s on a circle of S.rho body radii. It heads for the mouse point and stops S.hold radii
     // short of it, so the held point hc (the eye) lands on the mouse point. Swinging fa moves hc sideways at once (lever
