@@ -14,7 +14,7 @@
   const json = (o) => 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(JSON.stringify(o, null, 1))));
   if (!D || !Rm) { post('bot.json', json({ error: 'no WebGL / room' })); return; }
   Rm.st.paused = true;
-  Object.assign(Rm.S, { cap: 2.5, follow: 30, leash: 0.35, sens: 1, turn: 16, hold: 1.6, rho: 1.8 }, JSON.parse(new URLSearchParams(location.search).get('set') || '{}'));
+  Object.assign(Rm.S, { cap: 2.5, follow: 30, leash: 0.35, sens: 1, turn: 16, hold: 1.6, rho: 1.8, accel: 6 }, JSON.parse(new URLSearchParams(location.search).get('set') || '{}'));
   const H = D.H, W = D.W, R = D.rad(), dt = 1 / 60, N = D.N, wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   let T = [0, 0];
   const fr = (move, render) => {   // one frame: mouse delta (leashed like the real handler), room, dragon
@@ -41,7 +41,7 @@
     if (name === 'infinity') Rm.dance(true);   // re-seat on the figure after the reset flight
     const tr = []; const snap = () => [Math.round(D.dg.pts[0].x), Math.round(D.dg.pts[0].y), +Rm.G.ang.toFixed(2), +Math.atan2(D.dg.pts[0].y - D.dg.pts[2].y, D.dg.pts[0].x - D.dg.pts[2].x).toFixed(2), Math.round(T[0]), Math.round(T[1])];
     if (shots) tr.push(snap());
-    const vs = [];
+    const vs = []; let pv = null, pn = 0, acc = 0, accN = 0, vTop = 0, accAt = '';
     let pf = null, mFace = 0, mOver = 0, mErr = 0, eSum = 0, n = 0, wSum = 0, yMax = 0, bMax = 0, dMax = 0, tailB = 0, tBack = -1; const y0 = D.dg.pts[0].y;
     for (let f = 0; f < secs * 60; f++) {
       const P = D.dg.pts, wv = D.dg.wv, old = Array.from({ length: N }, (_, i) => [wv.bx[i], wv.by[i]]), o0 = [P[0].x, P[0].y];
@@ -58,12 +58,13 @@
         for (let i = 0; i < N; i += 3) { let b = 1e9; for (let k = 0; k < 240; k++) { const a = k / 240 * 6.2832, d = Math.hypot(cxm + A * Math.sin(a) - wv.bx[i], H / 2 + A * 0.45 * Math.sin(2 * a) - wv.by[i]); if (d < b) b = d; } if (b > worst) worst = b; }
         offFig = Math.max(offFig, worst); }
       if (f >= secs * 30) vs.push(Rm.st.v);
+      { const v = Rm.st.v, nv = Math.hypot(P[0].x - o0[0], P[0].y - o0[1]) / dt / H; if (pv != null) { const a = (v - pv) / dt, an = (nv - pn) / dt; if (a > acc) { acc = a; accAt = `f${f} ${pv.toFixed(2)}->${v.toFixed(2)}`; } if (an > accN) accN = an; } pv = v; pn = nv; vTop = Math.max(vTop, v); }
       const am = Rm.st.dance ? Rm.aim() : T, er = Math.hypot(am[0] - Rm.hc.x, am[1] - Rm.hc.y); mErr = Math.max(mErr, er); eSum += er; n++; yMax = Math.max(yMax, Math.abs(P[0].y - y0));
     }
     out[name] = { faceMax: +mFace.toFixed(3), jointOver: +mOver.toFixed(1), bendMax: +bMax.toFixed(2), tailBendAvg: +tailB.toFixed(3), offFigurePx: +offFig.toFixed(0), drawnBendMax: +dMax.toFixed(2), overAt: ovAt, drawnAt: dbAt, errMaxR: +(mErr / R).toFixed(2), errAvgR: +(eSum / n / R).toFixed(2),
       errEndR: +(Math.hypot(T[0] - Rm.hc.x, T[1] - Rm.hc.y) / R).toFixed(2), sideSwingH: +(yMax / H).toFixed(2), waveOffPx: +wSum.toFixed(1), facesBackAfter: +tBack.toFixed(2) };
     { const m = vs.reduce((x, y) => x + y, 0) / Math.max(1, vs.length), sd = Math.sqrt(vs.reduce((x, y) => x + (y - m) * (y - m), 0) / Math.max(1, vs.length)); let st = 0; for (let i = 1; i < vs.length; i++) if (vs[i] < 0.3 * m && vs[i - 1] >= 0.3 * m) st++;
-      Object.assign(out[name], { vMean: +m.toFixed(3), vCv: +(sd / Math.max(1e-6, m)).toFixed(2), stalls: st, vSeq: vs.slice(0, 40).map((v) => v.toFixed(2)).join(' ') }); }
+      Object.assign(out[name], { vMean: +m.toFixed(3), vCv: +(sd / Math.max(1e-6, m)).toFixed(2), stalls: st, lungeEye: +acc.toFixed(0), lungeNeck: +accN.toFixed(0), lungeAt: accAt, vTop: +vTop.toFixed(2), vSeq: vs.slice(0, 40).map((v) => v.toFixed(2)).join(' ') }); }
     if (shots) out[name].trace_neckXY_heading_face_mouseXY = tr.map((r) => r.join(' ')).join(' | ');
   };
   const v2 = 2 * H * dt;
@@ -81,6 +82,12 @@
   run('slowLine', 4, () => [0.2 * H * dt, 0]);
   run('slowCircle', 8, (t) => { const a = t * 0.35 / 0.17; return [-Math.sin(a) * 0.35 * H * dt, Math.cos(a) * 0.35 * H * dt]; });
   run('midCircle', 6, (t) => { const a = t * 0.7 / 0.17; return [-Math.sin(a) * 0.7 * H * dt, Math.cos(a) * 0.7 * H * dt]; });
+  // 'pulling along and it suddenly shoots off' (Yang 11-18). lungeEye / lungeNeck: the most the eye's / neck's speed rose
+  // in one frame, screens/s^2. A hand moves in bursts and off to the side; these do that
+  run('sidePull', 2, () => [0, 0.4 * H * dt]);
+  run('burstLine', 3, (t) => [(t % 0.4 < 0.2 ? 1.0 : 0.05) * H * dt, 0]);
+  run('burstCircle', 6, (t) => { const a = t * 0.5 / 0.17, v = (t % 0.5 < 0.25 ? 0.9 : 0.1) * H * dt; return [-Math.sin(a) * v, Math.cos(a) * v]; });
+  run('handCircle', 6, (t) => { const a = t * 0.5 / 0.17 + 0.5 * Math.sin(t * 7), v = (0.5 + 0.35 * Math.sin(t * 11)) * H * dt; return [-Math.sin(a) * v, Math.cos(a) * v]; });
   run('infinity', 12, () => [0, 0], null, [420, 540, 700]); Rm.dance(false);
   // paint prototype (paint.js): fly each figure with the pen down, the mouse point led along it a little ahead of the eye.
   // Expect done, small deviation. Then two that must fail: pen lifted half way; a hairpin back from point 3 to point 5

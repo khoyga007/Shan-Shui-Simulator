@@ -16,6 +16,7 @@
     sens: 1,       // mouse sensitivity
     turn: 16,      // how fast the head comes about, rad/s (a full U-turn at 16: 0.2 s)
     rho: 1.8,      // turning circle of the neck, body radii; the spine's bend limit is set to match it
+    accel: 6,      // how fast the head may pick up speed, screens/s per second (0 = at once, as before)
     hold: 1.6,     // where on the head the mouse holds it, body radii ahead of the neck joint: 0 = neck (pts[0]), 1.6 = the eye
     waveAmp: D.WAVE.amp, waveLen: D.WAVE.len,
     track: 1,      // 1: the body lies on the track the head flew (no corner cutting, no curled tail); 0: follow-the-leader chain
@@ -30,6 +31,7 @@
     ['follow', 'Độ bám chuột (60 = dính)', 3, 60, 1],
     ['leash', 'Dây chuột (màn)', 0.05, 1.5, 0.05],
     ['sens', 'Độ nhạy chuột', 0.3, 3, 0.05],
+    ['accel', 'Độ vọt khi tăng tốc (0 = tức thì)', 0, 20, 0.5],
     ['turn', 'Tốc độ quay đầu (rad/s)', 4, 30, 1],
     ['rho', 'Bán kính vòng cua (thân)', 0.8, 4, 0.1],
     ['hold', 'Điểm cầm (0 gáy · 1.6 mắt)', 0, 3, 0.1],
@@ -178,8 +180,13 @@
       if (!inCircle && !(e <= 0 && Math.abs(dA) * dn < 1.5)) wW = clamp(k * dA, -wm, wm);
       vW = Math.max(Math.min(k * Math.max(0, e), S.cap * H) * Math.max(0, Math.cos(dA)), re * Math.abs(wW));
     }
+    // Pick-up is eased (Yang 11-18: 'pulling along and it suddenly shoots off'). Speed is follow x gap, so whenever the
+    // head had been held back (mouse point beside the neck, or behind the eye) the gap had grown and the head went from
+    // 0 to 0.6 screens/s in one frame, three times the mouse's own speed. Now it gains at most S.accel screens/s a
+    // second, and the turn rate at most its full value in S.turn / TA seconds. Braking is not limited (no overshoot)
+    if (S.accel > 0) vW = Math.min(vW, sv + S.accel * H * dt);
     sv = Math.max(vW, sv * Math.exp(-dt * Math.max(20, S.follow))); svS += (sv - svS) * (1 - Math.exp(-dt * 3));
-    sw += (wW - sw) * (1 - Math.exp(-dt * 60));
+    { const d = (wW - sw) * (1 - Math.exp(-dt * 60)), m = S.accel > 0 && Math.abs(wW) > Math.abs(sw) ? S.turn * dt / 0.1 : 1e9; sw += clamp(d, -m, m); }
     sw = sv > 1e-6 ? clamp(sw, -sv / re, sv / re) : 0;
     if (wW !== 0 && Math.abs(sw * dt) > Math.abs(dA)) sw = dA / dt;   // never past the mouse point's bearing
     fa += sw * dt;
