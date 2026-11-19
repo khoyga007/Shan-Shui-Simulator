@@ -121,7 +121,7 @@ def fish(key, ink, thr=0.1):
             cols = np.nonzero(q.max(axis=0) > thr)[0]; save(key + suf, k, q[:, cols[0]:cols[-1] + 1]); k += 1
 
 
-def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6):
+def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6, core=False):
     """sheet M: long trunks lying level, root at the left; straightened by their middle line (the ink's centre of weight
     per column, smoothed), which is laid on the stroke. Under them short branches, each cut whole: 'by' / 'ty' = the
     row of its base (left end) and of its tip (right end), as parts of its height"""
@@ -137,6 +137,25 @@ def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6):
         cen = ndi.gaussian_filter1d(ndi.median_filter(cen, size=int(121 * u) | 1, mode='nearest'), 30 * u, mode='nearest')
         padv = int(np.ceil(cen.max() - cen.min())) + 1; b = np.zeros((h + 2 * padv, w), np.float32); c0 = padv + int(round(cen.mean()))
         for x in range(w): sh = c0 - int(round(cen[x])); b[sh:sh + h, x] = a[:, x]
+        if core:   # the stroke alone, without what stands off it (snags, stubs of side branches, moss dots): laid in slices along a bent
+            # path those are torn into splinters beside the branch (Yang 11-19: "nét vẽ bị tách"). Kept: as far from the middle line
+            # as the ink spreads there on the whole (its spread per column, the median over a long stretch: a stub is a short peak)
+            # as far from the middle line as the stroke itself is thick there: the run of ink through the middle line, column by
+            # column, its median over a long stretch (a spur is a short peak; by the ink's spread instead, the many spurs of the
+            # thin branch counted as its width and stayed on as slivers)
+            yy = np.arange(b.shape[0])[:, None] - c0; inkc = b > thr; run = np.zeros(b.shape[1], np.float32)
+            for x in range(b.shape[1]):
+                col = inkc[:, x]; near = np.nonzero(col[max(0, c0 - 4):c0 + 5])[0]
+                if not len(near): continue
+                y0 = max(0, c0 - 4) + near[np.argmin(np.abs(near - 4))]; lo = hi = y0
+                while lo > 0 and col[lo - 1]: lo -= 1
+                while hi < len(col) - 1 and col[hi + 1]: hi += 1
+                run[x] = max(c0 - lo, hi - c0)
+            half = ndi.gaussian_filter1d(ndi.median_filter(run, size=int(141 * u) | 1, mode='nearest'), 12 * u, mode='nearest') + 2 * u
+            b *= np.clip((half[None, :] + 2 - np.abs(yy)) / 2, 0, 1)
+            lb, _ = ndi.label(b > thr)   # and no crumbs beside it (moss dots, the cut-off foot of a spur): only what is long, the stroke and its dry streaks
+            for i2, s2 in enumerate(ndi.find_objects(lb)):
+                if s2[1].stop - s2[1].start < 30 * u: b[s2][lb[s2] == i2 + 1] = 0
         rows = np.nonzero(b.max(axis=1) > thr)[0]; cols = np.nonzero(b.max(axis=0) > thr)[0]
         b = b[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]; save(T_, k, b); man[T_][-1]['c'] = round((c0 - rows[0]) / b.shape[0], 3); k += 1
     lab, n = ndi.label(ndi.binary_dilation(on, structure=np.ones((int(9 * u) | 1, int(15 * u) | 1))))
@@ -278,7 +297,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'k': tufts(src, ink)
     elif kind == 'l': fish(src, ink)
     elif kind == 'm': trunks(src, ink)
-    elif kind == 'p': trunks(src, ink, sufs=('_bt', '_bw'), ylow=0.72)   # close branches of an old plum tree, and its twigs (base left)
+    elif kind == 'p': trunks(src, ink, sufs=('_bt', '_bw'), ylow=0.72, core=True)   # close branches of an old plum tree, and its twigs (base left)
     elif kind == 'n': rowsheet(src, ink, ('_n', '_p', '_q'), blob=(5, 3, 15))      # pine needle fans (they stand close), pine boughs, clusters of leaf dots (loose dabs: held together by a wide blob)
     elif kind == 'o': rowsheet(src, ink, ('_u', '_v', '_z'), gap=15)     # grass tufts, low patches of grass, small plants: the bottom of a piece = the ground
     elif kind == 'b': loose(src, ink)
