@@ -812,7 +812,7 @@
     } else { const nb = clamp(Math.round(L / (0.07 * H)), 1, 6), ts = Array.from({ length: nb }, () => R()).sort((p, q) => p - q); let sg = R() < 0.5 ? -1 : 1;
       for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.6 : 0.24 + 0.7 * (0.6 * ts[k] + 0.4 * (k + 0.5) / nb), [p, base] = at(t), phi = clamp(0.95 - 0.6 * t + (R() - 0.5) * 0.35, 0.25, 1.1);   // wide below, steep above
         if (R() < 0.7) sg = -sg; let ang = base + sg * phi; if (Math.sin(ang) > 0.35) ang = base - sg * phi;   // out of the upper side of a leaning trunk
-        grow(p[0], p[1], ang, clamp(L * (0.52 - 0.32 * t) * (0.55 + 0.7 * R()), 0.03 * H, 0.3 * H), clamp(0.35 + 0.5 * t, 0, 0.88), 1); } }
+        grow(p[0], p[1], ang, clamp(L * (0.52 - 0.32 * t) * (0.55 + 0.7 * R()) * (bare ? 1.35 : 1), 0.03 * H, (bare ? 0.38 : 0.3) * H), bare ? clamp(0.62 + 0.3 * t, 0, 0.93) : clamp(0.35 + 0.5 * t, 0, 0.88), 1); } }   // bare: nothing hides a limb, so it must be right: clearly thinner than the trunk where it leaves it (on a stout trunk they were fingers on a fist), and long
     tips.push({ x: P[n - 1][0], y: P[n - 1][1], len: clamp(0.35 * L, 0.04 * H, 0.2 * H), a: -1.57 });
     const curt = [], leafKit = kind === 'jiezi' ? kitLJ : kind === 'mi' ? kitLM : kitQ, rotK = kind === 'jiezi' ? 0.25 : kind === 'mi' ? 0.1 : 0.5;   // drooping leaves hang, Mi dots lie level: hardly turned
     // -- foliage: at the end of every limb, each of its own size; here and there a second one beside it
