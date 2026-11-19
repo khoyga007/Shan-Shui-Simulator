@@ -63,7 +63,7 @@
   // length (w0 + w1 r^2, in screen heights), how much one takes (a0 + a1 r^3). wisp(): the one soft blob all are drawn
   // with, a flat puff whose dense core lies toward one end and which fades to nothing on every side.
   let MBLOB = new URLSearchParams(location.search).get('mist') !== 'old', WISP = null;
-  const MB = { n: 3200, w0: 0.07, w1: 0.26, a0: 0.12, a1: 0.6 };
+  const MB = { n: 2200, w0: 0.07, w1: 0.26, a0: 0.12, a1: 0.6, eb: 14, ab: 0.5, em: 20, am: 0.2 };   // eb, em: large and middling wisps per screen height of mist top; ab, am: how much one takes at least
   const wisp = () => { if (WISP) return WISP; const c = document.createElement('canvas'); c.width = 128; c.height = 64; const x = c.getContext('2d'); x.scale(2, 1);
     const gd = x.createRadialGradient(22, 32, 0, 32, 32, 32); for (const [p, a] of [[0, 1], [0.2, 0.8], [0.45, 0.42], [0.7, 0.14], [0.88, 0.03], [1, 0]]) gd.addColorStop(p, `rgba(0,0,0,${a})`); x.fillStyle = gd; x.fillRect(0, 0, 64, 64); return (WISP = c); };
   const FISH = -0.66, LEAPS = new URLSearchParams(location.search).has('leap');
@@ -610,7 +610,7 @@
       // of mist stood on the mountain as a cut-out with a speckled inside (Yang 11-19: "chưa được mềm và mịn"). The mask
       // is blurred once, over about 6 px of paper: the shapes of the real wash stay, their edges melt
       const sharp = document.createElement('canvas'); sharp.width = mw; sharp.height = mh; sharp.getContext('2d').putImageData(im, 0, 0);
-      mist = document.createElement('canvas'); mist.width = mw; mist.height = mh; { const x = mist.getContext('2d');
+      let mq = MQ; const KQ = 2; mist = document.createElement('canvas'); mist.width = mw; mist.height = mh; { const x = mist.getContext('2d');
         if (!MBLOB) { if (tb) x.filter = `blur(${(MSOFT * H / MQ).toFixed(2)}px)`; x.drawImage(sharp, 0, 0); }
         else {
           // Mist with depth (Yang 11-19: mist is no lump of pure white; as particle smoke is built, many soft blobs, dense at
@@ -619,8 +619,31 @@
           // lie it is white, where few the mountain shows through pale; wisps also stray up above the sea, thinner the
           // higher. Only well under the level of the sea (the old mask moved down and melted) is it whole, as before.
           const kA = (suf) => S.tex === 'code' ? [] : (STROKES['muse' + suf] || []).filter((q) => q.im), kW = kA('_aw'), kP = kA('_ap'), kV = kA('_av');   // sheet AA (11-19): real wet touches as the wisps: long trailing ones, puffs (laid flat), torn veils. Brush 'code': the one drawn blob
-          const Rm = dice(d.seed ^ 0x3b17), SP = wisp(), q = 1 / MQ, dn = 0.035 * H * q, upM = 0.12 * H * q;
-          x.filter = `blur(${(0.022 * H * q).toFixed(2)}px)`; x.drawImage(sharp, 0, dn); x.filter = 'none';
+          // Laid in three kinds (Yang 11-19, of the first lay: "chưa thấy khác lắm": thousands of small faint wisps average
+          // out, whatever their shape, and the sheet could not be seen). Deep in the sea the many small ones, as before, for
+          // an even white. Along its top few and large ones, each taking much: tongues of mist whose shape reads. And
+          // above that, middling ones lying across the body, paler the higher. The top is drawn finer than the mask is
+          // read (KQ px of mist per value), or the shapes of the large ones were lost again.
+          const Rm = dice(d.seed ^ 0x3b17), SP = wisp(), q = 1 / MQ, dn = 0.035 * H * q, upM = 0.05 * H * q;
+          mist.width = mw * KQ; mist.height = mh * KQ; mq = MQ / KQ; x.setTransform(KQ, 0, 0, KQ, 0, 0);
+          // The whole white no longer follows the old mask moved down a little (its shape was all one saw, the wisps only
+          // frayed its rim): in each column it begins D0 under the top of the mist and grows over D1, so a broad band under
+          // the top, and a bank on the end of a ridge altogether, is left to the wisps. eY, eZ: the first and second top
+          // of mist in a column (a bank above, the sea under it), from above.
+          const eY = new Float32Array(mw).fill(-1), eZ = new Float32Array(mw).fill(-1), deep = new ImageData(mw, mh), dp = deep.data, D0 = 0.025 * H * q, D1 = 0.09 * H * q;
+          for (let i = 0; i < mw; i++) { let run = 0; for (let j = 0; j < mh; j++) { const a = px[(j * mw + i) * 4 + 3]; if (a > 110) { if (!run) { if (eY[i] < 0) eY[i] = j; else if (eZ[i] < 0) eZ[i] = j; } run++; } else if (a < 40) run = 0;
+            if (run > D0) dp[(j * mw + i) * 4 + 3] = Math.round(a * sm((run - D0) / D1)); } }
+          sharp.getContext('2d').putImageData(deep, 0, 0); x.filter = `blur(${(0.022 * H * q * KQ).toFixed(2)}px)`; x.drawImage(sharp, 0, 0); x.filter = 'none';
+          const col = (v) => clamp(Math.round(v), 0, mw - 1), keepAt = (bx, top) => 1 - cE[col(bx)] * (1 - sm((my + top * MQ - cT[col(bx)] - 0.012 * H) / (0.03 * H))),   // none over the line of the ridge away from its ends
+            put = (m, bx, by, w, h, al, fl, rot) => { x.globalAlpha = Math.min(1, al * (m ? clamp(0.2 / m.tone, 0.6, 1.6) : 1)); x.setTransform(KQ * fl, 0, 0, KQ, KQ * bx, KQ * by); x.rotate(rot * fl); x.drawImage(m ? m.im : SP, -w / 2, -h / 2, w, h); };
+          const len = mw * MQ / H, nBig = Math.round(len * MB.eb), nMid = Math.round(len * MB.em);
+          for (let b = 0; b < nBig + nMid; b++) { const big = b < nBig, bx = Rm() * mw, r1 = Rm(), r2 = Rm(), r3 = Rm(), r4 = Rm(), r5 = Rm(), r6 = Rm(), r7 = Rm(), r8 = Rm(), e = r8 < 0.5 && eZ[col(bx)] >= 0 ? eZ[col(bx)] : eY[col(bx)]; if (e < 0) continue;
+            const kit = big ? (r6 < 0.3 && kV.length ? kV : kW.length ? kW : kP) : (r6 < 0.5 && kP.length ? kP : kW), m = kit.length ? kit[Math.floor(r7 * kit.length) % kit.length] : null,
+              w = Math.min(0.6 * mw, H * q * (big ? 0.26 + 0.46 * r1 : 0.11 + 0.24 * r1)), h = (m ? w * clamp(m.h / m.w * (kit === kP ? 0.5 : 1), 0.1, big ? 0.22 : 0.3) : w * (0.18 + 0.14 * r2)) * (0.85 + 0.3 * r2),
+              by = big ? e + H * q * (-0.01 + 0.13 * r3) : e - H * q * (0.012 + 0.1 * r3), ed = Math.min(bx, mw - bx) - 0.5 * w; if (ed <= 0) continue;
+            const ea = eY[col(bx - 0.25 * w)], eb = eY[col(bx + 0.25 * w)], rot = (ea < 0 || eb < 0 ? 0 : 0.7 * clamp(Math.atan2(eb - ea, 0.5 * w), -0.3, 0.3)) + (r5 - 0.5) * 0.16,   // it lies along the top of the mist there
+              keep = sm(ed / (0.1 * H * q)) * Math.min(keepAt(bx, by - 0.35 * h), keepAt(bx - 0.3 * w, by - 0.35 * h), keepAt(bx + 0.3 * w, by - 0.35 * h)); if (keep < 0.02) continue;
+            put(m, bx, by, w, h, keep * (big ? (MB.ab + 0.35 * r5) * (0.65 + 0.35 * r3) :(MB.am + 0.2 * r5) * (1 - 0.6 * r3)), r4 < 0.5 ? -1 : 1, rot); }
           const cnt = Math.min(7000, Math.round(mw * mh * MQ * MQ / (H * H) * MB.n));
           for (let b = 0; b < cnt; b++) { const bx = Rm() * mw, by = Rm() * mh, r0 = Rm(), up = upM * r0 * r0, r1 = Rm(), r2 = Rm(), r3 = Rm(), r4 = Rm(), r5 = Rm(),
               f = px[(clamp(Math.round(by + up), 0, mh - 1) * mw + clamp(bx | 0, 0, mw - 1)) * 4 + 3] / 255 * (1 - 0.75 * up / upM); if (f < 0.02) continue;
@@ -628,8 +651,8 @@
               w = H * (MB.w0 + MB.w1 * r1 * r1) * q, h = m ? w * clamp(m.h / m.w * (kit === kP ? 0.4 : kit === kV ? 0.7 : 1), 0.1, 0.42) * (0.8 + 0.4 * r2) : w * (0.16 + 0.22 * r2), ci = clamp(bx | 0, 0, mw - 1), ed = Math.min(bx, mw - bx) - 0.5 * w; if (ed <= 0) continue;   // a wisp cut by the edge of the mask stood as an upright line
             // (and none over the line of the ridge away from its ends: straying up, they veiled the stroke the player drew)
             const keep = sm(ed / (0.1 * H * q)) * (1 - cE[ci] * (1 - sm((my + (by - 0.35 * h) * MQ - cT[ci] - 0.012 * H) / (0.03 * H)))), clump = 0.55 + 1.15 * sm((f2(bx * MQ / (0.2 * H) + 31, by * MQ / (0.07 * H) + 17, 2) - 0.36) / 0.3);   // gathered in banks, thin between
-            if (keep < 0.02) continue; x.globalAlpha = Math.min(1, f * keep * (MB.a0 + MB.a1 * r3 * r3 * r3) * clump * (m ? clamp(0.2 / m.tone, 0.6, 1.6) : 1)); x.setTransform(r4 < 0.5 ? -1 : 1, 0, 0, 1, bx, by); x.rotate((r5 - 0.5) * 0.24); x.drawImage(m ? m.im : SP, -w / 2, -h / 2, w, h); }
-          x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; } } mxy = [mx, my, MQ]; }
+            if (keep < 0.02) continue; put(m, bx, by, w, h, f * (0.3 + 0.7 * f) * keep * (MB.a0 + MB.a1 * r3 * r3 * r3) * clump, r4 < 0.5 ? -1 : 1, (r5 - 0.5) * 0.24); }   // thinned toward the top: there the large ones speak
+          x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; } } mxy = [mx, my, mq]; }
     return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }
 
