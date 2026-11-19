@@ -197,3 +197,13 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Foot mist over plants (Yang 11-19): a land with trees/grass rooted on it holds its mist back in the bake until its last plant is laid, then wipes once through land + plants (hostOf/lastOf in render). Live foliage (wind strips) drawn after the bake is NOT misted. reports/foot-mist.jpg.
 - Roots under the foot (Yang shot: bamboo roots hanging out below the bank, past its mist): a plant's cv is faded out over the last 3.5% H above its land's foot (once, m.clipK), nothing of it below. Case not reproduced in bot.
 - Depth of mountains (r018, Yang: "depth đang bị vô lý": pale washed hill lay BEFORE a dark peak, both feet on the waterline): order was by yBase only, a tie for all that stand on a waterline. zk now: mountains with foot within 4% H of / below a waterline are ordered mainly by darkOf(m) (mean alpha of cv x tone, cached m.dark), darker in front; elsewhere yBase +- 3% H by darkness. Bot `r7=1&m7=9&sea=0.34&depth=1`, reports/depth.jpg.
+
+## NEXT (Yang 11-19 night, agreed, not built): Dia stroke rule = shape decides material
+
+- Two independent questions. Material: stroke has broken corners (straight runs, elbows, steps) -> ROCK; smooth curve -> EARTH. Depth: feet vs waterline (as now) -> near / far.
+- Result grid: angular+near = rock outcrop, angular+far = ROCK MOUNTAIN (new look), smooth+near = earth mound/bank, smooth+far = ordinary mountain.
+- Replaces "long and low = bank" box rule (2d7df2a) and removes same-stroke-two-results flip.
+- Matches real practice (Claire's knowledge, not looked up): rock = angular contour + axe-cut strokes (Northern school); earth = soft round contour + hemp-fibre strokes + moss dots (Southern). Misses round rocks; fine, none drawn yet.
+- Rock mountain look, ref = Guilin-style karst pillars Yang showed: steep walls, lumpy top, dark broken contour with steps, body of vertical strokes + chops with much bare paper, faces split (top light, side dark), trees only on top and ledges, foot into mist. Black ink only.
+- Open, Yang has NOT answered: (1) measure corners on the mouse path, not the dragon's rounded path; (2) threshold proposal: >=2 clear elbows = rock, single sharp peak stays ordinary mountain.
+- Later, after rock mountain exists: Thuy stroke drawn down a rock mountain = waterfall (bare paper left between dark walls, few thin vertical lines, mist at foot).
