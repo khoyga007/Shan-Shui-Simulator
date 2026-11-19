@@ -143,4 +143,4 @@ Order agreed: (1) merge keys DONE -> (2) NEAR tier for Địa -> (3) water refle
 
 ### Depth (why 2 and 3)
 All mountains read FAR (bình viễn only): tiny ridge trees fix scale, body = flat wash, low-on-paper only darkens. Need tầng cảnh: near/mid/far differ in DRAWING (tree size, rock faces, slope strokes), not tone alone.
-Water as layer divider + whole-mountain mirror image = modern ink style (classical leaves water blank); Yang wants it. Water comes from player's Thuỷ stroke (Claire's lean, Yang not yet confirmed), what stands above it mirrors.
+Water as layer divider + whole-mountain mirror image = modern ink style (classical leaves water blank); Yang wants it. Water comes from player's Thuỷ stroke (Yang CONFIRMED 11-19: "mặt nước soi bóng là do vẽ bằng nét thuỷ"), no preset waterline; what stands above it mirrors.
