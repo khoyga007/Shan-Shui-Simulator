@@ -804,9 +804,10 @@
     const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], sway = (R() - 0.5) * 0.7 / m, lvl = Math.cos(ang) < 0 ? Math.PI : 0, dsg = lvl ? -1 : 1, trop = pine ? 0 : (0.35 + 0.5 * R()) * (wil ? 0 : 1); let a = ang;
       // a pine branch is crooked by elbows: one to three sharp turns, down then up by turns, straight between them.
       // (Small random turns all along were smoothed away by the pull to level and did not read at a small size)
-      const ne = 1 + (R() < 0.6) + (len > 0.1 * H && R() < 0.5), el = pine || bare ? Array.from({ length: ne }, (_, j) => Math.max(1, Math.round(m * (0.12 + 0.6 * (j + 0.3 + 0.4 * R()) / ne)))) : []; let es = R() < 0.7 ? 1 : -1;
+      const ne = 1 + (R() < 0.6) + (len > 0.1 * H && R() < 0.5), el = pine || bare ? Array.from({ length: ne }, (_, j) => Math.max(1, Math.round(m * (0.12 + 0.6 * (j + 0.3 + 0.4 * R()) / ne)))) : []; let es = R() < 0.7 ? 1 : -1; const wph = 6.283 * R();
       for (let i = 1; i <= m; i++) { const f = i / m;
         a += sway + (R() - 0.5) * 0.09 + (pine ? 1.6 * wrapA(lvl + dsg * (0.3 * Math.sin(3.1416 * Math.min(1, f / 0.75)) - 0.65 * sm((f - 0.7) / 0.3)) - a) / m + (el.includes(i) ? dsg * (es = -es) * -(0.5 + 0.4 * R()) : 0) :trop * 2 * f * wrapA(-1.5708 - a) / m);   // a pine's: level, sagging in its middle under its own weight, lifting at the tip, and crooked (a sudden turn here and there)
+        if (pine) a += 0.5 * 8 / m * Math.cos(8 * f + wph);   // an old pine's limb winds to and fro all along (Yang's paintings, 11-19), on top of its elbows
         if (bare) a += (R() - 0.5) * 0.14 + (el.includes(i) ? (es = -es) * (0.35 + 0.5 * R()) : 0);   // bare wood shows how it grew: by fits and turns, an elbow where a shoot died and a side bud took over. (In one smooth bow each, on a smooth pole: antlers, "mất tự nhiên", Yang 11-19)
         if (wil) a += 2.4 * f * wrapA(lvl + dsg * 0.75 - a) / m;   // a willow's limb: up and out of the trunk, then over and down under its own weight, more and more toward its end
         if (!wil && Math.sin(a) > 0.3) a += (Math.cos(a) > 0 ? -1 : 1) * 0.07;   // a branch does not droop far: turned back toward level
@@ -815,7 +816,7 @@
       for (let fk = 0, fkn = bare ? 2 : 1; fk < fkn; fk++) if (depth < (bare ? 3 : 2) && len > (bare ? 0.03 : 0.06) * H && R() < (pine ? 0.3 : bare ? 0.85 : 0.65)) { const k = Math.round(m * (0.3 + 0.35 * R())); grow(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.5 * R()), len * (bare ? 0.55 + 0.4 * R() : 0.4 + 0.35 * R()), bare ? Math.min(0.97, u0 + 0.5 * (1 - u0)) : Math.min(0.93, u0 + 0.12), depth + 1); } };   // a bare tree's forks: long and thinning fast, down to hairs
     const at = (t) => { const i = clamp(Math.round(t * (n - 1)), 0, n - 1); return [P[i], Math.atan2(tan[i][1], tan[i][0]), tan[i]]; };
     if (pine) { const nt = clamp(Math.round(L / (0.11 * H)), 1, 4); let sg = R() < 0.5 ? -1 : 1;
-      for (let k = 0; k < nt; k++) { const t0 = nt === 1 ? 0.6 : 0.34 + 0.56 * (k + 0.2 + 0.6 * R()) / nt, len0 = L * (0.36 - 0.22 * t0);
+      for (let k = 0; k < nt; k++) { const t0 = nt === 1 ? 0.6 : 0.34 + 0.56 * (k + 0.2 + 0.6 * R()) / nt, len0 = L * (0.44 - 0.26 * t0);
         // a whorl stands all round the trunk, three to five branches. Seen from the side: one or two at full length to
         // left and right, the others (coming toward the eye or going away) short, and tilted a little up or down
         for (let j = 0, jn = 2 + Math.floor(R() * 3); j < jn; j++, sg = -sg) { const t = clamp(t0 + (R() - 0.5) * 0.09, 0.25, 0.95), [p, base, tn] = at(t), lean = Math.abs(tn[0]) > 0.75, full = j < 2 ? 0.7 + 0.5 * R() : 0.25 + 0.35 * R();   // lean: a trunk flown nearly level, its branches stand up off it
@@ -825,6 +826,7 @@
       for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.6 : 0.24 + 0.7 * (0.6 * ts[k] + 0.4 * (k + 0.5) / nb), [p, base] = at(t), phi = clamp(0.95 - 0.6 * t + (R() - 0.5) * 0.35, 0.25, 1.1);   // wide below, steep above
         if (R() < 0.7) sg = -sg; let ang = base + sg * phi; if (Math.sin(ang) > 0.35) ang = base - sg * phi;   // out of the upper side of a leaning trunk
         grow(p[0], p[1], ang, clamp(L * (0.52 - 0.32 * t) * (0.55 + 0.7 * R()) * (bare ? 1.35 : 1), 0.03 * H, (bare ? 0.38 : 0.3) * H), bare ? clamp(0.62 + 0.3 * t, 0, 0.93) : clamp(0.35 + 0.5 * t, 0, 0.88), 1); } }   // bare: nothing hides a limb, so it must be right: clearly thinner than the trunk where it leaves it (on a stout trunk they were fingers on a fist), and long
+    if (pine) for (const sg2 of [-1, 1]) { const [p] = at(0.9 + 0.06 * R()); grow(p[0], p[1], -1.5708 + sg2 * (0.7 + 0.5 * R()), clamp(L * (0.13 + 0.08 * R()), 0.03 * H, 0.14 * H), 0.8, 1); }   // a head to the crown: two short limbs splayed up and out under the top
     tips.push({ x: P[n - 1][0], y: P[n - 1][1], len: clamp(0.35 * L, 0.04 * H, 0.2 * H), a: -1.57 });
     const leafKit = kind === 'jiezi' ? kitLJ : kind === 'mi' ? kitLM : kitQ, rotK = kind === 'jiezi' ? 0.25 : kind === 'mi' ? 0.1 : 0.5;   // drooping leaves hang, Mi dots lie level: hardly turned
     // -- foliage: at the end of every limb, each of its own size; here and there a second one beside it
@@ -832,9 +834,13 @@
       for (const t of tips) { if (kitN.length && R() < 0.4) turn(pick(kitN), t.x + Math.cos(t.a) * 0.02 * H, t.y + Math.sin(t.a) * 0.02 * H, clamp(t.len * (0.3 + 0.3 * R()), 0.02 * H, 0.07 * H), (R() - 0.5) * 1.2, R() < 0.5, 0.85);
         // needles grow along the outer half of a branch, on its side shoots: a band of boughs lying on it from the
         // middle to the end, the largest at the end. (One bough at the very tip: a lollipop on a bare pole)
-        if (kitP.length) { const w0 = clamp(t.len * (0.5 + 0.35 * R()), 0.03 * H, 0.13 * H), cnt = t.Q ? clamp(Math.round(t.len / (0.038 * H)), 2, 6) : 1;   // pads all along the limb, in to near the trunk, overlapping into a tier; the gaps are between the tiers
-          for (let k = cnt - 1; k >= 0; k--) { const f = cnt === 1 ? 1 : 1 - 0.82 * k / (cnt - 0.5) + (k ? (R() - 0.5) * 0.08 : 0), q = t.Q ? t.Q[clamp(Math.round(f * (t.Q.length - 1)), 0, t.Q.length - 1)] : [t.x, t.y];
-            turn(pick(kitP), q[0], q[1], w0 * (k ? 0.6 + 0.3 * R() : 1), (R() - 0.5) * 0.35, R() < 0.5, 0.9 + 0.1 * R()); } } }
+        if (kitP.length) { const w0 = clamp(t.len * (0.6 + 0.35 * R()), 0.04 * H, 0.14 * H), cnt = t.Q ? clamp(Math.round(t.len / (0.055 * H)), 2, 4) : 1;   // pads all along the limb, in to near the trunk, overlapping into a tier; the gaps are between the tiers
+          for (let k = cnt - 1; k >= 0; k--) { const f = cnt === 1 ? 1 : 1 - 0.62 * k / (cnt - 0.5) + (k ? (R() - 0.5) * 0.08 : 0), q = t.Q ? t.Q[clamp(Math.round(f * (t.Q.length - 1)), 0, t.Q.length - 1)] : [t.x, t.y];
+            wp = w0 * (k ? 0.65 + 0.35 * R() : 1);
+            // In the paintings the needles are broad domed masses lying ON the limbs, wide enough to run into one another, the limb seen
+            // under them; a fringe of needle fans stands out round the top of each mass (behind it: laid first)
+            if (kitN.length) for (let z = 0, zn = Math.floor(R() * 2.4); z < zn; z++) turn(pick(kitN), q[0] + (R() - 0.5) * wp * 0.85, q[1] - wp * (0.08 + 0.2 * R()), wp * (0.35 + 0.25 * R()), (R() - 0.5) * 1.0, R() < 0.5, 0.8);
+            turn(pick(kitP), q[0], q[1] - 0.006 * H, wp, (R() - 0.5) * 0.3, R() < 0.5, 0.62 + 0.38 * R()); } } }   // not all at full strength: where masses overlap they still read as layers (all black they ran into one blot)
     } else if (wil) { // A willow (Yang 11-19, with paintings: "cành liễu đâu có mọc như thế"). Its limbs arch over (grow); from them hang the
       // withes, one by one: each leaves its limb the way the limb runs, turns over within a few steps and falls straight,
       // long (down toward the ground, none the same length), leaning a little with the wind, narrow leaves to either
