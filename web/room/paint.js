@@ -124,6 +124,15 @@
     let rock = 0; { let ya = 1e9, yb = -1e9, sy = 0, sx = 0, fl = 0; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } for (let i = 1; i < n; i++) { sy += Math.abs(P[i][1] - P[i - 1][1]); sx += Math.abs(P[i][0] - P[i - 1][0]); if (P[i][1] < ya + 0.22 * (yb - ya)) fl++; }
       rock = (1 - hill) * sm((fl / n - 0.32) / 0.13) * sm((sy / Math.max(1, sx) - 0.55) / 0.3); }
     const S = hillS(hill, rock);
+    // A crag's top is broken rock, not the round cap the flight leaves (Yang 11-19: "làm đi em"): along the stretch that lies near
+    // the top, the line is cut into ledges of uneven length, each standing a little higher or lower than the last and tilted its
+    // own way, with a sudden step between two; now and then a narrow notch, or a horn standing up. Sides and foot stay as flown.
+    if (rock > 0.05) { let ya = 1e9, yb = -1e9; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } const hgt = yb - ya, Rc = dice(d.seed ^ 0x2c9f); let of = new Array(n).fill(0);
+      for (let i = 0; i < n;) { const len = Math.max(4, Math.round(H * (0.015 + 0.055 * Rc() * Rc()) / STEP)), kind = Rc(), off = kind < 0.1 ? 0.016 + 0.02 * Rc() : kind < 0.24 ? -(0.018 + 0.022 * Rc()) : (Rc() - 0.42) * 0.03, tilt = (Rc() - 0.5) * 0.024, m = kind < 0.24 ? Math.min(len, Math.max(4, Math.round(0.016 * H / STEP))) : len;
+        for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5);
+        i += m; }
+      for (let q = 0; q < 2; q++) of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);   // a step, not a plumb drop: flown straight down, the ridge stroke stood on end there as a black block (bot still: battlements)
+      for (let j = 0; j < n; j++) P[j][1] += H * rock * sm((ya + 0.3 * hgt - P[j][1]) / (0.14 * hgt)) * of[j]; }
     // -- peaks: every crest of the path (a top, standing at least a little above both its sides) is drawn up into a point;
     //    the saddles between are cut a little deeper. A tent laid on a round top gives the break of a real summit
     const win = Math.max(4, Math.round(0.1 * H / STEP)), tr = Math.max(4, Math.round(0.055 * H / STEP)), crests = [];
