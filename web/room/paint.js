@@ -1214,12 +1214,18 @@
       // (First: two or three, straight, one each side: a chicken's foot, Yang 11-19 "chỉnh tiếp".) More of them, unequal; each winds
       // as it goes, lies over to level, and plunges at its end; one in two forks a rootlet off its lower side; now and then a
       // short one comes straight toward the viewer
-      const root = (x, y, a, len, u0, s, depth) => { const m = Math.max(6, Math.round(len / 3)), Q = [[x, y]], aT = (s > 0 ? 0 : Math.PI) + s * (0.02 + 0.25 * Rr()), wA = 0.18 + 0.24 * Rr(), wf = 0.8 + 0.9 * Rr(), wp = 6.283 * Rr(), ek = Math.round(m * (0.25 + 0.45 * Rr())), et = (Rr() - 0.5) * 0.9, dip = 0.45 + 0.6 * Rr();
+      const g0r = ground(P[0][0], P[0][1]), onLand = !!(g0r && g0r.solid);
+      const root = (x, y, a, len, u0, s, depth) => { let m = Math.max(6, Math.round(len / 3)); const Q = [[x, y]], aT = (s > 0 ? 0 : Math.PI) + s * (0.02 + 0.25 * Rr()), wA = 0.18 + 0.24 * Rr(), wf = 0.8 + 0.9 * Rr(), wp = 6.283 * Rr(), ek = Math.round(m * (0.25 + 0.45 * Rr())), et = (Rr() - 0.5) * 0.9, dip = 0.45 + 0.6 * Rr();
         for (let i = 1; i <= m; i++) { const f = i / m;
           a += (f < 0.65 ? 3.2 * wrapR(aT - a) / m : s * dip / (0.35 * m)) + wA * 6.283 * wf / m * Math.cos(6.283 * wf * f + wp) + (Rr() - 0.5) * 0.14 + (i === ek ? et : 0);
-          x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
+          x += Math.cos(a) * len / m; y += Math.sin(a) * len / m;
+          // (Yang 11-19, r019, a tree on a small domed islet: its root ran out level past the fall of the mound and stood in the air, forked like an antler.
+          //  A root lies ON its land: past the first stretch out of the trunk no point of it is above the land's inked surface, it turns to run with that surface, and it ends where the land does)
+          if (onLand) { const gg = ground(x, y); if (!gg || !gg.solid) break; const sy = gg.iy + 0.2 * thR; if (f > 0.2 && y < sy) { y = sy; a = (s > 0 ? 0 : Math.PI) + gg.sl + s * 0.12; } }
+          Q.push([x, y]); }
+        if (Q.length < 3) return; m = Q.length - 1;
         limb(Q, u0, g, ox, oy, qR, thR);
-        if (depth < 1 && len > 0.02 * H && Rr() < 0.55) { const k = Math.round(m * (0.3 + 0.3 * Rr())); root(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + s * (0.45 + 0.5 * Rr()), len * (0.35 + 0.25 * Rr()), Math.min(0.9, u0 + 0.18 + 0.1 * Rr()), s, depth + 1); } };
+        if (depth < 1 && len > 0.02 * H && m > 4 && Rr() < 0.55) { const k = Math.min(m - 1, Math.round(m * (0.3 + 0.3 * Rr()))); root(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + s * (0.45 + 0.5 * Rr()), len * (0.35 + 0.25 * Rr()), Math.min(0.9, u0 + 0.18 + 0.1 * Rr()), s, depth + 1); } };
       for (let k = 0; k < nr; k++) { sd = Rr() < 0.8 ? -sd : sd; const up = bam ? 0.05 : 0.08 + 0.4 * Rr(), x0 = P[0][0] + ux * up * th0 + (bam ? (k / (nr - 1) - 0.5) * 0.5 * th0 : sd * 0.14 * th0), y0 = P[0][1] + uy * up * th0;
         if (bam) { const len = (0.012 + 0.016 * Rr()) * H, m = 6, Q = [[x0, y0]]; let a = 1.5708 + (k / (nr - 1) - 0.5) * 1.7 + (Rr() - 0.5) * 0.3, x = x0, y = y0;
           for (let i = 1; i <= m; i++) { a += (Rr() - 0.5) * 0.2 + (a < 1.5708 ? -0.25 : 0.25) / m; x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
