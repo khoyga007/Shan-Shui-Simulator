@@ -139,7 +139,10 @@
     out.paint = { ...Pt.info(), flown: pr, bakeMs };
     post('bot-paint.jpg', snap());
     { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);
-      post('bot-scene.jpg', m.toDataURL('image/jpeg', 0.92)); }
+      post('bot-scene.jpg', m.toDataURL('image/jpeg', 0.92));
+      // the same two seconds on: what moves (a river's current) shows as the difference between the two
+      for (let k = 0; k < 120; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 119, noSnap: true }); } Rm.G.draw(0);
+      x.globalCompositeOperation = 'source-over'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080); post('bot-scene2.jpg', m.toDataURL('image/jpeg', 0.92)); }
   }
   post('bot-uturn.jpg', strip.toDataURL('image/jpeg', 0.85)).then(() => post('bot.json', json(out)));
 })();

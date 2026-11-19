@@ -504,14 +504,27 @@
       raw(g); g.globalAlpha = 0.22; g.globalCompositeOperation = 'destination-over'; g.drawImage(w2, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g); }
     // -- the current: a few thin lines along the stream, short, each keeping to its own place between the banks
     g.strokeStyle = `rgb(${INK})`; g.lineCap = 'round';
-    if (kitG.length) { const [cur, gc] = mk();   // real hair lines, laid opaque and paled as one (as the banks)
-      for (let k = 0, cnt = Math.round(L / (0.08 * H)); k < cnt; k++) {
-        const i0 = Math.floor(R() * (n - 4)), i1 = Math.min(n - 1, i0 + Math.round(H * (0.05 + 0.15 * R()) / STEP)), u0 = (R() < 0.5 ? -1 : 1) * (0.3 + 0.45 * R()), ph = R() * 90, q = kitG[Math.floor(R() * kitG.length) % kitG.length], fr = R();
-        if (i1 - i0 < 4 || hw[(i0 + i1) >> 1] < 0.012 * H) continue; const Q = [];
-        for (let i = i0; i <= i1; i++) { const w = hw[i] * clamp(u0 + 0.3 * (N(cum[i] / (0.06 * H) + ph, 2) - 0.5), -0.8, 0.8); Q.push([P[i][0] - tan[i][1] * w, P[i][1] + tan[i][0] * w * FORE]); }
-        const lp = cum[i1] - cum[i0], frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = fr * (1 - frac) * q.w, th0 = H * (0.0022 + 0.003 * nearY(Q[0][1])) * (0.7 + 0.6 * fr), ds = 2, m = Q.length;   // th0: the height of the piece, the line in it about half of that. (At the piece's own proportions a short stretch of it came out as a grey bar)
-        for (let a = 0; a < lp; a += ds) { const fi = a / lp * (m - 1), j = Math.min(m - 2, fi | 0), f = fi - j, th = th0 * (0.15 + 0.85 * sm(a / (0.3 * lp)) * sm((lp - a) / (0.3 * lp))), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1;
-          gc.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx * f - ox), dpr * (Q[j][1] + dy * f - oy)); gc.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.8, th); } }
+    // With real hair lines (sheet G) the current MOVES (Yang 11-19): the lines are not baked with the river but drawn
+    // each frame on a layer of their own (live), by flow(T). Each line keeps to its own streamline (a fixed path
+    // between the banks) and drifts down it, far to near: it swells out of nothing, runs a stretch, thins to nothing
+    // again, and begins anew (its period per, its place in it t0). Fading is done by THICKNESS, not alpha: the slices
+    // are laid opaque (at part alpha every overlap of two slices showed as a dark hair), and a line under a pixel thick
+    // pales by itself. The whole layer is then paled with depth, as the banks.
+    let live = null, flow = null;
+    if (kitG.length) { const [lv, gl] = mk(), seg = L / (n - 1), dir = up ? 1 : -1, lines = []; live = lv;
+      for (let k = 0, cnt = Math.round(L / (0.07 * H)); k < cnt; k++) lines.push({ a0: R() * L, len: H * (0.05 + 0.15 * R()), u0: (R() < 0.5 ? -1 : 1) * (0.3 + 0.45 * R()), ph: R() * 90, q: kitG[Math.floor(R() * kitG.length) % kitG.length], fr: R(), per: 6 + 6 * R(), t0: R(), run: H * (0.12 + 0.14 * R()) });
+      const gd = gl.createLinearGradient(0, 0, 0, chh); for (let k = 0; k <= 8; k++) gd.addColorStop(k / 8, `rgba(0,0,0,${(0.6 * (0.4 + 0.6 * nearY(oy + k / 8 * chh / dpr))).toFixed(3)})`);
+      flow = (T) => { raw(gl); gl.globalCompositeOperation = 'source-over'; gl.clearRect(0, 0, cw, chh);
+        for (const ln of lines) { const s = (T / ln.per + ln.t0) % 1, aS = ln.a0 + dir * (s - 0.5) * ln.run; if (aS < 0 || aS + ln.len > L) continue;
+          const im = clamp(Math.round((aS + ln.len / 2) / seg), 0, n - 1), life = sm(s / 0.25) * sm((1 - s) / 0.3) * env(im) * sm((hw[im] - 0.008 * H) / (0.008 * H)); if (life < 0.04) continue;   // none in a far reach too narrow to hold one
+          const m = Math.max(3, Math.round(ln.len / 8)), Q = [];
+          for (let j = 0; j <= m; j++) { const arc = aS + ln.len * j / m, fi = arc / seg, i = Math.min(n - 2, fi | 0), f = fi - i, tx = tan[i][0] + (tan[i + 1][0] - tan[i][0]) * f, ty = tan[i][1] + (tan[i + 1][1] - tan[i][1]) * f,
+            w = (hw[i] + (hw[i + 1] - hw[i]) * f) * clamp(ln.u0 + 0.3 * (N(arc / (0.06 * H) + ln.ph, 2) - 0.5), -0.8, 0.8); Q.push([P[i][0] + (P[i + 1][0] - P[i][0]) * f - ty * w, P[i][1] + (P[i + 1][1] - P[i][1]) * f + tx * w * FORE]); }
+          const q = ln.q, lp = ln.len, frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = ln.fr * (1 - frac) * q.w, th0 = life * H * (0.0022 + 0.003 * nearY(Q[0][1])) * (0.7 + 0.6 * ln.fr), ds = 3;   // th0: the height of the piece, the line in it about half of that
+          for (let a = 0; a < lp; a += ds) { const fi = a / lp * m, j = Math.min(m - 1, fi | 0), f = fi - j, th = th0 * (0.15 + 0.85 * sm(a / (0.3 * lp)) * sm((lp - a) / (0.3 * lp))), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1;
+            gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx * f - ox), dpr * (Q[j][1] + dy * f - oy)); gl.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.8, th); } }
+        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.fillStyle = gd; gl.fillRect(0, 0, cw, chh); gl.globalCompositeOperation = 'source-over'; }; }
+    if (kitG.length) { const [cur, gc] = mk();   // ripples and such: laid opaque and paled as one (as the banks)
       home(gc);
       // ripples: a few small flat waves in the broad reaches, lying level whichever way the stream runs
       if (kitR.length) for (let k = 0, cnt = Math.round(L / (0.22 * H)); k < cnt; k++) { const i = Math.floor(R() * n), q = kitR[Math.floor(R() * kitR.length) % kitR.length], u = (R() - 0.5) * 0.9, sz = R(); if (hw[i] < 0.022 * H || env(i) < 0.5) continue;
@@ -525,7 +538,7 @@
       const im = Math.min(n - 1, i0 + (len >> 1)); g.globalAlpha = a0 * env(im) * (0.4 + 0.6 * nearY(P[im][1])) * sm(hw[im] / (0.012 * H)); g.lineWidth = H * w0 * (0.6 + 0.8 * nearY(P[im][1])); g.stroke();   // none in a far reach too narrow to hold one
     }
     g.globalAlpha = 0.11; raw(g); g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
-    return { river: true, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: y1, yTop: y0, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+    return { river: true, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: y1, yTop: y0, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
   // One stroke -> one lake (Yang 11-19, key 3). The stroke is the shore: flown round, its ends joined if left open. Still
@@ -622,10 +635,16 @@
       for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone);
         if (d.m.mist) { const [mx, my, q] = d.m.mxy; b.globalCompositeOperation = 'destination-out'; b.globalAlpha = mistA(d); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high'; b.drawImage(d.m.mist, Math.round(mx * dpr), Math.round(my * dpr), d.m.mist.width * q * dpr, d.m.mist.height * q * dpr); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; } } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
+    // moving water: each river's layer of current, redrawn for this instant, cut away where anything nearer stands
+    // before it (the bodies of everything after it in the bake), and laid over the bake
+    const flowOf = (d, a, k) => { const m = d.m; m.flow(T); const x = m.live.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-out';
+      for (let j = k + 1; j < old.length && k >= 0; j++) { const o = old[j].m, dx = Math.round((o.ox - m.ox) * dpr), dy = Math.round((o.oy - m.oy) * dpr); if (dx < m.live.width && dy < m.live.height && dx + o.body.width > 0 && dy + o.body.height > 0) x.drawImage(o.body, dx, dy); }
+      x.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = a; c.drawImage(m.live, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.restore(); };
+    old.forEach((d, k) => { if (d.m.flow) flowOf(d, 1, k); });
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m;
       if (m.river) {   // a river comes up all at once: the water clears, the banks darken
-        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e); c.restore();
+        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e); c.restore(); if (m.flow) flowOf(d, e, -1);
         strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1))); continue; }
       const nb = m.ts.length;
       c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.moveTo(m.bx0 - 0.05 * H, m.ts[0] - 0.12 * H);
