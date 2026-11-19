@@ -197,28 +197,6 @@ def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None):
     print(' rows', len(bands), 'of', len(sufs))
 
 
-def masses(key, ink, wide, thr=0.1):
-    """sheets AE, AF: whole near masses that stand on a dead-level foot (Yang 11-19: the near tier of stroke Địa).
-    wide=False: rocks (AE), two rows, each an island of ink (a small rock beside a large one belongs to it); the foot is
-    the lowest row still half as wide as the rock's ink is at its widest (a soft run of wash under it is cut off).
-    wide=True: earth banks (AF), stacked, thick end left, tip right; under each a ruled hairline runs on past both
-    ends: the lowest row inked from end to end, cut off with all below it"""
-    u = ink.shape[1] / 2048; H, W = ink.shape; on = ink > thr; man.pop(key, None)
-    lab, n = ndi.label(ndi.binary_dilation(on, structure=np.ones((int(9 * u) | 1, int((41 if wide else 23) * u) | 1))))
-    cut = [(i + 1, s) for i, s in enumerate(ndi.find_objects(lab)) if (s[1].stop - s[1].start > 0.25 * W if wide else max(s[0].stop - s[0].start, s[1].stop - s[1].start) > 60 * u)]
-    cut.sort(key=lambda c: (c[1][0].start,) if wide else ((c[1][0].start + c[1][0].stop) // 2 // (H // 2), c[1][1].start))
-    for k, (li, s) in enumerate(cut):
-        a = np.where(lab[s] == li, ink[s], 0); h, w = a.shape
-        if wide:
-            line = np.nonzero((a > thr).sum(axis=1) > 0.7 * w)[0]   # the ruled line: the lowest row that is ink nearly from end to end
-            if len(line) and line[-1] > 0.6 * h: a = a[:max(1, line[-1] - int(4 * u))]
-        else:
-            cov = (a > 0.25).sum(axis=1); rows = np.nonzero(cov >= 0.5 * cov.max())[0]; a = a[:rows[-1] + 1]
-        rows = np.nonzero(a.max(axis=1) > thr)[0]; cols = np.nonzero(a.max(axis=0) > thr)[0]
-        save(key, k, a[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1])
-    print(' masses', len(cut))
-
-
 def flowers(key, path, sufs=('_fl', '_bd', '_pt')):
     """sheet Q, the one sheet in colour: rows of plum blossoms, of buds on their calyx, of loose petals. A piece keeps
     its colours: alpha = how far a pixel is from the white of the paper, its colour what gives the painted pixel back
@@ -360,8 +338,6 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'y': rowsheet(src, ink, ('_yl', '_yf', '_yt', '_yp'), thr=0.06, gap=7)   # forest seen from afar: tree lines of a wooded crest, forest patches (tree tops above, loose dabs below), single far trees, the patches again in pale ink; bottom of a piece = the ground
     elif kind == 'z': rowsheet(src, ink, ('_za', '_zb', '_zc'), thr=0.06, blob=(5, 5, 5), skirt=(0.4, 0.22, 0))   # forest masses: long level woods (tree tops above, runs of ink below: cut off), woods slanting up to the right (they reach over each other: cut as islands), small woods
     elif kind == 'aa': wisps(src, ink)
-    elif kind == 'ae': masses(src + '_rk', ink, False)   # near rocks and rocky islets, level foot (Gemini's: the kit; Muse's: evenly striped, three taken)
-    elif kind == 'af': masses(src + '_bk', ink, True)    # near earth banks and spits, level foot, thick end left
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
