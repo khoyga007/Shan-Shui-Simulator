@@ -180,7 +180,10 @@
     const qc = kitC.length ? pick(kitC) : null, qc2 = kitC.length ? pick(kitC) : null, sc1 = qc ? qc.h / (0.085 * H) : 1, sc2 = qc2 ? qc2.h / (0.2 * H) : 1, uo1 = R() * 4000, uo2 = R() * 4000;
     const pp = (v, w) => { const a = 0.07 * w, m = 2 * (w - 2 * a); v = ((v % m) + m) % m; return a + (v < m / 2 ? v : m - v); };   // over its middle only: a band thins at both ends, and turning there cut a white notch into the body   // there and back along a band: no seam where it runs out
     const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body;   // body: how much ink the mountain's flank holds, and how far down it stays dark
-    for (const f of fields) for (let k = 0; k < f.m; k++) {
+    for (const f of fields) {
+      // how deep the two real bands of wash hang under the ridge, column by column
+      const hB = f.ts.map((t, k) => { const x = f.x0 + k * BIN, dw = depthAt(t, x) * wedge(x); return [Math.min(dw * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), Math.min(dw * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2))]; });
+      for (let k = 0; k < f.m; k++) {
       const x = f.x0 + k * BIN, t = f.ts[k], ee = envX(x), dd = depthAt(t, x), ed = E ? envD(x) : 1, dw = dd * wedge(x), sh = f.shade[k], y0 = Math.min(f.top[k], t) - 1,
          e = ee * (1 - cliff) * (folded ? sm(Math.min(k, f.m - 1 - k) / fr) : 1),   // a stretch's ink thins toward the turn, or its end stood as a plumb edge in the body
          X = DX(x), Wd = DX(x + BIN) - X, Y0 = DY(y0), T = DY(t);
@@ -193,9 +196,13 @@
          a2 = Math.min(0.9, 0.34 * bm * clamp(0.5 + 0.7 * sh, 0.12, 1) * e);
       gd = g.createLinearGradient(0, T, 0, DY(t + d2)); gd.addColorStop(0, `rgba(${INK},${a2.toFixed(3)})`); gd.addColorStop(0.6, `rgba(${INK},${(a2 * 0.5).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
       if (qc) {   // a real band of wash, its dark wet edge under the ridge; a second one drawn long and faint down the body
-        const h1 = Math.min(dw * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), w1 = Math.max(1, BIN * sc1), w2 = Math.max(1, BIN * sc2);
-        g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e) * soft * soft; g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, X, T - 1, Wd, h1 * dpr);
-        g.globalAlpha = Math.min(1, 0.26 * bm * e) * soft * soft; g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, X, T - 1, Wd, Math.min(dw * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2)) * dpr); g.globalAlpha = 1;   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
+        // each column's slice is sheared to the slope, so that its torn lower edge (about 0.8 of the way down) runs on
+        // into the next column's. Laid as upright rectangles, every column stood a step lower than the one before on
+        // a slope, and the band's edge came out as a staircase, steps of 7 px on a steep flank (Yang 11-19: "răng cưa")
+        const kn = Math.min(f.m - 1, k + 1), [h1, h2] = hB[k], w1 = Math.max(1, BIN * sc1), w2 = Math.max(1, BIN * sc2), dT = DY(f.ts[kn]) - T,
+           s1 = (dT + 0.8 * (hB[kn][0] - h1) * dpr) / Wd, s2 = (dT + 0.8 * (hB[kn][1] - h2) * dpr) / Wd;
+        g.setTransform(1, s1, 0, 1, X, T - 1); g.globalAlpha = Math.min(1, 0.6 * bm * clamp(0.6 + 0.6 * sh, 0.3, 1) * e) * soft * soft; g.drawImage(qc.im, Math.min(qc.w - w1, pp((x - bx0) * sc1 + uo1, qc.w)), 0, w1, qc.h, 0, 0, Wd, h1 * dpr);
+        g.setTransform(1, s2, 0, 1, X, T - 1); g.globalAlpha = Math.min(1, 0.26 * bm * e) * soft * soft; g.drawImage(qc2.im, Math.min(qc2.w - w2, pp((x - bx0) * sc2 + uo2, qc2.w)), 0, w2, qc2.h, 0, 0, Wd, h2 * dpr); g.globalAlpha = 1; raw(g);   // kept near its own size: drawn 0.4 of a screen deep on a tall peak, its torn edge stretched into spikes
       } else if (soft > 0.98) { g.fillStyle = gd; g.fillRect(X, Y0, Wd, DY(t + d2) - Y0); }
       // ink does not cover ink: right under this ridge the mountain behind is still there, running on into this one's wet
       // line and darkening it, and is lost only a little further down. (Hidden from the ridge on, the far ridge ended
@@ -208,7 +215,7 @@
       // through as a ghost.) Toward its ends, where it dies out as a wedge, it lets go with its own ink, or the mountain
       // behind was wiped in an upright pale band beside it
       gb.fillStyle = gd; gb.fillRect(X, Y0, Wd, chh - Y0);
-    }
+    } }
     home(g); home(gb);
     // -- cun: texture strokes, each a thin line of a drying brush that bends toward the fall line and fades out
     const col = (x) => clamp(Math.round((x - bx0) / BIN), 0, nb - 1);
@@ -278,7 +285,7 @@
         if (len < 2) continue; const Y = Math.round((y - oy) * dpr), Hd = Math.round((y + BIN - oy) * dpr) - Y, X0 = (xs[r] - ox) * dpr, X1 = (xs[r] + side * len - ox) * dpr;
         let gd = g.createLinearGradient(X0, 0, X1, 0); gd.addColorStop(0, `rgba(${INK},${a.toFixed(3)})`); gd.addColorStop(0.15, `rgba(${INK},${(a * 0.7).toFixed(3)})`); gd.addColorStop(0.45, `rgba(${INK},${(a * (0.3 + mid)).toFixed(3)})`); gd.addColorStop(0.75, `rgba(${INK},${(a * (0.08 + mid * 0.6)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`);
         g.fillStyle = gd; g.fillRect(Math.min(X0, X1), Y, Math.abs(X1 - X0), Hd);
-        if (qc) { g.setTransform(0, 1, side, 0, X0, Y); g.globalAlpha = Math.min(1, a * 1.5); g.drawImage(qc.im, Math.min(qc.w - wr, pp((y - yTop) * scr + uo1, qc.w)), 0, wr, qc.h, 0, 0, Hd, len * 0.6 * dpr); g.globalAlpha = 1; raw(g); }   // a real band of wash turned on its side, its wet edge on the stroke
+        if (qc) { g.setTransform(r + 1 < rowsN && xs[r + 1] !== null ? (xs[r + 1] - xs[r]) * dpr / Hd : 0, 1, side, 0, X0, Y); g.globalAlpha = Math.min(1, a * 1.5); g.drawImage(qc.im, Math.min(qc.w - wr, pp((y - yTop) * scr + uo1, qc.w)), 0, wr, qc.h, 0, 0, Hd, len * 0.6 * dpr); g.globalAlpha = 1; raw(g); }   // a real band of wash turned on its side, its wet edge on the stroke
         const fb = 1 - sm((f - 0.5) / 0.5); gd = gb.createLinearGradient(X0, 0, X1, 0); gd.addColorStop(0, `rgba(0,0,0,${Math.min(1, 1.6 * cliff * fb).toFixed(3)})`); gd.addColorStop(0.5, `rgba(0,0,0,${Math.min(1, 1.3 * cliff * fb).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
         gb.fillStyle = gd; gb.fillRect(Math.min(X0, X1), Y, Math.abs(X1 - X0), Hd); }
       home(g); home(gb); g.globalCompositeOperation = 'source-atop';
@@ -304,9 +311,11 @@
       for (let a = 0; a < L; a += ds) {
         while (j < n - 2 && cum[j + 1] < a) j++;
         const f = (a - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), px = P[j][0] + (P[j + 1][0] - P[j][0]) * f, py = P[j][1] + (P[j + 1][1] - P[j][1]) * f;
-        const p0 = P[Math.max(0, j - 2)], p1 = P[Math.min(n - 1, j + 3)], tl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, tx = (p1[0] - p0[0]) / tl, ty = (p1[1] - p0[1]) / tl;
-        const th = H * 0.044 * (0.6 + 0.55 * clamp(prAt[j], 0, 1.6)) * (0.8 + 0.4 * S.dry), u = (back ? 1 - (a + ds) / L : a / L) * q.w;
-        gr.setTransform(dpr * tx, dpr * ty, dpr * nrm[j][0], dpr * nrm[j][1], dpr * (px - ox), dpr * (py - oy));
+        // the slice's frame and width turn evenly from one point of the path to the next: taken from the point behind,
+        // they jumped every 3 px while the slices lie 2 px apart, and the stroke's edge came out in notches
+        const lx = (A, c) => A[j][c] + (A[j + 1][c] - A[j][c]) * f, tl = Math.hypot(lx(Tn, 0), lx(Tn, 1)) || 1, tx = lx(Tn, 0) / tl, ty = lx(Tn, 1) / tl, nl = Math.hypot(lx(nrm, 0), lx(nrm, 1)) || 1, nx = lx(nrm, 0) / nl, ny = lx(nrm, 1) / nl;
+        const th = H * 0.044 * (0.6 + 0.55 * clamp(prAt[j] + (prAt[j + 1] - prAt[j]) * f, 0, 1.6)) * (0.8 + 0.4 * S.dry), u = (back ? 1 - (a + ds) / L : a / L) * q.w;
+        gr.setTransform(dpr * tx, dpr * ty, dpr * nx, dpr * ny, dpr * (px - ox), dpr * (py - oy));
         // on the outside of a bend the slices spread apart like a fan: each is widened by as much as the bend opens there
         const j0 = Math.max(0, j - 3), j1 = Math.min(n - 1, j + 3), dc = Math.max(1, cum[j1] - cum[j0]), ko = -((Tn[j1][0] - Tn[j0][0]) * nrm[j][0] + (Tn[j1][1] - Tn[j0][1]) * nrm[j][1]) / dc, wd = (ds + 0.8) * (1 + clamp(ko * th * 0.95, 0, 6));
         gr.drawImage(q.im, clamp(u, 0, q.w - 1), 0, Math.max(1, (ds + 0.8) / L * q.w), q.h, (ds + 0.8 - wd) / 2, -0.1 * th, wd, th);
