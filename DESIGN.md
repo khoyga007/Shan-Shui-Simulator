@@ -178,3 +178,5 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Near land has mist at its foot (11-19, Yang): wisps of sheet AA along the foot of bank and rock, own plain build in the land block (not the mountain sea-of-mist), amount = mist slider.
 
 - Trunk fix (11-19): limb slices turned by blended point tangents (per-segment turn broke dry streaks into steps); big bare trees (L >= 0.3H) take a full-toned trunk stroke, dry streaky ones only small trees (enlarged streaks = cables, lattice at forks).
+
+- Trunk, second pass (11-19, Yang rejected the full-stroke trunk: "thân trơn và hơi thô quá"): bare wood stays the dry streaky stroke; big bare trees (L >= 0.3H) get a thinner, paler full stroke under every limb so streaks stand on wood, not paper. Lattice at forks reduced, not gone.
