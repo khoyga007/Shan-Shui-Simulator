@@ -167,6 +167,9 @@
     // ?depth=1 (with sea=0.34, r7=1&m7=9): r018, a long pale hill coming down from the left edge to the waterline and a steep dark peak beside it, both feet at the line (the hill lay before the peak)
     if (new URLSearchParams(location.search).has('depth')) { const pl = (pts, seed) => { const q = []; for (let i = 1; i < pts.length; i++) for (let u = 0; u < 30; u++) q.push([(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u / 30) * H, (pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u / 30) * H, 0.6]); Pt.st.done.push({ stroke: q, t0: D.T, seed }); };
       pl([[0.01, 0.17], [0.2, 0.24], [0.4, 0.31], [0.55, 0.335]], 9601); pl([[0.17, 0.3], [0.21, 0.2], [0.27, 0.16], [0.4, 0.25], [0.55, 0.335]], 9602); }
+    // ?twin=1 (with r7=1&m7=9): two three-cornered peaks of one size side by side (Yang 11-19: their bodies bore the same pattern)
+    if (new URLSearchParams(location.search).has('twin')) { const pl = (pts, seed) => { const q = []; for (let i = 1; i < pts.length; i++) for (let u = 0; u < 30; u++) q.push([(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u / 30) * H, (pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u / 30) * H, 0.6]); Pt.st.done.push({ stroke: q, t0: D.T, seed }); };
+      pl([[0.05, 0.62], [0.42, 0.14], [0.78, 0.66]], 9701); pl([[0.8, 0.66], [1.15, 0.1], [1.5, 0.68]], 9702); }
     Rm.S.cap = cap0;
     const snap =() => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
       x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };
