@@ -172,3 +172,5 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Rock vs earth marks (11-19): near rock = sheet AG marks (black axe-cuts, chops, dry scrapes, blunt dots), near bank = sheet AH marks (grey hemp bundles along the slope, soft folds, rice dots, grass tufts on the upper line). Marks laid over the stroke-built body, never whole shapes. Moving water marks = sheet AI single wavering lines.
 
 - Near earth dark (11-19, Yang): bank = one dark wash over the body, heaviest under the upper line, thinning to a pale strip along the foot; few marks on top (hemp bundles cut to 1-5). Grey + many thin lines read weak.
+
+- Bank dark = brush marks, not a fill (11-19, Yang): thin wash underneath, rows of wet earth strokes layered over it (heavy under the upper line, fewer and paler downward), dry scrapes in the lower part. Sheet AK (broad dark washes) asked for; code takes its _kw / _kd when cut.
