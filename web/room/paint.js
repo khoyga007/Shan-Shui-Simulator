@@ -52,6 +52,8 @@
   size(); addEventListener('resize', () => { size(); for (const d of st.done) d.m = null; bakeKey = ''; });
   // the stroke while it is being flown: drawn opaque on a scratch canvas and laid on at its alpha (drawn straight, the
   // overlapping round caps showed as a string of beads)
+  // a piece standing upright, w wide, the middle of its foot at (bx, by): a clump of reeds, a shore rock
+  const stand = (x, q, bx, by, w, flip) => { const h = w * q.h / q.w; x.save(); x.translate(bx, by); if (flip) x.scale(-1, 1); x.drawImage(q.im, -w / 2, -h, w, h); x.restore(); };
   const tmp = document.createElement('canvas'), tc = tmp.getContext('2d');
   function strokePath(q, alpha) {
     if (q.length < 2 || alpha <= 0) return;
@@ -457,7 +459,7 @@
     // the river's own sheets (Yang 11-19: its banks borrowed the ridge strokes of a mountain): _f banks, waterline on top,
     // flicks and pebbles hanging off it onto the land; _g hair lines of current; _r ripples; _k riverside rocks
     const own = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
-    const kitF = own('_f'), kitG = own('_g'), kitR = own('_r').filter((q) => q.tone < 0.15), kitK = own('_k').concat(own('_r').filter((q) => q.tone >= 0.15)),   // a wide group of rocks is cut as a long piece like a ripple: told apart by how much ink it holds
+    const kitF = own('_f'), kitG = own('_g'), kitR = own('_r').filter((q) => q.tone < 0.15), kitW = own('_w'), kitK = own('_s').length ? own('_s') : own('_k').concat(own('_r').filter((q) => q.tone >= 0.15)),   // _s: the dry-brush shore rocks of sheet K, before sheet H's (outlined as with a marker). Of H, a wide group of rocks is cut as a long piece like a ripple: told apart by how much ink it holds
        bankKit = kitF.length ? kitF : kit, tall = kitF.length ? 1.9 : 1, lift = kitF.length ? 0.03 : 0.12, sides = [];
     for (const [E, sg, ph] of [[A, -1, 300], [B, 1, 400]]) {
       const ga = gate(sg, ph), gz = gate(sg, ph + 37), et = frame(E), ec = [0]; for (let i = 1; i < n; i++) ec.push(ec[i - 1] + Math.hypot(E[i][0] - E[i - 1][0], E[i][1] - E[i - 1][1]));
@@ -487,6 +489,14 @@
       for (let t = 0; t < 6 && i < 0; t++) { const c2 = 4 + Math.floor(R() * (n - 8)); if (sd.ga(c2) > 0.5 && env(c2) > 0.6) i = c2; }
       if (i < 0) continue; const w = H * (0.012 + 0.026 * nearY(sd.E[i][1])) * (0.7 + 0.6 * R()), h = w * q.h / q.w; const ex = -sd.sg * tan[i][1], ey = sd.sg * tan[i][0], out = 0.5 * (Math.abs(ex) * w + Math.abs(ey) * h) + 0.003 * H;   // out: from the bank line to the rock's middle, half the rock's size across the bank and a hair more
         gk.drawImage(q.im, sd.E[i][0] + ex * out - w / 2, sd.E[i][1] + ey * out - h / 2, w, h); }
+    // reeds on the banks (sheet K, shared with the lake's shores): a few clumps where a bank is drawn, upright, foot on
+    // the land at the bank line. On the near bank a clump stands before the water: never taller than most of the stream is wide
+    if (kitW.length) for (let k = 0, cnt = Math.round(L / (0.22 * H)); k < cnt; k++) { const sd = sides[R() < 0.5 ? 0 : 1]; let i = -1;
+      for (let t = 0; t < 6 && i < 0; t++) { const c2 = 4 + Math.floor(R() * (n - 8)); if (sd.ga(c2) > 0.5 && env(c2) > 0.6) i = c2; }
+      if (i < 0) continue; const ex = -sd.sg * tan[i][1], ey = sd.sg * tan[i][0];
+      for (let j = 0, jn = 1 + Math.floor(R() * 3); j < jn; j++) { const q = kitW[Math.floor(R() * kitW.length) % kitW.length], i2 = clamp(i + Math.round((R() - 0.5) * 14), 2, n - 3), p = sd.E[i2]; let w = H * (0.014 + 0.026 * nearY(p[1])) * (0.6 + 0.7 * R()); const fl = R() < 0.5;
+        if (ey > 0.3) w = Math.min(w, 1.6 * hw[i2] * q.w / q.h); if (w < 0.006 * H) continue;
+        const dd = Math.abs(ex) * w / 2 + 0.003 * H; stand(gk, q, p[0] + ex * dd, p[1] + ey * dd, w, fl); } }
     { raw(gk); const gd = gk.createLinearGradient(0, 0, 0, chh); for (let k = 0; k <= 8; k++) gd.addColorStop(k / 8, `rgba(0,0,0,${(0.78 * (0.4 + 0.6 * nearY(oy + k / 8 * chh / dpr))).toFixed(3)})`);   // far reaches pale
       gk.globalCompositeOperation = 'destination-in'; gk.fillStyle = gd; gk.fillRect(0, 0, cw, chh); raw(g); g.drawImage(bnk, 0, 0); home(g); }
     gs.globalCompositeOperation = 'destination-out'; gs.fillStyle = '#000'; water(gs); gs.fill(); gs.globalCompositeOperation = 'source-over';
@@ -570,6 +580,18 @@
       home(gk); };
     shore(dark.length ? dark : base, (i) => sm((wN(i) - 0.3) / 0.25), 1, 300);
     shore(pale.length ? pale : base, (i) => sm((0.7 - wN(i)) / 0.25), pale.length ? 0.75 : 0.4, 400);
+    // -- reeds and a rock or two on the shores (Yang 11-19; sheet K: _w reeds, _s rocks): upright, foot on the shore line.
+    //    Two or three clumps on the near shore (standing before the water), a few small pale ones on the far; most of
+    //    the shore left bare. A rock lies wholly on the land, just clear of the line (as the river's)
+    { const kitW = own('_w'), kitS = own('_s'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length], idx = (i) => ((i % n) + n) % n,
+        spot = (ok) => { for (let t = 0; t < 14; t++) { const i = Math.floor(R() * n) % n; if (ok(i)) return i; } return -1; }, per = n / Math.max(1, Lp);   // per: points to a pixel of shore
+      if (kitW.length) { for (let c2 = 0, cn = 2 + Math.floor(R() * 2); c2 < cn; c2++) { const i0 = spot((i) => wN(i) > 0.62); if (i0 < 0) continue;
+          for (let k = 0, kn = 2 + Math.floor(R() * 3); k < kn; k++) { const i = idx(i0 + Math.round((R() - 0.5) * 0.1 * H * per)), p = P[i], w = H * (0.02 + 0.03 * nearY(p[1])) * (0.55 + 0.7 * R());
+            stand(gk, pick(kitW), p[0] + out[i][0] * 0.004 * H, p[1] + out[i][1] * 0.004 * H, w, R() < 0.5); }
+          if (kitS.length && R() < 0.6) { const i = idx(i0 + Math.round((R() < 0.5 ? -1 : 1) * (0.05 + 0.04 * R()) * H * per)), p = P[i], q = pick(kitS), w = H * (0.022 + 0.03 * nearY(p[1])) * (0.7 + 0.5 * R()), h = w * q.h / q.w, dd = 0.5 * (Math.abs(out[i][0]) * w + Math.abs(out[i][1]) * h) + 0.003 * H;
+            stand(gk, q, p[0] + out[i][0] * dd, p[1] + out[i][1] * dd + h / 2, w, R() < 0.5); } }
+        gk.globalAlpha = 0.55; for (let c2 = 0, cn = 1 + Math.floor(R() * 2); c2 < cn; c2++) { const i = spot((j) => wN(j) < 0.3); if (i < 0) continue; const p = P[i];
+          stand(gk, pick(kitW), p[0] + out[i][0] * 0.002 * H, p[1] + out[i][1] * 0.002 * H, H * 0.014 * (0.7 + 0.6 * R()), R() < 0.5); } gk.globalAlpha = 1; } }
     fade(gk, pale.length ? 0.85 : 0.6); raw(g); g.drawImage(shr, 0, 0); home(g);
     // -- still water: level dashes scattered over the lake, kept clear of the shores
     const inside = (x, y) => { let c2 = false; for (let i = 0, j = n - 1; i < n; j = i++) { const a = P[i], b = P[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c2 = !c2; } return c2; };

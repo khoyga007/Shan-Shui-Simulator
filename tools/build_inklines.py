@@ -11,6 +11,7 @@ alpha, plus strokes.json {key: [{f, w, h, tone}]}.
   <Source> H.png  riverside rocks and short ripples, scattered               keys <source>_k (rocks), <source>_r (ripples)
   <Source> I.png  long level lake shores, waterline on top, dark then pale   key <source>_i
   <Source> J.png  rows of level dashes of still water                        key <source>_j
+  <Source> K.png  clumps of reeds, and a row of low shore rocks              keys <source>_w (reeds), <source>_s (rocks)
 Level strokes and bands are straightened: every column is slid up so the upper edge is level (they arc a little; bent
 along a ridge, the upper edge is the ridge line). usage: python tools/build_inklines.py"""
 import json, os
@@ -74,6 +75,21 @@ def loose(key, ink, thr=0.3, crop=0.15, long='_b', comp='_d', gain=0, minh=25):
         a = a[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]
         if a.shape[1] > 1.9 * a.shape[0]: save(key + long, ka, np.clip(a * gain / max(1e-6, float(a.max())), 0, 1) if gain else a); ka += 1
         else: save(key + comp, kd, a); kd += 1
+
+
+def tufts(key, ink, thr=0.1, crop=0.05):
+    """sheet K: clumps of reeds in the upper rows, low shore rocks in the bottom row, each standing on its own stroke of
+    ground (the bottom of a piece = the ground). Told apart by where they stand on the sheet"""
+    u = ink.shape[1] / 2048
+    lab, n = ndi.label(ndi.binary_dilation(ink > thr, structure=np.ones((int(31 * u) | 1, int(13 * u) | 1))))
+    kw = ks = 0
+    for i, s in sorted(enumerate(ndi.find_objects(lab)), key=lambda t: (t[1][0].start // int(200 * u), t[1][1].start)):
+        if s[1].stop - s[1].start < 60 * u or s[0].stop - s[0].start < 40 * u: continue
+        a = np.where(lab[s] == i + 1, ink[s], 0)
+        rows = np.nonzero(a.max(axis=1) > crop)[0]; cols = np.nonzero(a.max(axis=0) > crop)[0]
+        a = a[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]
+        if (s[0].start + s[0].stop) / 2 > 0.72 * ink.shape[0]: save(key + '_s', ks, a); ks += 1
+        else: save(key + '_w', kw, a); kw += 1
 
 
 # -- mist (sheets D and E): not ink to lay down but a mask. A flat grey wash that mist has eaten into: grey = the ink
@@ -151,6 +167,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'h': loose(src, ink, thr=0.1, crop=0.05, long='_r', comp='_k', gain=0.9)   # ripples (long, low) and riverside rocks
     elif kind == 'i': level(src + '_i', ink, 0.1, 0.12, 0.05, grow=(15, 41))               # lake shores: dark near ones, pale far ones (told apart by tone)
     elif kind == 'j': loose(src, ink, thr=0.1, crop=0.05, long='_j', comp='_jx', gain=0.9, minh=0)   # still water: single level dashes, pointed at both ends
+    elif kind == 'k': tufts(src, ink)
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
