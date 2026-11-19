@@ -451,7 +451,7 @@
       //    crowded from the top down, thickest under the ridge, breaking up into stands and then into single trees before the
       //    mist; mostly upright grains (conifers stand), some round. A near mountain (low on the paper) wears them larger,
       //    blacker and further down, a far one small and few: the depth of the painting is in that difference.
-      { const near = clamp((yBase / H - 0.3) / 0.5, 0, 1), fa = (1 - 0.7 * hill) * (1 - 0.4 * rock), Rf = dice(d.seed ^ 0x51f3), reach = 0.5 + 0.35 * near, s0 = H * (0.0045 + 0.004 * near);
+      { const near = clamp((yBase / H - 0.3) / 0.5, 0, 1), fa = (1 - 0.7 * hill) * (1 - 0.4 * rock), Rf = dice(d.seed ^ 0x51f3), reach = 0.72 + 0.23 * near, s0 = H * (0.0045 + 0.004 * near);
         let area = 0; for (let k = 0; k < nb; k++) area += depth[k] * BIN; const cnt = Math.min(16000, Math.round(fa * (0.55 + 0.75 * near) * area * reach / (s0 * s0) * 1.1));
         // Clean ovals alone were a leopard's coat (bot still). Three layers now: a soft dark ground where the wood is thick (the
         // wet ink the trees stand in), over it real brush dabs (sheet X's moss clusters, small, upright), and only then the grains.
@@ -465,13 +465,13 @@
         // single far trees at its edge; and on the crest itself tree lines turned to the slope (not where it is steep: trees
         // stand upright). Pieces keep upright: mirrored, never rotated, but for the tree lines.
         const ky = (suf) => S.tex === 'code' ? [] : (STROKES['muse_' + suf] || []).filter((q) => q.im), kYL = ky('yl'), kYF = ky('yf'), kYT = ky('yt'), kYP = ky('yp'), pk = (K) => K[Math.floor(Rf() * K.length) % K.length];
-        if (kYF.length) { const w0 = H * (0.05 + 0.055 * near), lay = [], tries = Math.min(2200, Math.round(fa * area * reach / (w0 * w0 * 0.5) * 5)),
+        if (kYF.length) { const w0 = H * (0.05 + 0.055 * near), lay = [], tries = Math.min(4200, Math.round(fa * area * reach / (w0 * w0 * 0.5) * 9)),   // (Yang 11-19: "phủ dày hơn": further down, whole over the upper half, far mountains too)
             // (first still: islands of wood afloat on a bare flank, some hanging out over the mountain's side, single trees as large as
             // clover leaves. Under the ridge the wood is now whole, stands only further down; a piece needs the mountain under both its ends)
             atY = (pw, w) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depth[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t, ka = col(x - 0.42 * w), kb = col(x + 0.42 * w);
               if (depth[ka] < 0.03 * H || depth[kb] < 0.03 * H || y < Math.max(top[ka], top[kb]) - 0.004 * H) return null;
-              const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.3 - 0.3 * t) / 0.14), hi = 0.4 + 0.6 * sm((yBase - top[k]) / span / 0.5); return Rf() > hi * (1 - 0.8 * t) * Math.max(patch, 1 - t / 0.22) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (Rf() < 0.5) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
-          for (let q = 0; q < tries; q++) { const r1 = Rf(), a = atY(1.9, w0 * (0.7 + 0.8 * r1)); if (!a) continue; const [x, y, t] = a, pale = kYP.length && Rf() < 0.05 + 0.7 * t + 0.3 * (1 - near); lay.push([y, x, t, pale ? pk(kYP) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
+              const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.2 - 0.3 * t) / 0.14), hi = 0.55 + 0.45 * sm((yBase - top[k]) / span / 0.5); return Rf() > hi * (1 - 0.5 * t) * Math.max(patch, 1 - t / 0.5) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (Rf() < 0.5) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
+          for (let q = 0; q < tries; q++) { const r1 = Rf(), a = atY(1.35, w0 * (0.7 + 0.8 * r1)); if (!a) continue; const [x, y, t] = a, pale = kYP.length && Rf() < 0.03 + 0.6 * t * t + 0.08 * (1 - near); lay.push([y, x, t, pale ? pk(kYP) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
           if (kYT.length) for (let q = 0; q < tries * 0.5; q++) { const a = atY(0.8, 0); if (!a) continue; const [x, y, t] = a; if (t < 0.25) continue; lay.push([y, x, t, pk(kYT), 2, Rf(), Rf()]); }
           lay.sort((p, q) => p[0] - q[0]);
           for (const [y, x, t, m, kind, r1, r2] of lay) {
