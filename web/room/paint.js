@@ -1246,6 +1246,7 @@
   // shore at that column, so an image hangs from the shore it belongs to, and squeezed (the water is seen aslant). Then,
   // level band by level band: shifted sideways by a ripple that grows toward the near shore, paler the nearer, with a
   // band left out here and there (a streak of light on the water). Kept inside the water, laid a little blurred.
+  let BOTRIP = null;   // the bot: a point standing in for the dragon's head (__paint.ripAt)
   let MIRROR = true;   // key M: the image in the water on and off, to compare
   function mirror(b, m, yFar) {
     const tM = performance.now();
@@ -1259,13 +1260,43 @@
     for (let x = 0; x < w; x += sw) { const t = m.top[Math.min(w - 1, x + (sw >> 1))]; if (t < 0) continue;
       const sh = Math.min(Math.floor(Y0 + t) - sy0, Math.ceil((h - t) / MIRK)); if (sh < 2) continue;
       g1.setTransform(1, 0, 0, -MIRK, 0, t); g1.drawImage(m.r3, x, Math.floor(Y0 + t) - sy0 - sh, sw, sh, x, -sh, sw, sh); }
-    g2.setTransform(1, 0, 0, 1, 0, 0); g2.globalCompositeOperation = 'source-over'; g2.clearRect(0, 0, w, h);
-    const bh = Math.max(1, Math.round(0.0022 * H * dpr)), R = dice(m.w0 * 7919 + w), per = 0.011 * H * dpr;
+    // the turned image is blurred once, here (r4); the bands are only listed (y, how far toward the near side, how dark):
+    // drawMir lays them, shifted for the instant, every frame. Still water (?wave=0): laid once, into the bake, as before
+    if (!m.r4) { m.r4 = document.createElement('canvas'); m.r4.width = w; m.r4.height = h; }
+    { const g4 = m.r4.getContext('2d'); g4.setTransform(1, 0, 0, 1, 0, 0); g4.clearRect(0, 0, w, h); g4.filter = `blur(${(0.0016 * H * dpr).toFixed(2)}px)`; g4.drawImage(m.r1, 0, 0); g4.filter = 'none'; }
+    const bh = Math.max(1, Math.round(0.0022 * H * dpr)), R = dice(m.w0 * 7919 + w); m.per = 0.011 * H * dpr; m.bh = bh; m.bd = [];
     for (let y = Math.floor(m.w0); y < wEnd; y += bh) { const f = (y - m.w0) / (wEnd - m.w0), r = R(); if (!m.sea && r < 0.02 + 0.07 * f) continue;   // (not on a waterline: a band left out ran from edge to edge of the paper, a ruled white line)
-      g2.globalAlpha = (m.sea ? 0.74 * Math.pow(1 - f, 1.25) : 0.6 - 0.42 * f) * (0.8 + 0.2 * r); g2.drawImage(m.r1, 0, y, w, bh, Math.round((0.0008 + 0.0045 * f) * H * dpr * Math.sin(y / per + 5 * Math.sin(y / (3.7 * per)))), y, w, bh); }
-    g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-in'; g2.drawImage(m.wat, 0, 0); g2.globalCompositeOperation = 'source-over';
-    b.setTransform(1, 0, 0, 1, 0, 0); b.globalAlpha = 1; b.filter = `blur(${(0.0016 * H * dpr).toFixed(2)}px)`; b.drawImage(m.r2, X0, Y0); b.filter = 'none'; m.mirMs = +(performance.now() - tM).toFixed(1);
+      m.bd.push([y, f, (m.sea ? 0.74 * Math.pow(1 - f, 1.25) : 0.6 - 0.42 * f) * (0.93 + 0.07 * r)]); }   // (nearly even: the bands are no longer blurred together after they are laid, and 0.8 to 1 showed as scan lines)
+    if (!WAVES) { drawMir(m, 0); b.setTransform(1, 0, 0, 1, 0, 0); b.globalAlpha = 1; b.drawImage(m.r2, X0, Y0); }
+    m.mirMs = +(performance.now() - tM).toFixed(1);
   }
+  // Moving water (Yang 11-19: "hiệu ứng sóng nước, vật lý mặt nước"). The image in the water is laid anew every frame:
+  //   swell    each level band is shifted sideways by two waves that travel down the water at different speeds and
+  //            lengths (the still picture had one, frozen), more toward the near side
+  //   ripples  where the dragon's head comes over water, and then every 5% of a screen height it travels over it, a
+  //            ring spreads from under it: two rings one after the other (sheet L's splash rings, _o; an ellipse without
+  //            them), wider on near water, stronger the faster the head went, gone in RIPL seconds. While a ring lives
+  //            the bands about its level swing wider (the image there breaks up). Nothing over land standing in the water.
+  // Not a simulation of a surface: rings do not meet a shore or each other. rip: the rings alive, { x, y, t0, s, m, k }.
+  const WAVES = new URLSearchParams(location.search).get('wave') !== '0', RIPL = 2.4; let rip = [], ripLast = null;
+  function drawMir(m, T) {
+    const g2 = m.r2.getContext('2d'), w = m.wat.width, h = m.wat.height, H = D.H, per = m.per, bh = m.bh, rs = rip.filter((q) => q.m === m && T > q.t0 && T < q.t0 + RIPL + 0.4);
+    g2.setTransform(1, 0, 0, 1, 0, 0); g2.globalCompositeOperation = 'source-over'; g2.clearRect(0, 0, w, h);
+    for (const [y, f, a] of m.bd) { let ag = 1; for (const q of rs) { const l = (T - q.t0) / RIPL, dy = (y - (q.y - m.oy) * dpr) / (0.03 * H * dpr); if (l < 1) ag += 1.5 * q.s * (1 - l) * Math.exp(-dy * dy); }
+      const ph = y / per + 5 * Math.sin(y / (3.7 * per));
+      g2.globalAlpha = a; g2.drawImage(m.r4, 0, y, w, bh, ((0.0008 + 0.0045 * f) * Math.sin(ph - 1.5 * T) + (0.0004 + 0.0028 * f) * Math.sin(0.43 * ph + 0.8 * T + 2)) * ag * H * dpr, y, w, bh); }
+    const ko = S.tex === 'code' ? [] : (STROKES.muse_o || []).filter((q) => q.im);
+    for (const q of rs) for (const dl of [0, 0.4]) { const l = (T - q.t0 - dl) / RIPL; if (l <= 0 || l >= 1) continue;
+      const nr = clamp((q.y / H - 0.3) / 0.6, 0, 1), wd = H * (0.02 + (0.1 + 0.12 * nr) * l) * (dl ? 0.7 : 1) * dpr, cx = (q.x - m.ox) * dpr, cy = (q.y - m.oy) * dpr; g2.globalAlpha = 0.9 * q.s * sm(l / 0.08) * Math.pow(1 - l, 1.4);
+      if (ko.length) { const o = ko[q.k % ko.length], hh = Math.min(wd * o.h / o.w, 0.3 * wd); g2.drawImage(o.im, cx - wd / 2, cy - hh / 2, wd, hh); }
+      else { g2.strokeStyle = `rgb(${INK})`; g2.lineWidth = Math.max(1, 0.0012 * H * dpr); g2.beginPath(); g2.ellipse(cx, cy, wd / 2, 0.14 * wd, 0, 0, 6.2832); g2.stroke(); } }
+    g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-in'; g2.drawImage(m.wat, 0, 0); g2.globalCompositeOperation = 'source-over';
+  }
+  // is (x, y) on this water (a waterline: below the line; a lake: by its mask, read once at an eighth of its size)
+  const inWater = (m, x, y) => { if (m.sea) return y > m.yBase + 0.004 * D.H;
+    if (!m.wm) { const cv = document.createElement('canvas'); cv.width = Math.ceil(m.wat.width / 8); cv.height = Math.ceil(m.wat.height / 8); const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(m.wat, 0, 0, cv.width, cv.height); m.wm = { w: cv.width, h: cv.height, d: g.getImageData(0, 0, cv.width, cv.height).data }; }
+    const px = Math.floor((x - m.ox) * dpr / 8), py = Math.floor((y - m.oy) * dpr / 8); return px >= 0 && py >= 0 && px < m.wm.w && py < m.wm.h && m.wm.d[(py * m.wm.w + px) * 4 + 3] > 128; };
+  const onSolid = (m, x, y) => { if (!m.solid) return false; const k = Math.floor((x - m.bx0) / BIN); return k >= 0 && k < m.ts.length && y > m.ts[k] && y < m.yBase; };
   // far ones first; but a bank or a rock whose foot lies in a lake's water stands in that lake, so it is laid after it (by
   // its foot alone it lay behind the lake's near shore, and the water wiped it out)
   // A mountain most of which was flown above a waterline stands beyond that water, though its ends dip below the line (by
@@ -1287,6 +1318,15 @@
       for (let j = k + 1; j < old.length && k >= 0; j++) { const o = old[j].m, dx = Math.round((o.ox - m.ox) * dpr), dy = Math.round((o.oy - m.oy) * dpr); if (dx < m.live.width && dy < m.live.height && dx + o.body.width > 0 && dy + o.body.height > 0) x.drawImage(o.body, dx, dy); }
       x.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = a; c.drawImage(m.live, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.restore(); };
     old.forEach((d, k) => { if (d.m.flow) flowOf(d, 1, k); });
+    if (WAVES && MIRROR) {
+      rip = rip.filter((q) => T >= q.t0 && T - q.t0 < RIPL + 0.5);
+      if (!Rm.st.mouse || BOTRIP) { const hc = BOTRIP || Rm.hc, wd = [...old].reverse().find((d) => d.m.wat && d.m.bd && inWater(d.m, hc.x, hc.y));
+        if (wd && !old.some((d) => onSolid(d.m, hc.x, hc.y))) { const dd = ripLast ? Math.hypot(hc.x - ripLast[0], hc.y - ripLast[1]) : -1;
+          if (dd < 0 || dd > 0.05 * H) { rip.push({ x: hc.x, y: hc.y, t0: T, s: dd < 0 ? 0.7 : clamp(0.45 + 0.5 * dd / Math.max(0.016, T - ripLast[2]) / H, 0.45, 1), m: wd.m, k: (Math.random() * 97) | 0 }); if (rip.length > 16) rip.shift(); ripLast = [hc.x, hc.y, T]; } }
+        else ripLast = null; }
+      old.forEach((d, k) => { const m = d.m; if (!m.wat || !m.bd) return; const t1 = performance.now(); drawMir(m, T); const x = m.r2.getContext('2d'); x.globalCompositeOperation = 'destination-out';
+        for (let j = k + 1; j < old.length; j++) { const o = old[j].m, dx = Math.round((o.ox - m.ox) * dpr), dy = Math.round((o.oy - m.oy) * dpr); if (dx < m.r2.width && dy < m.r2.height && dx + o.body.width > 0 && dy + o.body.height > 0) x.drawImage(o.body, dx, dy); }
+        x.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = sm((T - d.t0 - REVEAL) / 1.2); c.drawImage(m.r2, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.restore(); m.wavMs = +(performance.now() - t1).toFixed(2); }); }
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m;
       if (m.river) {   // a river comes up all at once: the water clears, the banks darken
@@ -1363,6 +1403,6 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
 
   try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
-  window.__paint = { S, st, step, render, reset, undo, freeW, guess, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
+  window.__paint = { S, st, step, render, reset, undo, freeW, guess, ripAt: (p) => { BOTRIP = p; }, wavMs: () => st.done.map((d) => (d.m && d.m.wavMs) || 0), ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
     info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
 })();
