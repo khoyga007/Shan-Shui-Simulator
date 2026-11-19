@@ -12,6 +12,7 @@ alpha, plus strokes.json {key: [{f, w, h, tone}]}.
   <Source> I.png  long level lake shores, waterline on top, dark then pale   key <source>_i
   <Source> J.png  rows of level dashes of still water                        key <source>_j
   <Source> K.png  clumps of reeds, and a row of low shore rocks              keys <source>_w (reeds), <source>_s (rocks)
+  <Source> L.png  a row of leaping fish, a row of splash rings                keys <source>_x (fish), <source>_o (rings)
 Level strokes and bands are straightened: every column is slid up so the upper edge is level (they arc a little; bent
 along a ridge, the upper edge is the ridge line). usage: python tools/build_inklines.py"""
 import json, os
@@ -21,8 +22,10 @@ from scipy import ndimage as ndi
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC, OUT = os.path.join(ROOT, 'web', 'assets', 'inklines'), os.path.join(ROOT, 'web', 'assets', 'strokes')
 os.makedirs(OUT, exist_ok=True)
-for f in os.listdir(OUT): os.remove(os.path.join(OUT, f))
-man = {}
+ONLY = os.environ.get('ONLY')   # ONLY=l: recut that one kind of sheet, the rest kept as they are (the whole run takes minutes)
+if not ONLY:
+    for f in os.listdir(OUT): os.remove(os.path.join(OUT, f))
+man = json.load(open(os.path.join(OUT, 'strokes.json'))) if ONLY else {}
 
 
 def save(key, k, b, ext='png'):
@@ -92,6 +95,28 @@ def tufts(key, ink, thr=0.1, crop=0.05):
         else: save(key + '_w', kw, a); kw += 1
 
 
+def fish(key, ink, thr=0.1):
+    """sheet L: a row of leaping fish (head up and to the right), under it a row of splash rings with droplets over
+    them. Rows found as bands of ink, pieces as runs of columns in a band. Of the lower rows only the last band is kept:
+    the rings, without their droplets when those stand clear"""
+    u = ink.shape[1] / 2048; on = ink > thr
+    bands = [(a, b) for a, b in runs(on.any(axis=1)) if b - a > 20 * u]
+    top = max(bands, key=lambda r: r[1] - r[0]); low = bands[-1]
+    for (a, b), suf in ((top, '_x'), (low, '_o')):
+        man.pop(key + suf, None); k = 0
+        if suf == '_x':   # the fish overlap as columns (a tail under the next one's head): told apart as connected ink
+            lab, n = ndi.label(ndi.binary_dilation(on[a:b], structure=np.ones((int(13 * u) | 1, int(13 * u) | 1))))
+            for i, s in sorted(enumerate(ndi.find_objects(lab)), key=lambda t: t[1][1].start):
+                if s[1].stop - s[1].start < 60 * u: continue
+                q = np.where(lab[s] == i + 1, ink[a:b][s], 0); rows = np.nonzero(q.max(axis=1) > thr)[0]; cols = np.nonzero(q.max(axis=0) > thr)[0]
+                save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1
+            continue
+        for ca, cb in runs(ndi.binary_dilation(on[a:b].any(axis=0), structure=np.ones(int(9 * u) | 1))):
+            if cb - ca < 60 * u: continue
+            p = np.where(on[a:b, ca:cb].any(axis=1))[0]; q = ink[a + p[0]:a + p[-1] + 1, ca:cb]
+            cols = np.nonzero(q.max(axis=0) > thr)[0]; save(key + suf, k, q[:, cols[0]:cols[-1] + 1]); k += 1
+
+
 # -- mist (sheets D and E): not ink to lay down but a mask. A flat grey wash that mist has eaten into: grey = the ink
 #    of the mountain stays, white = mist. Saved as the others (grey in alpha, 1 = ink stays), read as numbers by paint.js
 SKIP = {'muse_m': {0, 1}, 'muse_e': 'all'}   # Muse's came out as Western watercolour blooms (crinkled cauliflower rims), not mist
@@ -151,6 +176,7 @@ for name in sorted(os.listdir(SRC)):
     if not name.lower().endswith('.png'): continue
     stem = os.path.splitext(name)[0].lower().split()
     src, kind = stem[0], (stem[1] if len(stem) > 1 else '')
+    if ONLY and kind != ONLY: continue
     L = np.asarray(Image.open(os.path.join(SRC, name)).convert('L'), dtype=np.float32)
     if kind in ('d', 'e'):
         dark = np.clip(float(np.percentile(L, 97)) - L, 0, None)
@@ -168,6 +194,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'i': level(src + '_i', ink, 0.1, 0.12, 0.05, grow=(15, 41))               # lake shores: dark near ones, pale far ones (told apart by tone)
     elif kind == 'j': loose(src, ink, thr=0.1, crop=0.05, long='_j', comp='_jx', gain=0.9, minh=0)   # still water: single level dashes, pointed at both ends
     elif kind == 'k': tufts(src, ink)
+    elif kind == 'l': fish(src, ink)
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

@@ -52,6 +52,29 @@
   size(); addEventListener('resize', () => { size(); for (const d of st.done) d.m = null; bakeKey = ''; });
   // the stroke while it is being flown: drawn opaque on a scratch canvas and laid on at its alpha (drawn straight, the
   // overlapping round caps showed as a string of beads)
+  // Now and then a fish leaps (Yang 11-19; sheet L: _x fish, _o splash rings). Rare: one water has one leap in a
+  // period of 11 to 20 seconds, and one period in five has none. A leap: a ring spreads where the fish leaves the
+  // water, the fish goes over in a low arc, turning with its flight (as painted its head points up and to the right,
+  // FISH), and a second ring spreads where it falls. Nothing is kept between frames but the leap of the period we are
+  // in: everything follows from T and the water's seed, so a bake or a resize changes nothing.
+  // spot(r1, r2, sg) -> { x0, y0, span, hgt, sz } where a leap can be made (both ends in the water), or null.
+  // ?leap=1: one every three seconds, to look at them.
+  const FISH = -0.66, LEAPS = new URLSearchParams(location.search).has('leap');
+  function leaper(seed, spot) {
+    const per = LEAPS ? 2.9 : 11 + (seed % 1000) / 1000 * 9, off = LEAPS ? 0 : (seed % 777) / 777 * per, du = 0.75, kit = (suf) => (S.tex === 'code' ? [] : (STROKES['muse' + suf] || []).filter((q) => q.im)),
+      h = (k, j) => { const v = Math.sin(k * 127.1 + j * 311.7 + (seed % 9973)) * 43758.5453; return v - Math.floor(v); }; let ck = -1, J = null;
+    return (T, x) => { const k = Math.floor((T + off) / per), t = T + off - k * per; if (t > du + 2) return;
+      if (k !== ck) { const kx = kit('_x'), ko = kit('_o'); if (!kx.length) return; ck = k; J = null;
+        if (LEAPS || h(k, 0) > 0.2) for (let a = 0; a < 8 && !J; a++) J = spot(h(k, 3 * a + 1), h(k, 3 * a + 2), h(k, 3 * a + 3) < 0.5 ? -1 : 1);
+        if (J) { J.sg = J.sg || 1; J.q = kx[Math.floor(h(k, 40) * kx.length) % kx.length]; J.o = ko.length ? [ko[Math.floor(h(k, 41) * ko.length) % ko.length], ko[Math.floor(h(k, 42) * ko.length) % ko.length]] : null; } }
+      if (!J) return; const tone = 0.5 + 0.5 * clamp((J.y0 / D.H - 0.2) / 0.7, 0, 1);
+      if (J.o) for (const [cx, t1, q] of [[J.x0, t, J.o[0]], [J.x0 + J.sg * J.span, t - du, J.o[1]]]) { const l = t1 / 2; if (l <= 0 || l >= 1) continue;
+        const w = J.sz * 1.5 * (0.4 + 1.5 * l), hh = w * q.h / q.w; x.globalAlpha = 0.8 * tone * sm(l / 0.1) * (1 - l); x.drawImage(q.im, cx - w / 2, J.y0 - hh / 2, w, hh); }
+      if (t < du) { const p = t / du, grow = sm(p / 0.15) * sm((1 - p) / 0.15), w = J.sz * (0.5 + 0.5 * grow), q = J.q, hh = w * q.h / q.w;   // it comes out of the water small and goes back into it small
+        x.save(); x.translate(J.x0 + J.sg * J.span * p, J.y0 - J.hgt * 4 * p * (1 - p)); x.scale(J.sg, 1); x.rotate(Math.atan2(-J.hgt * 4 * (1 - 2 * p), J.span) - FISH);
+        x.globalAlpha = 0.9 * tone * sm(p / 0.08) * sm((1 - p) / 0.08); x.drawImage(q.im, -w / 2, -hh / 2, w, hh); x.restore(); }
+      x.globalAlpha = 1; };
+  }
   // a piece standing upright, w wide, the middle of its foot at (bx, by): a clump of reeds, a shore rock
   const stand = (x, q, bx, by, w, flip) => { const h = w * q.h / q.w; x.save(); x.translate(bx, by); if (flip) x.scale(-1, 1); x.drawImage(q.im, -w / 2, -h, w, h); x.restore(); };
   const tmp = document.createElement('canvas'), tc = tmp.getContext('2d');
@@ -536,7 +559,10 @@
           const q = ln.q, lp = cl[m], frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = ln.fr * (1 - frac) * q.w, th0 = life * H * (0.0024 + 0.0032 * nearY(Q[0][1])) * (0.7 + 0.6 * ln.fr), ds = 3; let j = 0;   // th0: the height of the piece, the line in it about half of that
           for (let a = 0; a < lp; a += ds) { while (j < m - 1 && cl[j + 1] < a) j++; const x = dir > 0 ? a / lp : 1 - a / lp, th = th0 * (0.1 + 0.9 * sm(x / 0.65) * sm((1 - x) / 0.14)), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1, f = a - cl[j];
             gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx / l * f - ox), dpr * (Q[j][1] + dy / l * f - oy)); gl.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.8, th); } }
-        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.fillStyle = gd; gl.fillRect(0, 0, cw, chh); gl.globalCompositeOperation = 'source-over'; }; }
+        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.fillStyle = gd; gl.fillRect(0, 0, cw, chh); gl.globalCompositeOperation = 'source-over'; home(gl); leap(T, gl); };
+      // a fish leaps across the stream where it is broad enough to hold the leap
+      const leap = leaper(d.seed, (r1, r2, sg) => { const i = 4 + Math.floor(r1 * (n - 8)); if (hw[i] < 0.02 * H || env(i) < 0.7) return null;
+        const sz = H * (0.016 + 0.024 * nearY(P[i][1])), span = Math.min(sz * (1.6 + r2), hw[i] * 1.1); return { x0: P[i][0] - sg * span / 2, y0: P[i][1], span, sz, sg, hgt: span * (0.45 + 0.25 * r2) }; }); }
     if (kitG.length) { const [cur, gc] = mk();   // ripples and such: laid opaque and paled as one (as the banks)
       home(gc);
       // ripples: a few small flat waves in the broad reaches, lying level whichever way the stream runs
@@ -629,7 +655,11 @@
     { raw(gc); gc.globalCompositeOperation = 'source-in'; gc.fillStyle = `rgb(${INK})`; gc.fillRect(0, 0, cw, chh); gc.globalCompositeOperation = 'source-over'; home(gc); }
     fade(gc, 0.6); raw(g); g.drawImage(dsh, 0, 0);
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
-    return { river: true, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+    // a fish leaps now and then, on a layer of its own redrawn each frame (as the river's current)
+    const [live, gl] = mk(), leap = leaper(d.seed, (r1, r2, sg) => { const x = xa + r1 * (xb - xa), y = ya + (0.25 + 0.7 * r2) * (yb - ya), sz = H * (0.016 + 0.024 * nearY(y)), span = sz * (1.6 + r2);
+        if (!inside(x, y - 0.01 * H) || !inside(x, y + 0.01 * H) || !inside(x + sg * span, y - 0.01 * H) || !inside(x + sg * span, y + 0.01 * H)) return null; return { x0: x, y0: y, span, sz, sg, hgt: span * (0.45 + 0.25 * r2) }; }),
+      flow = (T) => { raw(gl); gl.clearRect(0, 0, cw, chh); home(gl); leap(T, gl); };
+    return { river: true, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
   const SNAP = 0.05;   // how near its start a lake's stroke must end for the two to be drawn together, in screen heights
