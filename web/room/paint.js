@@ -1291,15 +1291,15 @@
     // is mirrored in it (Yang 11-19, of the swell alone: "anh chả thấy gì cả": a pale blurred image shifted by a few px
     // does not read as moving, and water with nothing behind it had nothing to shift). Sheet H's pale ripples (_r); a
     // thin line without them. Each has its own period and place; larger and darker toward the near side.
-    {
+    { const kj = S.tex === 'code' ? [] : (STROKES.muse_j || []).filter((q) => q.im); g2.strokeStyle = `rgb(${INK})`;
       for (const q of m.gl) { const u = T / q.p + q.ph, l = u - Math.floor(u), n = Math.floor(u), a = Math.sin(3.1416 * l); if (a < 0.05) continue;
         const R = dice(q.sd + n * 131), x = R() * w, y = m.w0 + (0.03 + 0.97 * Math.pow(R(), 1.3)) * (h - m.w0), f = (y - m.w0) / Math.max(1, h - m.w0), wd = H * dpr * (0.025 + 0.075 * f) * (0.7 + 0.6 * R()), cx = x + q.v * (l - 0.5) * H * dpr * (0.4 + f);
-        // a wave mark: two to four small humps side by side, joined at points (the m-shaped wave stroke of the painting manuals;
-        // Yang 11-19 of the sheet's ripples, stacks of level lines: "nó phải hình chữ M"). Each hump a sliver, thick at its top, drawn here
-        g2.globalAlpha = (0.4 + 0.4 * f) * a * a; g2.fillStyle = `rgb(${INK})`;
-        const nh = 2 + Math.floor(R() * 3), aw = wd / nh, th = Math.max(1, H * dpr * 0.0014 * (0.7 + 0.8 * f));
-        for (let k = 0; k < nh; k++) { const x0 = cx - wd / 2 + k * aw, hg = aw * (0.2 + 0.12 * R()), yy = y + (R() - 0.5) * 0.08 * aw;
-          g2.beginPath(); g2.moveTo(x0, yy); g2.quadraticCurveTo(x0 + 0.5 * aw, yy - 2 * hg, x0 + aw, yy); g2.quadraticCurveTo(x0 + 0.5 * aw, yy - 2 * hg + 2 * th, x0, yy); g2.fill(); } } }
+        // a water line of sheet J (single level dashes of still water, the lake's own), one at a time. Not sheet H's ripples (stacks
+        // of level lines: current marks, they read as stamps) and not humps drawn here (Yang 11-19: the m shape was wrong: still
+        // water in the manuals is bare paper and a few long thin level lines). A thin line without the sheet.
+        g2.globalAlpha = Math.min(1, (0.45 + 0.45 * f) * a * a); const wl = wd * 1.6;
+        if (kj.length) { const o = kj[Math.floor(R() * kj.length) % kj.length], hh = Math.min(wl * o.h / o.w, 0.12 * wl); g2.drawImage(o.im, cx - wl / 2, y - hh / 2, wl, hh); }
+        else { g2.lineWidth = Math.max(1, 0.0011 * H * dpr); g2.beginPath(); g2.moveTo(cx - wl / 2, y); g2.lineTo(cx + wl / 2, y); g2.stroke(); } } }
     const ko = S.tex === 'code' ? [] : (STROKES.muse_o || []).filter((q) => q.im);
     for (const q of rs) for (const dl of [0, 0.4]) { const l = (T - q.t0 - dl) / RIPL; if (l <= 0 || l >= 1) continue;
       const nr = clamp((q.y / H - 0.3) / 0.6, 0, 1), wd = H * (0.02 + (0.1 + 0.12 * nr) * l) * (dl ? 0.7 : 1) * dpr, cx = (q.x - m.ox) * dpr, cy = (q.y - m.oy) * dpr; g2.globalAlpha = 0.9 * q.s * sm(l / 0.08) * Math.pow(1 - l, 1.4);
