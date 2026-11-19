@@ -526,9 +526,18 @@
   //   water   level dashes (sheet J), pointed at both ends, never turned: larger and darker toward the near shore, few
   //           and faint toward the far one
   function lake(d) {
-    const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P0 = calm(d.stroke, STEP, 6);
+    const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R); let P0 = calm(d.stroke, STEP, 6);
     if (P0.length < 12) return null;
-    { const a = P0[P0.length - 1], b = P0[0], k = Math.floor(Math.hypot(b[0] - a[0], b[1] - a[1]) / STEP); for (let i = 1; i < k; i++) P0.push([a[0] + (b[0] - a[0]) * i / k, a[1] + (b[1] - a[1]) * i / k]); }
+    // -- closing the loop (Yang 11-19: the ends snap together). Flown past its own start, the overlap is cut where head
+    //    and tail come nearest; what gap is left is bridged by a curve that leaves along the tail and arrives along the
+    //    head (a straight chord left a flat side and two corners)
+    { const m = P0.length, q = m >> 2; let bi = 0, bj = m - 1, bd = 1e9;
+      for (let i = 0; i <= q; i++) for (let j = m - 1 - q; j < m; j++) { const dd = Math.hypot(P0[j][0] - P0[i][0], P0[j][1] - P0[i][1]); if (dd < bd) { bd = dd; bi = i; bj = j; } }
+      if (bd < SNAP * H && bj - bi > 12) P0 = P0.slice(bi, bj + 1); }
+    { const m = P0.length, a = P0[m - 1], b = P0[0], gap = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.floor(gap / STEP);
+      const u = (p, q) => { const l = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [(q[0] - p[0]) / l * gap * 1.4, (q[1] - p[1]) / l * gap * 1.4]; }, ta = u(P0[Math.max(0, m - 6)], a), tb = u(b, P0[Math.min(m - 1, 5)]);
+      for (let i = 1; i < k; i++) { const t = i / k, t2 = t * t, t3 = t2 * t, h0 = 2 * t3 - 3 * t2 + 1, h1 = t3 - 2 * t2 + t, h2 = 3 * t2 - 2 * t3, h3 = t3 - t2;
+        P0.push([h0 * a[0] + h1 * ta[0] + h2 * b[0] + h3 * tb[0], h0 * a[1] + h1 * ta[1] + h2 * b[1] + h3 * tb[1]]); } }
     const n = P0.length, wrap = (A, i) => A[((i % n) + n) % n];
     let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P0) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
     const cy = (ya + yb) / 2, SQ = clamp(0.42 * (xb - xa) / Math.max(1, yb - ya), 0.5, 1);
@@ -575,7 +584,8 @@
     return { river: true, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
-  const RIM = 0.006;   // how far before a near ridge the mountain behind it begins to pale, in screen heights
+  const SNAP = 0.05;   // how near its start a lake's stroke must end for the two to be drawn together, in screen heights
+  const RIM = 0.006;  // how far before a near ridge the mountain behind it begins to pale, in screen heights
   const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
@@ -605,6 +615,10 @@
       strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1)));
     }
     if (st.stroke.length > 1) strokePath(st.stroke, 0.85);
+    if (st.pen && st.kind === 'lake' && st.stroke.length > 8) {   // where the loop began: a faint dot, dark once the head is back near enough to close on release
+      const q = st.stroke, a = q[0], b = q[q.length - 1]; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
+      if (L > 0.3 * H) { const near = Math.hypot(b[0] - a[0], b[1] - a[1]) < SNAP * H; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.arc(a[0], a[1], H * (near ? 0.012 : 0.007), 0, 6.2832); c.fillStyle = `rgba(${INK},${near ? 0.6 : 0.25})`; c.fill(); }
+    }
     if (T - st.msgT < 3) {
       c.setTransform(dpr, 0, 0, dpr, 0, 0); c.font = '15px Consolas, monospace'; const tw = c.measureText(st.msg).width, x = freeW() / 2 - tw / 2, y = H * 0.5;
       c.globalAlpha = clamp(3 - (T - st.msgT), 0, 1); c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(x - 10, y - 20, tw + 20, 30); c.fillStyle = '#111'; c.fillText(st.msg, x, y); c.globalAlpha = 1;
