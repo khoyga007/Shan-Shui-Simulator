@@ -618,15 +618,17 @@
           // how thick: thousands of flat pale wisps are laid by it, each taking only a little of the ink under it. Where many
           // lie it is white, where few the mountain shows through pale; wisps also stray up above the sea, thinner the
           // higher. Only well under the level of the sea (the old mask moved down and melted) is it whole, as before.
+          const kA = (suf) => S.tex === 'code' ? [] : (STROKES['muse' + suf] || []).filter((q) => q.im), kW = kA('_aw'), kP = kA('_ap'), kV = kA('_av');   // sheet AA (11-19): real wet touches as the wisps: long trailing ones, puffs (laid flat), torn veils. Brush 'code': the one drawn blob
           const Rm = dice(d.seed ^ 0x3b17), SP = wisp(), q = 1 / MQ, dn = 0.035 * H * q, upM = 0.12 * H * q;
           x.filter = `blur(${(0.022 * H * q).toFixed(2)}px)`; x.drawImage(sharp, 0, dn); x.filter = 'none';
           const cnt = Math.min(7000, Math.round(mw * mh * MQ * MQ / (H * H) * MB.n));
           for (let b = 0; b < cnt; b++) { const bx = Rm() * mw, by = Rm() * mh, r0 = Rm(), up = upM * r0 * r0, r1 = Rm(), r2 = Rm(), r3 = Rm(), r4 = Rm(), r5 = Rm(),
               f = px[(clamp(Math.round(by + up), 0, mh - 1) * mw + clamp(bx | 0, 0, mw - 1)) * 4 + 3] / 255 * (1 - 0.75 * up / upM); if (f < 0.02) continue;
-            const w = H * (MB.w0 + MB.w1 * r1 * r1) * q, h = w * (0.16 + 0.22 * r2), ci = clamp(bx | 0, 0, mw - 1), ed = Math.min(bx, mw - bx) - 0.5 * w; if (ed <= 0) continue;   // a wisp cut by the edge of the mask stood as an upright line
+            const r6 = Rm(), r7 = Rm(), kit = r1 > 0.55 && kW.length ? kW : r6 < 0.4 && kV.length ? kV : kP.length ? kP : kW, m = kit.length ? kit[Math.floor(r7 * kit.length) % kit.length] : null,
+              w = H * (MB.w0 + MB.w1 * r1 * r1) * q, h = m ? w * clamp(m.h / m.w * (kit === kP ? 0.4 : kit === kV ? 0.7 : 1), 0.1, 0.42) * (0.8 + 0.4 * r2) : w * (0.16 + 0.22 * r2), ci = clamp(bx | 0, 0, mw - 1), ed = Math.min(bx, mw - bx) - 0.5 * w; if (ed <= 0) continue;   // a wisp cut by the edge of the mask stood as an upright line
             // (and none over the line of the ridge away from its ends: straying up, they veiled the stroke the player drew)
             const keep = sm(ed / (0.1 * H * q)) * (1 - cE[ci] * (1 - sm((my + (by - 0.35 * h) * MQ - cT[ci] - 0.012 * H) / (0.03 * H)))), clump = 0.55 + 1.15 * sm((f2(bx * MQ / (0.2 * H) + 31, by * MQ / (0.07 * H) + 17, 2) - 0.36) / 0.3);   // gathered in banks, thin between
-            if (keep < 0.02) continue; x.globalAlpha = Math.min(1, f * keep * (MB.a0 + MB.a1 * r3 * r3 * r3) * clump); x.setTransform(r4 < 0.5 ? -1 : 1, 0, 0, 1, bx, by); x.rotate((r5 - 0.5) * 0.24); x.drawImage(SP, -w / 2, -h / 2, w, h); }
+            if (keep < 0.02) continue; x.globalAlpha = Math.min(1, f * keep * (MB.a0 + MB.a1 * r3 * r3 * r3) * clump * (m ? clamp(0.2 / m.tone, 0.6, 1.6) : 1)); x.setTransform(r4 < 0.5 ? -1 : 1, 0, 0, 1, bx, by); x.rotate((r5 - 0.5) * 0.24); x.drawImage(m ? m.im : SP, -w / 2, -h / 2, w, h); }
           x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; } } mxy = [mx, my, MQ]; }
     return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }

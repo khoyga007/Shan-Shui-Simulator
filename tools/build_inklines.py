@@ -280,6 +280,27 @@ def mist_patches(key, d):
             save(key, k, shrink(ink, 360), 'webp'); man[key][-1].update(side=side if st.mean() > 0.12 else '', c=round(c, 3)); k += 1
 
 
+def wisps(key, ink, sufs=('_aw', '_ap', '_av'), counts=(6, 8, 5), thr=0.05):
+    """sheet AA, wisps of mist to build the mist of (paint.js, MBLOB): a row of long wisps (dense head left, trailing right,
+    head to tail in one chain), a row of puffs, a row of pale torn veils. Rows as bands of ink; in a band the known number
+    of pieces, cut at the emptiest columns between them. Each is melted (mist has no hairs and no rim: Muse painted
+    watercolour blooms and hairy comets, kept as shapes only), brought to full strength, feathered at the cuts, made small."""
+    u = ink.shape[1] / 2048; on = ink > thr
+    bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(25 * u) | 1))) if b - a > 40 * u]
+    for (a, b), suf, n in zip(bands, sufs, counts):
+        man.pop(key + suf, None); band = ink[a:b]; cols = np.nonzero(on[a:b].any(axis=0))[0]; c0, c1 = cols[0], cols[-1] + 1
+        sm_ = ndi.gaussian_filter1d(band[:, c0:c1].sum(axis=0), 9 * u); W = c1 - c0; cuts = [0]
+        for i in range(1, n):   # the emptiest column near where an even division would cut
+            lo, hi = int(W * (i - 0.4) / n), int(W * (i + 0.4) / n); cuts.append(lo + int(sm_[lo:hi].argmin()))
+        cuts.append(W)
+        for k in range(n):
+            q = ndi.gaussian_filter(band[:, c0 + cuts[k]:c0 + cuts[k + 1]], 5 * u); q = np.clip(q / max(1e-6, float(np.percentile(q, 99.5))), 0, 1)
+            hq, wq = q.shape; f = int(0.07 * wq); win = np.ones(wq, np.float32); win[:f] = np.linspace(0, 1, f) ** 2 if suf != '_aw' else np.linspace(0.3, 1, f); win[-f:] = np.linspace(1, 0, f) ** 2
+            q = q * win[None, :]; rows = np.nonzero(q.max(axis=1) > 0.03)[0]; q = q[rows[0]:rows[-1] + 1]
+            save(key + suf, k, shrink(q, 256))
+    print(' wisp rows', len(bands), 'of', len(sufs))
+
+
 for name in sorted(os.listdir(SRC)):
     if not name.lower().endswith('.png'): continue
     stem = os.path.splitext(name)[0].lower().split()
@@ -316,6 +337,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'x': rowsheet(src, ink, ('_xh', '_xa', '_xf', '_xm'), thr=0.06, blob=(15, 5, 5, 21))   # texture strokes of a mountain's flank (cun): hemp-fibre lines (pale, two or three abreast), axe-cut chops, folded-belt strokes, clusters of moss dots
     elif kind == 'y': rowsheet(src, ink, ('_yl', '_yf', '_yt', '_yp'), thr=0.06, gap=7)   # forest seen from afar: tree lines of a wooded crest, forest patches (tree tops above, loose dabs below), single far trees, the patches again in pale ink; bottom of a piece = the ground
     elif kind == 'z': rowsheet(src, ink, ('_za', '_zb', '_zc'), thr=0.06, blob=(5, 5, 5), skirt=(0.4, 0.22, 0))   # forest masses: long level woods (tree tops above, runs of ink below: cut off), woods slanting up to the right (they reach over each other: cut as islands), small woods
+    elif kind == 'aa': wisps(src, ink)
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
