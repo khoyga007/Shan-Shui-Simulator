@@ -140,6 +140,7 @@ Player picks ELEMENT, game reads sub-kind from how stroke was flown. Replaces fi
 - Idea parked: loop direction as modifier for other elements (e.g. water loop cw/ccw).
 
 Order (Yang swapped 11-19): (1) merge keys DONE -> (2) water mirror, lake only, v1 DONE (`mirror`, paint.js; key M on/off; bot `r7=1&lake=4`) -> (3) NEAR tier for Địa -> (4) Thiên -> (5) Nhân.
+PARKED (Yang 11-19, agreed, "để sau"): third Thuỷ shape = stroke flown straight and level across >=~70% of frame width -> WATERLINE: all above mirrored below it, water down to paper bottom fading to white, no shore, line snapped dead level, things drawn lower stand before it; mirror scale ~0.6-0.7 (no squeeze).
 Mirror v1 gaps: trees/reeds (live layers) not mirrored; image still (no moving ripple); appears at once when lake's reveal ends; river has none.
 
 ### Depth (why 2 and 3)
