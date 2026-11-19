@@ -176,3 +176,5 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Bank dark = brush marks, not a fill (11-19, Yang): thin wash underneath, rows of wet earth strokes layered over it (heavy under the upper line, fewer and paler downward), dry scrapes in the lower part. Sheet AK (broad dark washes) asked for; code takes its _kw / _kd when cut.
 
 - Near land has mist at its foot (11-19, Yang): wisps of sheet AA along the foot of bank and rock, own plain build in the land block (not the mountain sea-of-mist), amount = mist slider.
+
+- Trunk fix (11-19): limb slices turned by blended point tangents (per-segment turn broke dry streaks into steps); big bare trees (L >= 0.3H) take a full-toned trunk stroke, dry streaky ones only small trees (enlarged streaks = cables, lattice at forks).
