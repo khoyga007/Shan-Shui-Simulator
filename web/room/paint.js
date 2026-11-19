@@ -309,8 +309,20 @@
       if (tx > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.008 + 0.022 * R()) / (0.5 + 0.5 * tx)) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], lo = 1 - rock, r1 = R(), r2 = R(), r3 = R(),
             len = Math.min(0.6 * H, depth[k] * (0.5 + 0.7 * r1) * (1 - 0.5 * lo)), wd = clamp(len * q.h / q.w * (1.4 + 2 * r2), 0.008 * H, (0.07 - 0.035 * lo) * H),
             sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), y = ts[k] - 0.006 * H + lo * depth[k] * 0.5 * r3 * r3;
-          g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = tx * (0.3 + 0.55 * R()) * (1 - 0.45 * lo); g.drawImage(q.im, 0, -wd / 2, len, wd); }
-        g.globalAlpha = 1; home(g); } }
+          g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = tx * (0.3 + 0.55 * R()) * (1 - 0.6 * lo); g.drawImage(q.im, 0, -wd / 2, len, wd); }
+        g.globalAlpha = 1; home(g); }
+      // Sheet X, the cun proper (Yang's gen 11-19), mixed in with the drags: hemp-fibre lines (_xh, pale, many, down the slope),
+      // axe-cut chops (_xa, few, dark, slanting with the slope, high on the flank), folded-belt strokes (_xf, on a crag's
+      // face only: its ledges), clusters of moss dots (_xm, small, along the ridge and in the folds). Each row at its own size.
+      const kx = (suf) => (STROKES['muse_' + suf] || []).filter((q) => q.im), kXH = kx('xh'), kXA = kx('xa'), kXF = kx('xf'), kXM = kx('xm'), dn = (0.5 + 0.5 * tx) * (1 - hill);
+      const slAt = (k) => clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1);
+      const stamp = (q, x, y, an, len, al, fl = 1) => { const c0 = Math.cos(an), s0 = Math.sin(an), hh = len * q.h / q.w; g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = Math.min(1, al); g.drawImage(q.im, 0, -hh / 2, len, hh); };
+      const sow = (kit, stepH, f) => { if (kit.length && dn > 0.05) for (let x = bx0 + stepH * H * R(); x < bx1; x += H * stepH * (0.5 + R()) / dn) { const k = col(x); if (depth[k] > 0.03 * H) f(kit[Math.floor(R() * kit.length) % kit.length], x, k, slAt(k)); } };
+      sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
+      sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
+      if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), rock * (0.3 + 0.35 * R()), 1));
+      sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
+      g.globalAlpha = 1; home(g); }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
     // it an odd number of times), so the hollow of a C stays paper instead of filling to a plumb wall (r006)
