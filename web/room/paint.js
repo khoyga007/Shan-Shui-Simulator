@@ -471,6 +471,16 @@
             atY = (pw, w) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depth[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t, ka = col(x - 0.42 * w), kb = col(x + 0.42 * w);
               if (depth[ka] < 0.03 * H || depth[kb] < 0.03 * H || y < Math.max(top[ka], top[kb]) - 0.004 * H) return null;
               const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.2 - 0.3 * t) / 0.14), hi = 0.55 + 0.45 * sm((yBase - top[k]) / span / 0.5); return Rf() > hi * (1 - 0.5 * t) * Math.max(patch, 1 - t / 0.5) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (Rf() < 0.5) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
+          // (Yang 11-19, of the gaps between the stands low on the flank: "không nên nhạt mực như vậy, cho nó đen hẳn đi hoặc thêm
+          // texture". The flat pale wash of the body showed through. Under the wood now its own ground: dark wet ink pooled over
+          // the whole wooded reach (only where the mountain already has ink), paling toward the mist, and in it pale forest patches
+          // laid large as brushwork, so a gap reads as deeper wood in shade, not as bare paper-grey)
+          { g.globalCompositeOperation = 'source-atop'; const rr = H * (0.03 + 0.03 * near), nG = Math.min(1400, Math.round(area * reach / (rr * rr) * 2.2));
+            for (let q = 0; q < nG; q++) { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), 1.15), dp = depth[k]; if (dp < 0.04 * H) continue; const y = top[k] + dp * reach * t, r = rr * (0.7 + 0.8 * Rf()),
+                al = fa * (0.13 + 0.12 * near) * (1 - 0.75 * t) * (0.55 + 0.9 * N(x / (0.09 * H) + y / (0.13 * H) + 1300, 2)), gd = g.createRadialGradient(x, y, 0, x, y, r);
+              gd.addColorStop(0, `rgba(${INK},${al.toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
+            g.globalCompositeOperation = 'source-over';
+            if (kYP.length) for (let q = 0; q < tries * 0.35; q++) { const r1 = Rf(), w = w0 * (1.1 + 1.1 * r1), a = atY(1.1, w); if (!a) continue; put(pk(kYP), a[0], a[1], w, 0.5, 1, 0); put(pk(kYP), a[0] + w * (Rf() - 0.5) * 0.5, a[1] + w * 0.1, w * 0.8, 0.5, 0.9, 0); } }
           for (let q = 0; q < tries; q++) { const r1 = Rf(), a = atY(1.35, w0 * (0.7 + 0.8 * r1)); if (!a) continue; const [x, y, t] = a, pale = kYP.length && Rf() < 0.03 + 0.6 * t * t + 0.08 * (1 - near); lay.push([y, x, t, pale ? pk(kYP) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
           if (kYT.length) for (let q = 0; q < tries * 0.5; q++) { const a = atY(0.8, 0); if (!a) continue; const [x, y, t] = a; if (t < 0.25) continue; lay.push([y, x, t, pk(kYT), 2, Rf(), Rf()]); }
           lay.sort((p, q) => p[0] - q[0]);
