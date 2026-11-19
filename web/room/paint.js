@@ -173,8 +173,10 @@
       for (let i = 0; i < n;) { const m = Math.max(3, Math.round(n * (0.08 + 0.2 * Rc()))), off = (Rc() - 0.5) * 0.3, tilt = (Rc() - 0.5) * 0.3; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
       of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
       for (let j = 0; j < n; j++) P[j][1] += hgt * of[j] * sm((ya + 0.45 * hgt - P[j][1]) / (0.3 * hgt)); }
-    // both ends come down to the water: left as flown, the level foot cut them off plumb, a slab
-    if (land) { let yb = -1e9, ya = 1e9; for (const p of P) { yb = Math.max(yb, p[1]); ya = Math.min(ya, p[1]); } const low = yb + (land === 'bank' ? clamp(0.05 * Math.abs(P[n - 1][0] - P[0][0]), 0.02 * H, 0.07 * H) : 0), te = land === 'bank' ? 0.16 : 0.22;
+    // a rock: both ends come down to the water: left as flown, the level foot cut them off plumb, a slab.
+    // A bank keeps the line it was flown, as a mountain does (Yang 11-19, of a stroke whose ends the game had bent down into
+    // a closed mound, its foot pushed below the paper: "bờ đất phải hoạt động như nét vẽ núi ấy nhé, không được tự crop")
+    if (land === 'rock') { let yb = -1e9, ya = 1e9; for (const p of P) { yb = Math.max(yb, p[1]); ya = Math.min(ya, p[1]); } const low = yb + (land === 'bank' ? clamp(0.05 * Math.abs(P[n - 1][0] - P[0][0]), 0.02 * H, 0.07 * H) : 0), te = land === 'bank' ? 0.16 : 0.22;
       for (let j = 0; j < n; j++) { const t = j / (n - 1), e = sm(Math.min(t, 1 - t) / te); P[j][1] = low + (P[j][1] - low) * (0.04 + 0.96 * e); } }
     // A crag's top is broken rock, not the round cap the flight leaves (Yang 11-19: "làm đi em"): along the stretch that lies near
     // the top, the line is cut into ledges of uneven length, each standing a little higher or lower than the last and tilted its
@@ -700,7 +702,13 @@
           x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; } } mxy = [mx, my, mq]; }
     if (land) {   // the level foot, the line of the water along it (sheet F: a river bank's dark edge), its image below, a few dashes of still water (sheet J)
       let yb = -1e9, ya = 1e9; for (const p of P) { yb = Math.max(yb, p[1]); ya = Math.min(ya, p[1]); }
-      const foot = yb + 0.003 * H, fy = Math.round((foot - oy) * dpr), cw2 = cv.width, ch2 = cv.height, hl = Math.max(0.02 * H, foot - ya), cx = (bx0 + bx1) / 2;
+      // a bank: the stroke is its upper line and stays as flown; the earth hangs under it, a little below the stroke's lowest
+      // point, never below the paper. An end that stands above the foot runs out thin (it stood cut off plumb, a slab)
+      const foot = Math.max(yb + 0.003 * H, Math.min(yb + 0.003 * H + (land === 'bank' ? clamp(0.05 * (bx1 - bx0), 0.02 * H, 0.07 * H) : 0), H - 0.03 * H)), fy = Math.round((foot - oy) * dpr), cw2 = cv.width, ch2 = cv.height, hl = Math.max(0.02 * H, foot - ya), cx = (bx0 + bx1) / 2;
+      if (land === 'bank') { const nb = ts.length, fw = clamp(0.12 * (bx1 - bx0), 0.02 * H, 0.1 * H);
+        for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1;
+          for (const [xe, sg, te] of [[bx0, 1, ts[0]], [bx0 + nb * BIN, -1, ts[nb - 1]]]) { const gd = x.createLinearGradient(xe, 0, xe + sg * fw, 0); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gd; x.fillRect(Math.min(xe - sg * 0.3 * H, xe + sg * fw), te + 0.008 * H, fw + 0.3 * H, H); }
+          x.restore(); } }
       for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.fillStyle = '#000'; x.fillRect(0, fy, cw2, ch2); x.restore(); }
       const t = document.createElement('canvas'); t.width = cw2; t.height = ch2; const x = t.getContext('2d'), gx = cv.getContext('2d'), kf = aux('_f');
       if (kf.length) { const q = kf[Math.floor(R() * kf.length) % kf.length], hF = Math.min(0.014 * H, (bx1 - bx0) * q.h / q.w) * dpr; x.globalAlpha = 0.75; x.drawImage(q.im, (bx0 - ox) * dpr, fy - hF * 0.9, (bx1 - bx0) * dpr, hF);
