@@ -41,7 +41,7 @@
     st.done.push({ stroke: q, kind: st.kind, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); sync();
   }
   function step(dt) {
-    if (!st.pen) return;
+    if (!st.pen || Rm.st.mouse) return;   // dragon off: the mouse lays the points itself (mPt)
     const hc = Rm.hc, q = st.stroke, l = q[q.length - 1], d = l ? Math.hypot(hc.x - l[0], hc.y - l[1]) : 0;
     if (!l || d > 1.5) q.push([hc.x, hc.y, l ? d / dt / D.H : 0]);   // x, y, speed in screens a second
   }
@@ -1176,15 +1176,26 @@
   Rm.G.draw = (dt) => { const t0 = performance.now(); if (dt > 0) step(dt); render(); d0(dt); Rm.st.jsMs = (Rm.st.jsMs || 0) * 0.9 + (performance.now() - t0) * 0.1; };   // jsMs: what paint + overlay cost a frame
 
   // ---- input + panel ------------------------------------------------------------------------------------------------
-  document.addEventListener('mousedown', (e) => { if (e.button === 0 && Rm.st.locked) penDown(); });
+  // Dragon off (key D; Yang 11-19, for now, to judge the strokes without flying them): the dragon is hidden (it still
+  // flies, unseen) and the stroke is what the mouse itself draws, button held. Speed as the dragon's would be read,
+  // capped at the dragon's own limit: a mouse crosses the paper far faster, and every stroke came out bone dry.
+  let mT = 0, mV = 0;
+  const mPt = (e) => { if (!st.pen || !Rm.st.mouse) return; const q = st.stroke, l = q[q.length - 1], d = l ? Math.hypot(e.clientX - l[0], e.clientY - l[1]) : 0; if (l && d <= 1.5) return;
+    const dt = Math.max(0.004, (e.timeStamp - mT) / 1000); mT = e.timeStamp; mV = l ? 0.6 * mV + 0.4 * Math.min(Rm.S.cap, d / dt / D.H) : 0; q.push([e.clientX, e.clientY, mV]); };
+  const setMouse = (on, quiet) => { penUp(); Rm.st.mouse = on; try { localStorage.setItem('room.mouse', on ? '1' : '0'); } catch { /* private window */ }
+    if (on && document.pointerLockElement) document.exitPointerLock(); D.canvas.style.opacity = on ? 0 : 1; document.body.style.cursor = on ? 'crosshair' : '';
+    document.getElementById('hint').classList.toggle('hide', on || Rm.st.locked); if (!quiet) say(on ? 'Tắt rồng: giữ chuột trái và kéo để vẽ' : 'Bật rồng: bấm vào màn hình để cầm đầu rồng'); sync(); };
+  document.addEventListener('mousedown', (e) => { if (e.button !== 0) return; if (Rm.st.mouse) { if (!e.target.closest('#panel')) { penDown(); mT = e.timeStamp; mPt(e); } } else if (Rm.st.locked) penDown(); });
+  document.addEventListener('mousemove', mPt);
   document.addEventListener('mouseup', (e) => { if (e.button === 0) penUp(); });
   document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) penUp(); });
   const SL = [['peak', 'Vuốt đỉnh nhọn'], ['cun', 'Nét sườn núi'], ['dry', 'Độ khô / độ dày nét'], ['body', 'Độ đậm thân núi'], ['mist', 'Lượng sương (0 = tắt)']];
   const pbox = document.createElement('div');
   pbox.innerHTML = `<h3>Vẽ núi (tự do)</h3><div id="p_stat" class="keys"></div>
-    <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button>
+    <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button><button id="p_mouse"></button>
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
+Phím D: tắt rồng, vẽ thẳng bằng chuột
 Thả chuột: nét thành núi, sông, hồ, cây hoặc cỏ
 Phím 1: nét núi. Phím 2: nét sông. Phím 3: hồ (bay một vòng)
 Phím 4: cây (nét = thân, gốc ở dưới). Phím 5: cỏ (nét = dải đất)
@@ -1194,21 +1205,23 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
   const $ = (id) => document.getElementById(id);
   const redo = (reseed) => { for (const d of st.done) { d.m = null; if (reseed) d.seed = (Math.random() * 2147483647) | 0; } bakeKey = ''; };
   const nextTex = () => { S.tex = TEX[(TEX.indexOf(S.tex) + 1) % TEX.length]; save(); redo(false); say('Nét bút: ' + S.tex); sync(); };
-  $('p_tex').onclick = nextTex;
+  $('p_tex').onclick = nextTex; $('p_mouse').onclick = () => setMouse(!Rm.st.mouse);
   $('p_clear').onclick = reset; $('p_undo').onclick = undo; $('p_again').onclick = () => redo(true);
   for (const [k] of SL) $('p_' + k).addEventListener('input', (e) => { S[k] = +e.target.value; save(); redo(false); sync(); });
   function sync() {
     if (!$('p_stat')) return;
     $('p_stat').textContent = `Nét đang chọn: ${KINDS.map(([id, name], i) => (id === st.kind ? `[${i + 1} ${name}]` : `${i + 1} ${name}`)).join('  ')}\n` + (st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét') + `\nCây bức này: ${[st.grove].concat(GROVES[st.grove] || []).map((g, i) => ({ pine: 'thông', dots: 'lá chấm', jiezi: 'lá rủ', mi: 'chấm Mễ', willow: 'liễu', bamboo: 'trúc', bare: 'cây khô' }[g] + (i ? '' : ' (chính)'))).join(', ')}`;
-    $('p_tex').textContent = `Nét bút: ${S.tex} (B)`;
+    $('p_tex').textContent = `Nét bút: ${S.tex} (B)`; $('p_mouse').textContent = Rm.st.mouse ? 'Bật rồng (D)' : 'Tắt rồng, vẽ bằng chuột (D)'; $('p_mouse').classList.toggle('on', !!Rm.st.mouse);
     for (const [k] of SL) { $('p_' + k).value = S[k]; $('p_' + k + 'v').textContent = S[k].toFixed(2); }
   }
   sync();
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
-    if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true); else if (k === 'b') nextTex(); else if (k === 'v') { MBLOB = !MBLOB; redo(false); say('Sương: ' + (MBLOB ? 'nhiều lớp (blob)' : 'cũ (một mảng)')); }
+    if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true); else if (k === 'b') nextTex(); else if (k === 'd') setMouse(!Rm.st.mouse); else if (k === 'v') { MBLOB = !MBLOB; redo(false); say('Sương: ' + (MBLOB ? 'nhiều lớp (blob)' : 'cũ (một mảng)')); }
     else if (KINDS[+k - 1] && !st.pen) { st.kind = KINDS[+k - 1][0]; say('Nét: ' + KINDS[+k - 1][1]); sync(); }
   });
+
+  try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
   window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
     info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), S: { ...S } }) };

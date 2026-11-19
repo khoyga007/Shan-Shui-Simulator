@@ -201,10 +201,10 @@
 
   // ---- mouse: pointer lock, the head is the cursor ----------------------------------------
   const cv = D.canvas;
-  cv.addEventListener('click', () => { if (!st.locked) cv.requestPointerLock?.(); });
+  cv.addEventListener('click', () => { if (!st.locked && !st.mouse) cv.requestPointerLock?.(); });   // st.mouse: dragon off, drawn by the mouse itself (paint.js, key D)
   document.addEventListener('pointerlockchange', () => {
     st.locked = document.pointerLockElement === cv;
-    hint.classList.toggle('hide', st.locked);
+    hint.classList.toggle('hide', st.locked || !!st.mouse);
     if (st.locked) { tx = hc.x; ty = hc.y; }
   });
   document.addEventListener('mousemove', (e) => {
@@ -222,7 +222,7 @@
   sizeOv();
   const bendCol = (b) => { const t = clamp(b / 0.3, 0, 1); return `hsl(${Math.round(140 - 140 * t)} 85% 42%)`; };   // green straight .. red at 0.3 rad
   function drawOverlay() {
-    const W = D.W, H = D.H, dg = D.dg, P = dg.pts, N = D.N, L = S.L;
+    const W = D.W, H = D.H, dg = D.dg, P = dg.pts, N = D.N, L = st.mouse ? { grid: S.L.grid, text: S.L.text } : S.L;   // dragon off: none of its layers
     c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     if (!st.ov || !P.length) return;
     c.lineWidth = 1; c.font = '12px Consolas, monospace';
@@ -264,7 +264,7 @@
       c.strokeStyle = '#0a7'; c.lineWidth = 2; c.beginPath(); c.moveTo(hc.x, hc.y); c.lineTo(ex, ey);
       c.moveTo(ex, ey); c.lineTo(ex - Math.cos(a - 0.4) * 9, ey - Math.sin(a - 0.4) * 9); c.moveTo(ex, ey); c.lineTo(ex - Math.cos(a + 0.4) * 9, ey - Math.sin(a + 0.4) * 9); c.stroke(); c.lineWidth = 1;
     }
-    if (st.dance) {   // the figure itself, to hold the body against (the blue trail is the eye's path, 2.5 s of it)
+    if (st.dance && !st.mouse) {   // the figure itself, to hold the body against (the blue trail is the eye's path, 2.5 s of it)
       c.strokeStyle = 'rgba(220,120,0,.55)'; c.setLineDash([6, 5]); c.beginPath();
       for (let k = 0; k <= 120; k++) { const p = dancePt(k / 120 * 6.2832); k ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }
       c.stroke(); c.setLineDash([]);
@@ -294,7 +294,7 @@
     const n = ++st.nRep; try { localStorage.setItem('room.rep', n); } catch { /* ok */ }
     const id = 'r' + String(n).padStart(3, '0'), dg = D.dg, wv = dg.wv;
     const m = document.createElement('canvas'); m.width = ov.width; m.height = ov.height;
-    const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, m.width, m.height); x.drawImage(cv, 0, 0, m.width, m.height);
+    const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, m.width, m.height); if (!st.mouse) x.drawImage(cv, 0, 0, m.width, m.height);
     if ($('ink')) { x.globalCompositeOperation = 'multiply'; x.drawImage($('ink'), 0, 0, m.width, m.height); x.globalCompositeOperation = 'source-over'; }
     x.drawImage(ov, 0, 0);
     const info = {
