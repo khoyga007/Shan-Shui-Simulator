@@ -689,6 +689,13 @@
       const P0 = P.map((q) => q.slice());   // moved off the path as it was flown: by a point's already moved neighbour the direction was wrong at every step, the path shook from point to point and the stroke laid along it was torn into a comb of splinters ("nét vẽ bị tách", Yang 11-19)
       for (let i = 1; i < n - 1; i++) { const t = i / (n - 1) * nk, k = Math.min(nk - 1, Math.floor(t)), z = kn[k] + (kn[k + 1] - kn[k]) * (0.5 - 0.5 * Math.cos(3.1416 * (t - k))), a = P0[Math.max(0, i - 3)], b = P0[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; P[i] = [P0[i][0] - (b[1] - a[1]) / l * z, P0[i][1] + (b[0] - a[0]) / l * z, P0[i][2]]; } }
     else if (P[0][1] < P[n - 1][1]) P.reverse();
+    // An old pine's trunk is never the line it was flown: it winds, swung one way and back two or three times on its way up
+    // (Yang 11-19, his reference paintings: "gần rồi"; the trunk was what still stood straight). Root and top stay where they
+    // were flown; the swing is widest in the lower middle. Off the path as flown, not off the moved neighbour (see zhe).
+    { const g0 = GROVES[st.grove] || GROVES.pine, h0 = ((Math.abs(d.seed) * 2654435761) >>> 0) % 100;
+      if (!zhe && (FORCE || (h0 < 70 ? st.grove : g0[h0 % g0.length])) === 'pine') { const Rt = dice(d.seed ^ 0x71a3), P0 = P.map((q) => q.slice()); let L0 = 0; for (let i = 1; i < n; i++) L0 += Math.hypot(P0[i][0] - P0[i - 1][0], P0[i][1] - P0[i - 1][1]);
+        const A = (0.05 + 0.045 * Rt()) * L0 * (Rt() < 0.5 ? 1 : -1), fq = 1.1 + 0.7 * Rt(), ph = 0.6 * Rt(), A2 = 0.3 * A * (Rt() - 0.5), W = Math.max(3, Math.round(n / 10));
+        for (let i = 1; i < n - 1; i++) { const t = i / (n - 1), env = Math.pow(Math.sin(3.1416 * Math.pow(t, 0.75)), 0.8), z = env * (A * Math.sin(6.2832 * (fq * t + ph)) + A2 * Math.sin(6.2832 * (2.7 * fq * t + ph * 3))), a = P0[Math.max(0, i - W)], b = P0[Math.min(n - 1, i + W)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; P[i] = [P0[i][0] - (b[1] - a[1]) / l * z, P0[i][1] + (b[0] - a[0]) / l * z, P0[i][2]]; } } }
     const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const L = cum[n - 1], kitT = kitOf('_t'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), kitU = kitOf('_tu'), kitLJ = kitOf('_lj'), kitLM = kitOf('_lm'), kitWL = kitOf('_wl').concat(kitOf('_wb')).filter((q) => q.tone > 0.03), kitBS = kitOf('_bs').filter((q) => q.h < 0.06 * q.w), kitBL = kitOf('_bl'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
     if (!kitT.length) return null;
