@@ -127,6 +127,9 @@
     fly((t) => [fw * (0.9 + 0.03 * Math.sin(t * 5)), H * (0.75 - 0.4 * t)], 1.2);   // a nearly upright stroke
     }
     // ?river=1 (with r7): a river coming down the paper in widening bends, across the body of the near mountain
+    // ?hills=1: low gentle strokes, far to near (washed hills), one of them steep enough to stay a peak
+    if (new URLSearchParams(location.search).has('hills')) [[0.05, 0.9, 0.3, 0.05, 1.1], [0.7, 1.75, 0.36, 0.07, 2.3], [0.0, 1.0, 0.5, 0.08, 0.4], [0.5, 1.7, 0.62, 0.1, 3.1], [0.1, 0.75, 0.78, 0.07, 1.9], [1.2, 1.6, 0.6, 0.22, 0]].forEach(([x0, x1, y, a, ph], i) =>
+      Pt.st.done.push({ stroke: Array.from({ length: 120 }, (_, k) => { const t = k / 119; return [(x0 + (x1 - x0) * t) * H, (y - a * Math.sin(3.1416 * t) * (0.75 + 0.25 * Math.sin(t * 9 + ph))) * H, 0.8]; }), t0: D.T, seed: 9301 + i }));
     if (new URLSearchParams(location.search).has('river')) Pt.st.done.push({ kind: 'river', stroke: Array.from({ length: 140 }, (_, i) => { const t = i / 139; return [(0.72 + 0.3 * Math.sin(t * 7.2) * (0.25 + 0.75 * t)) * H, (0.5 + 0.46 * t) * H, 0.8]; }), t0: D.T, seed: 9001 });
     // ?lake=1 (with r7): a loop flown round, left a little open, low on the paper before the big mountain.
     // lake=2: only a little over half the loop flown (a wide gap). lake=3: flown past its own start (an overlap)

@@ -110,9 +110,15 @@
         if (--left === 0) { strokesReady = true; for (const d of st.done) d.m = null; bakeKey = ''; } }; im.src = '../assets/strokes/' + q.f; } } }).catch(() => { strokesReady = true; });
   const STEP = 3, BIN = 2;   // px between points of the calmed stroke; px per column of the wash
   // One stroke -> one mountain, on canvases cropped to it: cv (the ink) and body (what it hides of the mountains behind)
+  // A stroke flown low and gentle is no peak: a rounded hill laid in with wet wash (Yang 11-19, reference paintings: one
+  // kind of mountain was not enough). hill 0..1 from the stroke's shape: its rise against its run. Such a hill gets no
+  // summit drawn up into a point, next to no texture strokes, and a ridge line that is wet, pale and soft.
+  const hillS = (h) => Object.assign({}, S, { peak: S.peak * (1 - h), cun: S.cun * (1 - 0.92 * h), dry: S.dry * (1 - 0.8 * h) });
   function mountain(d) {
     const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 4), n = P.length;
     if (n < 8) return null;
+    let hill = 0; { let sy = 0, sx = 0; for (let i = 1; i < n; i++) { sy += Math.abs(P[i][1] - P[i - 1][1]); sx += Math.abs(P[i][0] - P[i - 1][0]); } hill = 1 - sm((sy / Math.max(1, sx) - 0.3) / 0.2); }   // how steep its slopes are on the whole, up and down alike: by rise against run, a long range of peaks flown in one stroke counted as flat and lost its summits
+    const S = hillS(hill);
     // -- peaks: every crest of the path (a top, standing at least a little above both its sides) is drawn up into a point;
     //    the saddles between are cut a little deeper. A tent laid on a round top gives the break of a real summit
     const win = Math.max(4, Math.round(0.1 * H / STEP)), tr = Math.max(4, Math.round(0.055 * H / STEP)), crests = [];
@@ -380,7 +386,7 @@
       streaks(-0.1, 0.6, 0.02, 0.08);
     }
     gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1;
-    raw(g); g.filter = `blur(${(0.0045 * H * dpr).toFixed(1)}px)`; g.globalAlpha = 0.3; g.drawImage(rib, 0, 0); g.filter = 'none'; g.globalAlpha = 0.93; g.drawImage(rib, 0, 0);   // a soft halo first: wet ink creeping off the line
+    raw(g); g.filter = `blur(${(0.0045 * H * dpr).toFixed(1)}px)`; g.globalAlpha = 0.3 + 0.25 * hill; g.drawImage(rib, 0, 0); if (hill > 0.5) g.filter = `blur(${(0.0016 * H * dpr * hill).toFixed(1)}px)`; else g.filter = 'none'; g.globalAlpha = 0.93 - 0.5 * hill; g.drawImage(rib, 0, 0); g.filter = 'none';   // a soft halo first: wet ink creeping off the line
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
