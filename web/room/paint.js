@@ -704,9 +704,17 @@
       // twigs: young shoots, most of them rising off the upper side, a few hanging; longer near the base of the branch.
       // Each a real twig stroke of the sheet, its base on the branch. Where flowers may sit: along the twigs, toward their ends
       const nT = clamp(Math.round(L / (0.085 * H)), 3, 10), up = Math.cos(pt(0.5)[2]) > 0 ? -1 : 1;   // which turn of the tangent points up the paper
-      for (let k = 0; k < nT && kitW.length; k++) { const t = 0.1 + 0.85 * (k + 0.15 + 0.7 * R()) / nT, [x, y, a] = pt(t), sd = R() < 0.78 ? up : -up, ang = a + sd * (0.45 + 0.75 * R()), q = pick(kitW), len = clamp(L * (0.07 + 0.11 * R()) * (1 - 0.45 * t), 0.04 * H, 0.17 * H), fy = R() < 0.5 ? 1 : -1;
-        stamp(q, x, y, len, ang, 0.95, 0.03, q.by, fy); const hh = len * q.h / q.w, tx = len * 0.97, ty = (q.ty - q.by) * hh * fy, ca = Math.cos(ang), sa = Math.sin(ang);
-        for (let j = 0, jn = 1 + Math.floor(R() * 3); j < jn; j++) { const f = 0.35 + 0.65 * (j + R()) / jn; spots.push([x + (tx * ca - ty * sa) * f, y + (tx * sa + ty * ca) * f, ang, f]); } }
+      // (First: each twig one stroke of the sheet stamped on, straight and thick at its base: "mấy cái gai to đùng", Yang.)
+      // A twig is grown: thin from its start (the thin end of the branch's own stroke), long, and each its own way,
+      // straight, or in one slow curve (mostly turning up toward the light), or with an elbow; it forks now and then
+      const wr = (v) => Math.atan2(Math.sin(v), Math.cos(v)), twig = (x, y, ang, len, u0, depth) => { const m = Math.max(7, Math.round(len / 5)), Q = [[x, y]], way = R(), toUp = Math.sign(wr(-1.5708 - ang)) || 1, dir = R() < 0.72 ? toUp : -toUp;
+        const bend = way < 0.25 ? 0 : way < 0.8 ? dir * (0.35 + 0.8 * R()) : 0, ek = way >= 0.8 ? Math.round(m * (0.3 + 0.35 * R())) : -1, et = dir * (0.4 + 0.5 * R()); let a = ang;
+        for (let i = 1; i <= m; i++) { a += bend / m * (0.5 + i / m) + (R() - 0.5) * 0.05 + (i === ek ? et : 0); x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
+        limb(Q, u0);
+        for (let j = 0, jn = 1 + Math.floor(R() * (len > 0.1 * H ? 4 : 2)); j < jn; j++) { const f = 0.3 + 0.7 * (j + R()) / jn, q = Q[Math.round(f * m)]; spots.push([q[0], q[1], a, f]); }
+        if (depth < 2 && len > 0.07 * H && R() < 0.6) { const k = Math.round(m * (0.25 + 0.4 * R())); twig(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.5 * R()), len * (0.4 + 0.3 * R()), Math.min(0.95, u0 + 0.07), depth + 1); } };
+      for (let k = 0; k < nT; k++) { const t = 0.1 + 0.85 * (k + 0.15 + 0.7 * R()) / nT, [x, y, a] = pt(t), sd = R() < 0.75 ? up : -up;
+        twig(x, y, a + sd * (0.35 + 0.75 * R()), clamp(L * (0.1 + 0.2 * R()) * (1 - 0.4 * t), 0.05 * H, 0.3 * H), clamp(0.72 + 0.16 * t + 0.06 * R(), 0, 0.93), 1); }
       for (let k = 0, kn2 = Math.round(L / (0.16 * H)); k < kn2; k++) { const [x, y, a] = pt(0.2 + 0.75 * R()); spots.push([x, y, a, 0.4]); }   // and a few on the old wood itself
       // blossoms and buds, sparse and uneven: buds toward the ends of the twigs (the youngest wood), open flowers
       // further in; a bud stands on its calyx, away from the twig; a flower faces any way. Two or three bunch together now and then
