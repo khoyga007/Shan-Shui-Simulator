@@ -48,13 +48,15 @@
     // A stroke flown beyond the water is a mountain; one flown on this side of it (most of its points below a waterline,
     // or in or before a lake) is near land: short, a rock; else an earth bank. No water on the paper yet: a mountain.
     // (Before, by shape alone: a low arc could be a far hill or a near bank, and the guess was often wrong.)
-    if (!nearSide(q)) return 'mountain';
-    return xb - xa < 0.3 * D.H && L < 0.55 * D.H ? 'rock' : 'bank';
+    if (!nearSide(q, xb - xa < 0.45 * D.H)) return 'mountain';
+    return (xb - xa < 0.3 * D.H && L < 0.55 * D.H) || (xb - xa < 0.45 * D.H && yb - ya > 0.6 * (xb - xa)) /* a tall arch is long by its height, not by its run: a standing rock, no bank */ ? 'rock' : 'bank';
   }
   const meanY = (d) => (d.my === undefined ? (d.my = d.stroke.reduce((a, p) => a + p[1], 0) / d.stroke.length) : d.my);
-  function nearSide(q) {
+  function nearSide(q, narrow) {
     for (const o of st.done) { let c2 = 0;
-      if (o.kind === 'sea') { const y = meanY(o); for (const p of q) if (p[1] > y) c2++; }
+      // (Yang 11-19: an arch flown with both feet below the waterline and its crown high above it came out a mountain, "anh vẽ đá mà?": most of its points were above the line.
+      //  A thing stands where its feet are: both ends clearly below the line, it is on this side of the water, however high it rises)
+      if (o.kind === 'sea') { const y = meanY(o); for (const p of q) if (p[1] > y) c2++; if (narrow && q[0][1] > y + 0.025 * D.H && q[q.length - 1][1] > y + 0.025 * D.H) return true; }   /* narrow forms only: a wide far range whose ends dip under the line is still a far range */
       else if (o.kind === 'lake') { if (!o.bb) { let xa = 1e9, xb = -1e9, ya = 1e9; for (const p of o.stroke) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); } o.bb = [xa, xb, ya]; } for (const p of q) if (p[0] > o.bb[0] && p[0] < o.bb[1] && p[1] > o.bb[2]) c2++; }
       if (c2 > q.length / 2) return true; }
     return false;
