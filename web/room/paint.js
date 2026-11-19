@@ -512,17 +512,30 @@
     // pales by itself. The whole layer is then paled with depth, as the banks.
     let live = null, flow = null;
     if (kitG.length) { const [lv, gl] = mk(), seg = L / (n - 1), dir = up ? 1 : -1, lines = []; live = lv;
-      for (let k = 0, cnt = Math.round(L / (0.07 * H)); k < cnt; k++) lines.push({ a0: R() * L, len: H * (0.05 + 0.15 * R()), u0: (R() < 0.5 ? -1 : 1) * (0.3 + 0.45 * R()), ph: R() * 90, q: kitG[Math.floor(R() * kitG.length) % kitG.length], fr: R(), per: 6 + 6 * R(), t0: R(), run: H * (0.12 + 0.14 * R()) });
+      // What makes it read as water and not as marks sliding over the paper (Yang 11-19, first try: all lines at one
+      // even speed, each rigid):
+      //   speed   the stream runs fast where it is narrow and slow where it is broad. Lines live in 'tau', the time
+      //           the water takes to get there (tauc: tau at each point of the stroke), so a line stretches out and
+      //           hurries through a narrow reach, and bunches up and idles in a pool. Mid-stream runs faster than
+      //           the water along the banks (per).
+      //   shape   its streamline is not fixed: a wave of sideways drift runs down the river faster than the lines,
+      //           through them, so each one wriggles as it goes
+      //   stroke  heavy at its head (downstream), a long thin tail behind
+      let hm = 0; for (const w of hw) hm += w / n; const tauc = [0]; for (let i = 1; i < n; i++) tauc.push(tauc[i - 1] + seg / clamp(Math.sqrt(hm / Math.max(1e-3, (hw[i] + hw[i - 1]) / 2)), 0.6, 1.8)); const Tt = tauc[n - 1];
+      const idx = (tau) => { let a = 0, b = n - 1; while (b - a > 1) { const m = (a + b) >> 1; if (tauc[m] <= tau) a = m; else b = m; } return a + clamp((tau - tauc[a]) / Math.max(1e-6, tauc[b] - tauc[a]), 0, 1); };
+      for (let k = 0, cnt = Math.round(L / (0.045 * H)); k < cnt; k++) { const u0 = (R() < 0.5 ? -1 : 1) * (0.12 + 0.63 * R());
+        lines.push({ a0: R() * Tt, len: H * (0.04 + 0.11 * R()), u0, ph: R() * 90, q: kitG[Math.floor(R() * kitG.length) % kitG.length], fr: R(), per: (4.5 + 3.5 * R()) * (0.7 + 0.6 * Math.abs(u0)), t0: R(), run: H * (0.28 + 0.3 * R()) }); }
       const gd = gl.createLinearGradient(0, 0, 0, chh); for (let k = 0; k <= 8; k++) gd.addColorStop(k / 8, `rgba(0,0,0,${(0.6 * (0.4 + 0.6 * nearY(oy + k / 8 * chh / dpr))).toFixed(3)})`);
       flow = (T) => { raw(gl); gl.globalCompositeOperation = 'source-over'; gl.clearRect(0, 0, cw, chh);
-        for (const ln of lines) { const s = (T / ln.per + ln.t0) % 1, aS = ln.a0 + dir * (s - 0.5) * ln.run; if (aS < 0 || aS + ln.len > L) continue;
-          const im = clamp(Math.round((aS + ln.len / 2) / seg), 0, n - 1), life = sm(s / 0.25) * sm((1 - s) / 0.3) * env(im) * sm((hw[im] - 0.008 * H) / (0.008 * H)); if (life < 0.04) continue;   // none in a far reach too narrow to hold one
-          const m = Math.max(3, Math.round(ln.len / 8)), Q = [];
-          for (let j = 0; j <= m; j++) { const arc = aS + ln.len * j / m, fi = arc / seg, i = Math.min(n - 2, fi | 0), f = fi - i, tx = tan[i][0] + (tan[i + 1][0] - tan[i][0]) * f, ty = tan[i][1] + (tan[i + 1][1] - tan[i][1]) * f,
-            w = (hw[i] + (hw[i + 1] - hw[i]) * f) * clamp(ln.u0 + 0.3 * (N(arc / (0.06 * H) + ln.ph, 2) - 0.5), -0.8, 0.8); Q.push([P[i][0] + (P[i + 1][0] - P[i][0]) * f - ty * w, P[i][1] + (P[i + 1][1] - P[i][1]) * f + tx * w * FORE]); }
-          const q = ln.q, lp = ln.len, frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = ln.fr * (1 - frac) * q.w, th0 = life * H * (0.0022 + 0.003 * nearY(Q[0][1])) * (0.7 + 0.6 * ln.fr), ds = 3;   // th0: the height of the piece, the line in it about half of that
-          for (let a = 0; a < lp; a += ds) { const fi = a / lp * m, j = Math.min(m - 1, fi | 0), f = fi - j, th = th0 * (0.15 + 0.85 * sm(a / (0.3 * lp)) * sm((lp - a) / (0.3 * lp))), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1;
-            gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx * f - ox), dpr * (Q[j][1] + dy * f - oy)); gl.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.8, th); } }
+        for (const ln of lines) { const s = (T / ln.per + ln.t0) % 1, tS = ln.a0 + dir * (s - 0.5) * ln.run; if (tS < 0 || tS + ln.len > Tt) continue;
+          const im = clamp(Math.round(idx(tS + ln.len / 2)), 0, n - 1), life = sm(s / 0.2) * sm((1 - s) / 0.25) * env(im) * sm((hw[im] - 0.008 * H) / (0.008 * H)); if (life < 0.04) continue;   // none in a far reach too narrow to hold one
+          const m = Math.max(3, Math.round(ln.len / 8)), Q = [], cl = [0];
+          for (let j = 0; j <= m; j++) { const fi = Math.min(n - 1.001, idx(tS + ln.len * j / m)), i = fi | 0, f = fi - i, tx = tan[i][0] + (tan[i + 1][0] - tan[i][0]) * f, ty = tan[i][1] + (tan[i + 1][1] - tan[i][1]) * f,
+            w = (hw[i] + (hw[i + 1] - hw[i]) * f) * clamp(ln.u0 + 0.34 * (N(fi * seg / (0.05 * H) + ln.ph + 9000 - dir * T * 0.55, 2) - 0.5), -0.82, 0.82); Q.push([P[i][0] + (P[i + 1][0] - P[i][0]) * f - ty * w, P[i][1] + (P[i + 1][1] - P[i][1]) * f + tx * w * FORE]);
+            if (j) cl.push(cl[j - 1] + Math.hypot(Q[j][0] - Q[j - 1][0], Q[j][1] - Q[j - 1][1])); }
+          const q = ln.q, lp = cl[m], frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = ln.fr * (1 - frac) * q.w, th0 = life * H * (0.0024 + 0.0032 * nearY(Q[0][1])) * (0.7 + 0.6 * ln.fr), ds = 3; let j = 0;   // th0: the height of the piece, the line in it about half of that
+          for (let a = 0; a < lp; a += ds) { while (j < m - 1 && cl[j + 1] < a) j++; const x = dir > 0 ? a / lp : 1 - a / lp, th = th0 * (0.1 + 0.9 * sm(x / 0.65) * sm((1 - x) / 0.14)), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1, f = a - cl[j];
+            gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx / l * f - ox), dpr * (Q[j][1] + dy / l * f - oy)); gl.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.8, th); } }
         raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.fillStyle = gd; gl.fillRect(0, 0, cw, chh); gl.globalCompositeOperation = 'source-over'; }; }
     if (kitG.length) { const [cur, gc] = mk();   // ripples and such: laid opaque and paled as one (as the banks)
       home(gc);

@@ -141,8 +141,9 @@
     { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);
       post('bot-scene.jpg', m.toDataURL('image/jpeg', 0.92));
       // the same two seconds on: what moves (a river's current) shows as the difference between the two
-      for (let k = 0; k < 120; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 119, noSnap: true }); } Rm.G.draw(0);
-      x.globalCompositeOperation = 'source-over'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080); post('bot-scene2.jpg', m.toDataURL('image/jpeg', 0.92)); }
+      // (bot-flow-1..6.jpg: every third of a second on the way there, to follow a line of current by eye)
+      for (let s = 1; s <= 6; s++) { for (let k = 0; k < 20; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 19, noSnap: true }); } Rm.G.draw(0);
+        x.globalCompositeOperation = 'source-over'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080); post(s < 6 ? `bot-flow-${s}.jpg` : 'bot-scene2.jpg', m.toDataURL('image/jpeg', 0.92)); } }
   }
   post('bot-uturn.jpg', strip.toDataURL('image/jpeg', 0.85)).then(() => post('bot.json', json(out)));
 })();
