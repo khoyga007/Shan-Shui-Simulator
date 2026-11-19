@@ -1321,7 +1321,7 @@
   // Near land begun or ended close to a side of the paper runs off that side (Yang 11-19: "nét đất mà bắt đầu từ sát cạnh
   // thì nó tự snap"): flown by hand the stroke starts a little inside the edge, and the bank ended there in a faded stump with
   // bare paper beside it. The end is carried on, level, to beyond the edge. Once a stroke. The right side: the paper's, under the panel.
-  function snapEdge(d) { if (d.snapped || (d.kind !== 'bank' && d.kind !== 'rock')) return; d.snapped = true; const q = d.stroke, H = D.H, near = 0.07 * H, out = 0.08 * H;
+  function snapEdge(d) { if (d.snapped || ['river', 'lake', 'sea', 'tree', 'grass'].includes(d.kind)) return;   /* all of stroke Địa, mountains too (Yang: "có, cả núi"): a range runs off the paper at the height it had there */ d.snapped = true; const q = d.stroke, H = D.H, near = 0.07 * H, out = 0.08 * H;
     for (const end of [0, 1]) { const p = end ? q[q.length - 1] : q[0], x = p[0] < near ? -out : p[0] > freeW() - near ? D.W + out : null; if (x === null) continue;
       const add = []; for (let k = 1; k <= 6; k++) add.push([p[0] + (x - p[0]) * k / 6, p[1], p[2]]); if (end) q.push(...add); else q.unshift(...add.reverse()); } d.my = undefined; }
   function render() {
