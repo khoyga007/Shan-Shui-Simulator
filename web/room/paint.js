@@ -693,48 +693,70 @@
     // -- limbs. Trunk and branches are the same thing at different sizes: a stretch of a real trunk (from u0 of the piece
     //    to its tip, so every limb runs out to a point; further along the piece = thinner) in thin slices along a path
     const qT = pick(zhe ? kitBT : kitT), fl = R() < 0.5 ? -1 : 1, th0 = zhe ? clamp(0.85 * L * qT.h / qT.w, 0.025 * H, 0.07 * H) : clamp(1.6 * L * qT.h / qT.w, 0.006 * H, 0.075 * H);
-    const limb = (Q, u0) => { const m = Q.length, cl = [0]; for (let i = 1; i < m; i++) cl.push(cl[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1])); const Lq = cl[m - 1], ds = 2; let j = 0;
+    const limb = (Q, u0, G = g, X = ox, Y = oy) => { const m = Q.length, cl = [0]; for (let i = 1; i < m; i++) cl.push(cl[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1])); const Lq = cl[m - 1], ds = 2; let j = 0;
       for (let a = 0; a < Lq; a += ds) { while (j < m - 2 && cl[j + 1] < a) j++; const f = clamp((a - cl[j]) / Math.max(1e-6, cl[j + 1] - cl[j]), 0, 1), A = Q[Math.max(0, j - 2)], B = Q[Math.min(m - 1, j + 3)], l = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, tx = (B[0] - A[0]) / l, ty = (B[1] - A[1]) / l;
-        g.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - ox), dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - oy));   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
-        g.drawImage(qT.im, clamp((u0 + (1 - u0) * a / Lq) * qT.w, 0, qT.w - 2), 0, Math.max(1, (ds + 0.3) / Lq * (1 - u0) * qT.w), qT.h, 0, -qT.c * th0, ds + 0.3, th0); }
-      home(); };
+        G.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - X), dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - Y));   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
+        G.drawImage(qT.im, clamp((u0 + (1 - u0) * a / Lq) * qT.w, 0, qT.w - 2), 0, Math.max(1, (ds + 0.3) / Lq * (1 - u0) * qT.w), qT.h, 0, -qT.c * th0, ds + 0.3, th0); }
+      G.setTransform(dpr, 0, 0, dpr, -X * dpr, -Y * dpr); };
     limb(P, 0);
-    if (zhe) { const kitW = kitOf('_bw'), kitF = kitOf('_fl'), kitB = kitOf('_bd'), kitL = kitOf('_pt'), spots = [];
-      const stamp = (q, x, y, w, rot, al, ax, ay, fy) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(rot); g.scale(1, fy || 1); g.globalAlpha = al; g.drawImage(q.im, -ax * w, -ay * h, w, h); g.restore(); g.globalAlpha = 1; };
+    // The branch is alive (Yang 11-19: swaying in the wind, a petal or a blossom letting go now and then). The old wood
+    // is painted once and stays; every twig is a small painting of its own (its wood, its blossoms), turned a little
+    // about the point it grows from, each frame, on a layer of its own (as a river's current): a shoot on an old side
+    // branch turns with that branch and then by itself. Gusts come and go; the swing runs along the branch as a wave.
+    if (zhe) { const kitF = kitOf('_fl'), kitB = kitOf('_bd'), kitL = kitOf('_pt'), nodes = [], blooms = [], Ra = dice(d.seed ^ 0x2f6b), wdir = Ra() < 0.5 ? -1 : 1; let sg = g;
+      const stamp = (q, x, y, w, rot, al, ax, ay, fy) => { const h = w * q.h / q.w; sg.save(); sg.translate(x, y); sg.rotate(rot); sg.scale(1, fy || 1); sg.globalAlpha = al; sg.drawImage(q.im, -ax * w, -ay * h, w, h); sg.restore(); sg.globalAlpha = 1; };
+      const grainOn = (x, w, h) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 0.11; x.globalCompositeOperation = 'destination-out'; x.fillStyle = x.createPattern(grain, 'repeat'); x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; };
       const pt = (t) => { const i = clamp(Math.round(t * (n - 1)), 0, n - 1); return [P[i][0], P[i][1], Math.atan2(tan[i][1], tan[i][0])]; };
-      // twigs: young shoots, most of them rising off the upper side, a few hanging; longer near the base of the branch.
-      // Each a real twig stroke of the sheet, its base on the branch. Where flowers may sit: along the twigs, toward their ends
+      // blossoms and buds, sparse and uneven: buds toward the ends of the twigs (the youngest wood), open flowers
+      // further in; a bud stands on its calyx, away from the twig; a flower faces any way. Two or three bunch together now and then
+      const bloom = (spots) => { for (const [x, y, a, f] of spots) { if (R() < 0.18) continue; const bud = kitB.length && R() < 0.25 + 0.5 * f, jn = R() < 0.25 ? 2 : 1;
+        for (let j = 0; j < jn; j++) { const ox2 = j ? (R() - 0.5) * 0.035 * H : 0, oy2 = j ? (R() - 0.5) * 0.035 * H : 0, sd = R() < 0.5 ? 1 : -1;
+          if (bud) { const w = (0.017 + 0.012 * R()) * H; stamp(pick(kitB), x + ox2 - Math.sin(a) * sd * w * 0.3, y + oy2 + Math.cos(a) * sd * w * 0.3 * -1, w, a + (sd > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.7, 0.95, 0.5, 0.85); }
+          else if (kitF.length) { const w = (0.026 + 0.02 * R()) * H; stamp(pick(kitF), x + ox2, y + oy2, w, R() * 6.283, 0.92, 0.5, 0.5); blooms.push([x + ox2, y + oy2]); } } } };
+      // twigs: young shoots, most of them rising off the upper side, a few hanging; longer near the base of the branch
       const nT = clamp(Math.round(L / (0.085 * H)), 3, 10), up = Math.cos(pt(0.5)[2]) > 0 ? -1 : 1;   // which turn of the tangent points up the paper
       // (First: each twig one stroke of the sheet stamped on, straight and thick at its base: "mấy cái gai to đùng", Yang.)
       // A twig is grown: thin from its start (the thin end of the branch's own stroke), long, and each its own way,
       // straight, or in one slow curve (mostly turning up toward the light), or with an elbow; it forks now and then
-      const wr = (v) => Math.atan2(Math.sin(v), Math.cos(v)), twig = (x, y, ang, len, u0, depth) => { const m = Math.max(7, Math.round(len / 5)), Q = [[x, y]], way = R(), toUp = Math.sign(wr(-1.5708 - ang)) || 1, dir = R() < 0.72 ? toUp : -toUp;
+      const wr = (v) => Math.atan2(Math.sin(v), Math.cos(v)), twig = (x, y, ang, len, u0, depth, into) => { const x0 = x, y0 = y, m = Math.max(7, Math.round(len / 5)), Q = [[x, y]], way = R(), toUp = Math.sign(wr(-1.5708 - ang)) || 1, dir = R() < 0.72 ? toUp : -toUp;
         const bend = way < 0.25 ? 0 : way < 0.8 ? dir * (0.35 + 0.8 * R()) : 0, ek = way >= 0.8 ? Math.round(m * (0.3 + 0.35 * R())) : -1, et = dir * (0.4 + 0.5 * R()); let a = ang;
         for (let i = 1; i <= m; i++) { a += bend / m * (0.5 + i / m) + (R() - 0.5) * 0.05 + (i === ek ? et : 0); x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
-        limb(Q, u0);
-        for (let j = 0, jn = 1 + Math.floor(R() * (len > 0.1 * H ? 4 : 2)); j < jn; j++) { const f = 0.3 + 0.7 * (j + R()) / jn, q = Q[Math.round(f * m)]; spots.push([q[0], q[1], a, f]); }
+        let qa = 1e9, qb = -1e9, qc = 1e9, qd = -1e9; for (const q of Q) { qa = Math.min(qa, q[0]); qb = Math.max(qb, q[0]); qc = Math.min(qc, q[1]); qd = Math.max(qd, q[1]); }
+        const pd = 0.055 * H + th0, tx = Math.floor(qa - pd), ty = Math.floor(qc - pd), tc = document.createElement('canvas'); tc.width = Math.ceil((qb - qa + 2 * pd) * dpr); tc.height = Math.ceil((qd - qc + 2 * pd) * dpr); const tg = tc.getContext('2d');
+        limb(Q, u0, tg, tx, ty);
+        const spots = []; for (let j = 0, jn = 1 + Math.floor(R() * (len > 0.1 * H ? 4 : 2)); j < jn; j++) { const f = 0.3 + 0.7 * (j + R()) / jn, q = Q[Math.round(f * m)]; spots.push([q[0], q[1], a, f]); }
+        sg = tg; bloom(spots); sg = g; grainOn(tg, tc.width, tc.height);
+        // old wood is stiff, a young shoot gives; the phase follows the place along the branch, so a gust runs along it
+        const nd = { cv: tc, x: tx, y: ty, w: tc.width / dpr, h: tc.height / dpr, ax: x0, ay: y0, amp: depth === 0 ? 0.01 + 0.006 * Ra() : 0.026 + 0.03 * Ra(), fq: depth === 0 ? 0.7 : 0.9 + 0.5 * Ra(), ph: x0 / (0.3 * H) + 1.5 * Ra(), kids: [] }; into.push(nd);
         // an old side branch (depth 0) always carries young shoots, two to four, to either side; a shoot forks now and then
         for (let j = 0, nf = depth === 0 ? 2 + Math.floor(R() * 3) : depth < 2 && len > 0.07 * H && R() < 0.6 ? 1 : 0; j < nf; j++) { const k = clamp(Math.round(m * (depth === 0 ? 0.2 + 0.7 * (j + R()) / nf : 0.25 + 0.4 * R())), 1, m - 1);
-          twig(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.6 * R()), len * (depth === 0 ? 0.3 + 0.35 * R() : 0.4 + 0.3 * R()), depth === 0 ? clamp(u0 + (1 - u0) * (0.45 + 0.3 * k / m) + 0.05 * R(), 0, 0.94) : Math.min(0.95, u0 + 0.07), depth + 1); } };
+          twig(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.6 * R()), len * (depth === 0 ? 0.3 + 0.35 * R() : 0.4 + 0.3 * R()), depth === 0 ? clamp(u0 + (1 - u0) * (0.45 + 0.3 * k / m) + 0.05 * R(), 0, 0.94) : Math.min(0.95, u0 + 0.07), depth + 1, nd.kids); } };
       // Not every one a thin young shoot (Yang 11-19): one in three is an old side branch, thick where it leaves the
       // main one (nearly as thick as the main branch is there) and tapering, longer, bearing shoots of its own.
       // At least one such on every branch, in its inner half
       const oldK = Math.floor(R() * Math.max(1, nT / 2));
       for (let k = 0; k < nT; k++) { const t = 0.1 + 0.85 * (k + 0.15 + 0.7 * R()) / nT, [x, y, a] = pt(t), sd = R() < 0.75 ? up : -up, old = k === oldK || (t < 0.8 && R() < 0.28);
-        if (old) twig(x, y, a + sd * (0.35 + 0.55 * R()), clamp(L * (0.22 + 0.2 * R()) * (1 - 0.35 * t), 0.1 * H, 0.42 * H), clamp(t + 0.12 + 0.2 * R(), 0.2, 0.75), 0);
-        else twig(x, y, a + sd * (0.35 + 0.75 * R()), clamp(L * (0.1 + 0.2 * R()) * (1 - 0.4 * t), 0.05 * H, 0.3 * H), clamp(0.72 + 0.16 * t + 0.06 * R(), 0, 0.93), 1); }
-      for (let k = 0, kn2 = Math.round(L / (0.16 * H)); k < kn2; k++) { const [x, y, a] = pt(0.2 + 0.75 * R()); spots.push([x, y, a, 0.4]); }   // and a few on the old wood itself
-      // blossoms and buds, sparse and uneven: buds toward the ends of the twigs (the youngest wood), open flowers
-      // further in; a bud stands on its calyx, away from the twig; a flower faces any way. Two or three bunch together now and then
-      for (const [x, y, a, f] of spots) { if (R() < 0.18) continue; const bud = kitB.length && R() < 0.25 + 0.5 * f, jn = R() < 0.25 ? 2 : 1;
-        for (let j = 0; j < jn; j++) { const ox2 = j ? (R() - 0.5) * 0.035 * H : 0, oy2 = j ? (R() - 0.5) * 0.035 * H : 0, sd = R() < 0.5 ? 1 : -1;
-          if (bud) { const w = (0.017 + 0.012 * R()) * H; stamp(pick(kitB), x + ox2 - Math.sin(a) * sd * w * 0.3, y + oy2 + Math.cos(a) * sd * w * 0.3 * -1, w, a + (sd > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.7, 0.95, 0.5, 0.85); }
-          else if (kitF.length) { const w = (0.026 + 0.02 * R()) * H; stamp(pick(kitF), x + ox2, y + oy2, w, R() * 6.283, 0.92, 0.5, 0.5); } } }
-      // a few petals let go, drifting down under the branch
-      for (let k = 0, kn3 = 2 + Math.floor(R() * 4); k < kn3 && kitL.length; k++) { const [x, y] = pt(0.15 + 0.8 * R()); stamp(pick(kitL), x + (R() - 0.5) * 0.08 * H, y + (0.04 + 0.2 * R() * R()) * H, (0.011 + 0.009 * R()) * H, R() * 6.283, 0.8, 0.5, 0.5); }
-      g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+        if (old) twig(x, y, a + sd * (0.35 + 0.55 * R()), clamp(L * (0.22 + 0.2 * R()) * (1 - 0.35 * t), 0.1 * H, 0.42 * H), clamp(t + 0.12 + 0.2 * R(), 0.2, 0.75), 0, nodes);
+        else twig(x, y, a + sd * (0.35 + 0.75 * R()), clamp(L * (0.1 + 0.2 * R()) * (1 - 0.4 * t), 0.05 * H, 0.3 * H), clamp(0.72 + 0.16 * t + 0.06 * R(), 0, 0.93), 1, nodes); }
+      { const sp = []; for (let k = 0, kn2 = Math.round(L / (0.16 * H)); k < kn2; k++) { const [x, y, a] = pt(0.2 + 0.75 * R()); sp.push([x, y, a, 0.4]); } home(); bloom(sp); }   // and a few on the old wood itself: these stay still
+      grainOn(g, cw, chh);
+      // -- each frame: the twigs, turned; and what falls. A petal lets go of a blossom now and then (three places in
+      //    the air at most, each with its own period, one period in four empty), sinks slowly, drifting with the wind,
+      //    swinging and turning over as it goes, and fades before it lands; one in seven is a whole blossom, falling
+      //    faster and straighter. All from T and the seed, nothing kept between frames. (?leap=1: many, to look at them.)
+      const live = document.createElement('canvas'); live.width = cw; live.height = chh; const gl = live.getContext('2d'), hs = (k, j) => { const v = Math.sin(k * 127.1 + j * 311.7 + (d.seed % 9973)) * 43758.5453; return v - Math.floor(v); };
+      const put = (nd, T, gust) => { gl.translate(nd.ax, nd.ay); gl.rotate(nd.amp * gust * (0.5 * wdir + Math.sin(T * 1.7 * nd.fq - nd.ph) + 0.35 * Math.sin(T * 2.9 * nd.fq - 2.3 * nd.ph))); gl.translate(-nd.ax, -nd.ay); gl.drawImage(nd.cv, nd.x, nd.y, nd.w, nd.h); for (const k of nd.kids) { gl.save(); put(k, T, gust); gl.restore(); } };
+      const flow = (T) => { gl.setTransform(1, 0, 0, 1, 0, 0); gl.clearRect(0, 0, cw, chh); const gust = 0.6 + 0.4 * Math.sin(T * 0.43 + 1.1 * Math.sin(T * 0.17));
+        for (const nd of nodes) { gl.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); put(nd, T, gust); }
+        gl.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); if (!blooms.length || !kitL.length) return;
+        for (let s = 0, sn = LEAPS ? 8 : 3; s < sn; s++) { const per = LEAPS ? 4 + 2 * hs(s, 900) : 5 + 6 * hs(s, 900), tt = T + per * hs(s, 901), k = Math.floor(tt / per), t = tt - k * per, e = k * 13 + s * 7, du = 3.4 + 1.4 * hs(e, 1);
+          if (t > du || (!LEAPS && hs(e, 2) > 0.75)) continue;
+          const b = blooms[Math.floor(hs(e, 3) * blooms.length) % blooms.length], whole = kitF.length > 0 && hs(e, 4) < 0.14, kit = whole ? kitF : kitL, q = kit[Math.floor(hs(e, 5) * kit.length) % kit.length], w = whole ? 0.03 * H : (0.011 + 0.009 * hs(e, 6)) * H, hh = w * q.h / q.w, ph = 6.283 * hs(e, 7), sp = hs(e, 8) < 0.5 ? -1 : 1;
+          const fall = H * (whole ? 0.13 : 0.07 + 0.03 * hs(e, 9)) * t * t / (t + 0.6), x = b[0] + H * (wdir * (whole ? 0.008 : 0.022) * t + (whole ? 0.004 : 0.013) * Math.sin(t * 2.3 + ph)), y = b[1] + fall;
+          gl.save(); gl.translate(x, y); gl.rotate(ph + sp * t * (whole ? 0.5 : 1.3)); gl.scale(1, whole ? 1 : 0.3 + 0.7 * Math.abs(Math.cos(t * 2.1 + ph))); gl.globalAlpha = 0.85 * sm(t / 0.3) * sm((1 - t / du) / 0.25); gl.drawImage(q.im, -w / 2, -hh / 2, w, hh); gl.restore(); }
+        gl.globalAlpha = 1; };
       // nearest thing on the paper: laid over everything else (yBase past any other), at full strength
-      return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: 1e9 + yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 }; }
+      return { river: true, live, flow, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: 1e9 + yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 }; }
     // -- branches, as Yang drew one (11-19, in Paint: "it has to be random"): a branch FORKS off its limb at a shallow
     //    angle and runs on beside it toward the tip, bending as it goes; to either side, below the limb as well as
     //    above; long (up to half the limb); now and then it forks again. Each ends in foliage. Nothing even: place,
