@@ -169,7 +169,7 @@ def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6, core=False):
         save(Y_, k, a); man[Y_][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
 
 
-def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None):
+def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0):
     """a sheet of rows of separate pieces (N: foliage, O: grass), one kind a row: rows found as bands of ink, pieces as
     runs of columns in a band (gap: what still joins two columns into one piece).
     blob (a width for every row): pieces found instead as islands of ink, grown by that much to hold an island of
@@ -186,7 +186,9 @@ def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None):
         else: pcs = [ink[a:b, ca:cb] for ca, cb in runs(ndi.binary_dilation(on[a:b].any(axis=0), structure=np.ones(int(gap * u) | 1))) if cb - ca >= 40 * u]
         for i, q in enumerate(pcs):
             if i in DROP.get(key + suf, ()): continue
-            rows = np.nonzero(q.max(axis=1) > thr)[0]; cols = np.nonzero(q.max(axis=0) > thr)[0]
+            rows = np.nonzero(q.max(axis=1) > thr)[0]
+            if top: q = q[rows[0] + int(top * u):]; rows = np.nonzero(q.max(axis=1) > thr)[0]   # sheet S: the ruled line a willow curtain hangs from, cut off
+            cols = np.nonzero(q.max(axis=0) > thr)[0]
             save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1
     print(' rows', len(bands), 'of', len(sufs))
 
@@ -300,6 +302,10 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'p': trunks(src, ink, sufs=('_bt', '_bw'), ylow=0.72, core=True)   # close branches of an old plum tree, and its twigs (base left)
     elif kind == 'n': rowsheet(src, ink, ('_n', '_p', '_q'), blob=(5, 3, 15))      # pine needle fans (they stand close), pine boughs, clusters of leaf dots (loose dabs: held together by a wide blob)
     elif kind == 'o': rowsheet(src, ink, ('_u', '_v', '_z'), gap=15)     # grass tufts, low patches of grass, small plants: the bottom of a piece = the ground
+    elif kind == 'r': rowsheet(src, ink, ('_lj', '_lo', '_lm'), blob=(15, 5, 17))   # classical foliage: drooping leaf strokes (jiezi), outlined leaves (pen line: not used), level Mi dots
+    elif kind == 's': rowsheet(src, ink, ('_wl', '_wb'), thr=0.06, blob=(11, 11), top=14)   # willow curtains hanging from a ruled line: in leaf, nearly bare
+    elif kind == 't': trunks(src, ink, sufs=('_bs', '_bl'), ylow=0.6)     # bamboo: stalks (root left), groups of leaves (stem up)
+    elif kind == 'u': trunks(src, ink, sufs=('_tu', '_tw'), ylow=0.78)    # trunks, each one pass of a wide brush; bare crowns (_tw: not used)
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

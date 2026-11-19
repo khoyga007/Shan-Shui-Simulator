@@ -671,6 +671,7 @@
   //   size    everything follows the length of the stroke: a long one is a tall tree, a short one a bush
   // Ink over ink: a tree hides nothing behind it. No drawn-by-code version: always Muse's sheets, whatever the brush.
   const kitOf = (suf) => (STROKES['muse' + suf] || []).filter((q) => q.im);
+  const FORCE = new URLSearchParams(location.search).get('tk');   // ?tk=willow: every tree of that kind, to look at it
   function tree(d) {
     const tB = performance.now(), H = D.H, R = dice(d.seed), P = calm(d.stroke, STEP, 5), n = P.length;
     if (n < 6) return null;
@@ -684,15 +685,19 @@
       for (let i = 1; i < n - 1; i++) { const t = i / (n - 1) * nk, k = Math.min(nk - 1, Math.floor(t)), z = kn[k] + (kn[k + 1] - kn[k]) * (0.5 - 0.5 * Math.cos(3.1416 * (t - k))), a = P0[Math.max(0, i - 3)], b = P0[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; P[i] = [P0[i][0] - (b[1] - a[1]) / l * z, P0[i][1] + (b[0] - a[0]) / l * z, P0[i][2]]; } }
     else if (P[0][1] < P[n - 1][1]) P.reverse();
     const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
-    const L = cum[n - 1], kitT = kitOf('_t'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    const L = cum[n - 1], kitT = kitOf('_t'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), kitU = kitOf('_tu'), kitLJ = kitOf('_lj'), kitLM = kitOf('_lm'), kitWL = kitOf('_wl').concat(kitOf('_wb')).filter((q) => q.tone > 0.03), kitBS = kitOf('_bs').filter((q) => q.h < 0.06 * q.w), kitBL = kitOf('_bl'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
     if (!kitT.length) return null;
-    const pine = (d.seed & 1) === 0, tan = P.map((_, i) => { const a = P[Math.max(0, i - 3)], b = P[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
+    // which tree: thrown by the stroke's seed (X throws again). Sheets R (_lj drooping leaf strokes, _lm level Mi dots), S (_wl willow
+    // curtains), T (_bs bamboo stalks, _bl its leaves), U (_tu trunks, one pass of a wide brush each; with M's)
+    let kind = ['pine', 'pine', 'dots', 'dots', 'jiezi', 'jiezi', 'mi', 'willow', 'willow', 'bamboo', 'bamboo', 'bare'][Math.abs(d.seed) % 12]; if (FORCE) kind = FORCE;
+    if ((kind === 'jiezi' && !kitLJ.length) || (kind === 'mi' && !kitLM.length) || (kind === 'willow' && !kitWL.length) || (kind === 'bamboo' && !kitBS.length)) kind = 'dots';
+    const pine = kind === 'pine', bare = kind === 'bare', tan = P.map((_, i) => { const a = P[Math.max(0, i - 3)], b = P[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
     let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
     const pad = Math.round(clamp(0.8 * L, 0.1 * H, 0.42 * H)), ox = Math.floor(xa) - pad, oy = Math.floor(ya) - pad, cw = Math.ceil((xb - xa + 2 * pad + 2) * dpr), chh = Math.ceil((yb - ya + 2 * pad + 2) * dpr);   // room on every side, under the root too: a trunk flown level or bent over hangs its foliage below its own root (r010: cut off along a ruled line)
     const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'), home = () => g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); home();
     // -- limbs. Trunk and branches are the same thing at different sizes: a stretch of a real trunk (from u0 of the piece
     //    to its tip, so every limb runs out to a point; further along the piece = thinner) in thin slices along a path
-    const qT = pick(zhe ? kitBT : kitT), fl = R() < 0.5 ? -1 : 1, th0 = zhe ? clamp(0.85 * L * qT.h / qT.w, 0.025 * H, 0.07 * H) : clamp(1.6 * L * qT.h / qT.w, 0.006 * H, 0.075 * H);
+    const qT = pick(zhe ? kitBT : kind === 'bamboo' ? kitBS : kitT.concat(kitU)), fl = R() < 0.5 ? -1 : 1, th0 = zhe ? clamp(0.85 * L * qT.h / qT.w, 0.025 * H, 0.07 * H) : clamp(1.6 * L * qT.h / qT.w, 0.006 * H, 0.075 * H);
     const limb = (Q, u0, G = g, X = ox, Y = oy) => { const m = Q.length, cl = [0]; for (let i = 1; i < m; i++) cl.push(cl[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1])); const Lq = cl[m - 1], ds = 2; let j = 0;
       for (let a = 0; a < Lq; a += ds) { while (j < m - 2 && cl[j + 1] < a) j++; const f = clamp((a - cl[j]) / Math.max(1e-6, cl[j + 1] - cl[j]), 0, 1), A = Q[Math.max(0, j - 2)], B = Q[Math.min(m - 1, j + 3)], l = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, tx = (B[0] - A[0]) / l, ty = (B[1] - A[1]) / l;
         G.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - X), dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - Y));   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
@@ -772,6 +777,18 @@
     //      pine     one leader to the top; branches in whorls, tier over tier, a pair at about one height, standing
     //               level and lifting only at the tip; the tiers shorten upward
     //      bare     nothing on the lowest part of the trunk (shed in the shade of the crown)
+    // -- bamboo: the stroke is a stalk, jointed (the sheet's own nodes); a clump: one to three more beside it, shorter,
+    //    paler, leaning their own way. Leaves in groups on short twigs off the upper nodes, hanging, more toward the top
+    if (kind === 'bamboo') { const leafAt = [], hang = (Q, Lq, al) => { const m = Q.length - 1; for (let j = 0, jn = clamp(Math.round(Lq / (0.055 * H)), 2, 9); j < jn; j++) { const q = Q[Math.round((0.3 + 0.7 * Math.pow((j + R()) / jn, 0.7)) * m)]; leafAt.push([q[0], q[1], al, R() < 0.5 ? -1 : 1]); } };
+      for (let k = 0, kn = Math.floor(R() * 3) + (L > 0.25 * H ? 1 : 0); k < kn; k++) { const dx = (R() < 0.5 ? -1 : 1) * (0.012 + 0.022 * R()) * H * (1 + 0.6 * k), lean = (R() - 0.5) * 0.24, cut = 0.5 + 0.45 * R(), m = Math.max(5, Math.round((n - 1) * cut)), Q = [], al = 0.4 + 0.3 * R();
+        for (let i = 0; i <= m; i++) Q.push([P[i][0] + dx + lean * (P[0][1] - P[i][1]), P[i][1]]);
+        g.globalAlpha = al; limb(Q, 0); g.globalAlpha = 1; hang(Q, L * cut, al); }
+      hang(P, L, 1); leafAt.push([P[n - 1][0], P[n - 1][1], 1, 0]);
+      for (const [x, y, al, sd] of leafAt) { if (!kitBL.length) break; const q = pick(kitBL), w = clamp(L * (0.12 + 0.1 * R()), 0.035 * H, 0.1 * H), h = w * q.h / q.w, tl = sd ? (0.008 + 0.02 * R()) * H : 0, ax = x + sd * tl, ay = y - tl * (0.2 + 0.5 * R());
+        if (sd) { g.strokeStyle = `rgba(${INK},${(0.8 * al).toFixed(2)})`; g.lineWidth = Math.max(0.7, 0.0013 * H); g.beginPath(); g.moveTo(x, y); g.lineTo(ax, ay); g.stroke(); }
+        g.save(); g.translate(ax, ay); g.rotate(sd * (0.1 + 0.5 * R())); g.scale(R() < 0.5 ? -1 : 1, 1); g.globalAlpha = al * (0.75 + 0.25 * R()); g.drawImage(q.im, -0.5 * w, -0.06 * h, w, h); g.restore(); }
+      g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+      return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1), peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 }; }
     const tips = [], wrapA = (v) => Math.atan2(Math.sin(v), Math.cos(v));
     const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], sway = (R() - 0.5) * 0.7 / m, lvl = Math.cos(ang) < 0 ? Math.PI : 0, dsg = lvl ? -1 : 1, trop = pine ? 0 : 0.35 + 0.5 * R(); let a = ang;
       // a pine branch is crooked by elbows: one to three sharp turns, down then up by turns, straight between them.
@@ -782,7 +799,7 @@
         if (Math.sin(a) > 0.3) a += (Math.cos(a) > 0 ? -1 : 1) * 0.07;   // a branch does not droop far: turned back toward level
         x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
       limb(Q, u0); tips.push({ x, y, len, a, Q });
-      if (depth < 2 && len > 0.06 * H && R() < (pine ? 0.3 : 0.65)) { const k = Math.round(m * (0.3 + 0.35 * R())); grow(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.5 * R()), len * (0.4 + 0.35 * R()), Math.min(0.93, u0 + 0.12), depth + 1); } };
+      for (let fk = 0, fkn = bare ? 2 : 1; fk < fkn; fk++) if (depth < (bare ? 3 : 2) && len > (bare ? 0.03 : 0.06) * H && R() < (pine ? 0.3 : bare ? 0.85 : 0.65)) { const k = Math.round(m * (0.3 + 0.35 * R())); grow(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.5 * R()), len * (bare ? 0.55 + 0.4 * R() : 0.4 + 0.35 * R()), bare ? Math.min(0.97, u0 + 0.5 * (1 - u0)) : Math.min(0.93, u0 + 0.12), depth + 1); } };   // a bare tree's forks: long and thinning fast, down to hairs
     const at = (t) => { const i = clamp(Math.round(t * (n - 1)), 0, n - 1); return [P[i], Math.atan2(tan[i][1], tan[i][0]), tan[i]]; };
     if (pine) { const nt = clamp(Math.round(L / (0.11 * H)), 1, 4); let sg = R() < 0.5 ? -1 : 1;
       for (let k = 0; k < nt; k++) { const t0 = nt === 1 ? 0.6 : 0.34 + 0.56 * (k + 0.2 + 0.6 * R()) / nt, len0 = L * (0.42 - 0.26 * t0);
@@ -796,6 +813,7 @@
         if (R() < 0.7) sg = -sg; let ang = base + sg * phi; if (Math.sin(ang) > 0.35) ang = base - sg * phi;   // out of the upper side of a leaning trunk
         grow(p[0], p[1], ang, clamp(L * (0.52 - 0.32 * t) * (0.55 + 0.7 * R()), 0.03 * H, 0.3 * H), clamp(0.35 + 0.5 * t, 0, 0.88), 1); } }
     tips.push({ x: P[n - 1][0], y: P[n - 1][1], len: clamp(0.35 * L, 0.04 * H, 0.2 * H), a: -1.57 });
+    const curt = [], leafKit = kind === 'jiezi' ? kitLJ : kind === 'mi' ? kitLM : kitQ, rotK = kind === 'jiezi' ? 0.25 : kind === 'mi' ? 0.1 : 0.5;   // drooping leaves hang, Mi dots lie level: hardly turned
     // -- foliage: at the end of every limb, each of its own size; here and there a second one beside it
     if (pine) { const turn = (q, x, y, w, ang, flip, al) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = al; g.drawImage(q.im, -w / 2, -h * 0.8, w, h); g.restore(); g.globalAlpha = 1; };   // a bough lies on the end of its branch, its flat dark underside a little below it
       for (const t of tips) { if (kitN.length && R() < 0.4) turn(pick(kitN), t.x + Math.cos(t.a) * 0.02 * H, t.y + Math.sin(t.a) * 0.02 * H, clamp(t.len * (0.3 + 0.3 * R()), 0.02 * H, 0.07 * H), (R() - 0.5) * 1.2, R() < 0.5, 0.85);
@@ -804,14 +822,26 @@
         if (kitP.length) { const w0 = clamp(t.len * (0.5 + 0.35 * R()), 0.03 * H, 0.13 * H), cnt = t.Q ? clamp(Math.round(t.len / (0.055 * H)), 1, 4) : 1;
           for (let k = cnt - 1; k >= 0; k--) { const f = cnt === 1 ? 1 : 1 - 0.5 * k / (cnt - 0.5) + (k ? (R() - 0.5) * 0.08 : 0), q = t.Q ? t.Q[clamp(Math.round(f * (t.Q.length - 1)), 0, t.Q.length - 1)] : [t.x, t.y];
             turn(pick(kitP), q[0], q[1], w0 * (k ? 0.6 + 0.3 * R() : 1), (R() - 0.5) * 0.35, R() < 0.5, 0.9 + 0.1 * R()); } } }
-    } else if (kitQ.length) { // one kind of leaf to a tree (the sheet's clusters differ: round dabs, level dashes, slanting ones), and a dab keeps
+    } else if (kind === 'willow') { // curtains of hanging twigs along every limb, from its middle to its end: not painted here but each frame (they swing)
+      const fl2 = R() < 0.5; for (const t of tips) { const Q = t.Q || [[t.x, t.y]], cnt = t.Q ? clamp(Math.round(t.len / (0.05 * H)), 1, 4) : 1;
+        for (let k = 0; k < cnt; k++) { const q = pick(kitWL), i = clamp(Math.round((0.35 + 0.65 * (k + R()) / cnt) * (Q.length - 1)), 0, Q.length - 1), p = Q[i], a = Q[Math.max(0, i - 2)], b = Q[Math.min(Q.length - 1, i + 2)], dx = b[0] - a[0], hh = clamp(L * (0.25 + 0.3 * R()), 0.05 * H, 0.34 * H);
+          // the sheet's curtain hangs from a ruled level line: its top is faded out (once, kept with the piece) and laid along the limb's own slope, the twigs still hanging straight down
+          if (!q.fd) { const f = document.createElement('canvas'); f.width = q.w; f.height = q.h; const fx = f.getContext('2d'); fx.drawImage(q.im, 0, 0); const gd = fx.createLinearGradient(0, 0, 0, q.h); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(0.16, '#000'); fx.globalCompositeOperation = 'destination-in'; fx.fillStyle = gd; fx.fillRect(0, 0, q.w, q.h); q.fd = f; }
+          curt.push({ q, x: p[0], y: p[1] - 0.06 * hh, w: Math.min(hh * q.w / q.h, (0.05 + 0.04 * R()) * H), h: hh, sl: Math.abs(dx) < 1e-3 ? 0 : clamp((b[1] - a[1]) / dx, -1.2, 1.2), fl: fl2, al: 0.6 + 0.4 * R(), ph: p[0] / (0.2 * H) + 2 * R(), amp: 0.03 + 0.04 * R() }); } }
+    } else if (!bare && leafKit.length) { // one kind of leaf to a tree (the sheet's clusters differ: round dabs, level dashes, slanting ones), and a dab keeps
       // its size: a small cluster is not blown up to fill a large crown, several of it are laid there instead
-      const qT = pick(kitQ), cap = qT.w * H / 1300, puff = (x, y, w0) => { const w = Math.min(w0, cap), h = w * qT.h / qT.w, nr = clamp(Math.round((w0 / w) ** 2 * 0.7), 1, 6);
-        for (let i = 0; i < nr; i++) { const ox = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) : 0, oy = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) * 0.8 : 0; g.save(); g.translate(x + ox, y + oy); g.rotate((R() - 0.5) * 0.5); g.scale(R() < 0.5 ? -1 : 1, 1); g.globalAlpha = 0.65 + 0.35 * R(); g.drawImage(qT.im, -w / 2, -h / 2, w, h); g.restore(); } g.globalAlpha = 1; };
+      const qT = pick(leafKit), cap = qT.w * H / 1300, puff = (x, y, w0) => { const w = Math.min(w0, cap), h = w * qT.h / qT.w, nr = clamp(Math.round((w0 / w) ** 2 * 0.7), 1, 6);
+        for (let i = 0; i < nr; i++) { const ox = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) : 0, oy = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) * 0.8 : 0; g.save(); g.translate(x + ox, y + oy); g.rotate((R() - 0.5) * rotK); g.scale(R() < 0.5 ? -1 : 1, 1); g.globalAlpha = 0.65 + 0.35 * R(); g.drawImage(qT.im, -w / 2, -h / 2, w, h); g.restore(); } g.globalAlpha = 1; };
       for (const t of tips) { const w = clamp(t.len * (0.55 + 0.55 * R()), 0.035 * H, 0.15 * H);   // no larger: blown up on a tall tree the dabs were blots, flung far from the tree (r010)
         puff(t.x, t.y, w); if (R() < 0.4) puff(t.x + (R() - 0.5) * w * 0.9, t.y + (R() - 0.5) * w * 0.7, w * (0.6 + 0.4 * R())); } }
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-    return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1), peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+    const tone = 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1); let live = null, flow = null;
+    // a willow's curtains swing: each hung by its top, sheared to and fro about it each frame, a gust running through the tree
+    if (curt.length) { live = document.createElement('canvas'); live.width = cw; live.height = chh; const gl = live.getContext('2d'), wd = R() < 0.5 ? -1 : 1;
+      flow = (T) => { gl.setTransform(1, 0, 0, 1, 0, 0); gl.clearRect(0, 0, cw, chh); const gust = 0.6 + 0.4 * Math.sin(T * 0.43 + 1.1 * Math.sin(T * 0.17));
+        for (const c of curt) { gl.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); gl.translate(c.x, c.y); gl.transform(1, c.sl, c.amp * gust * (0.6 * wd + Math.sin(T * 1.3 - c.ph) + 0.3 * Math.sin(T * 2.3 - 1.9 * c.ph)), 1, 0, 0); gl.scale(c.fl ? -1 : 1, 1); gl.globalAlpha = c.al * tone; gl.drawImage(c.q.fd, -0.5 * c.w, 0, c.w, c.h); }
+        gl.globalAlpha = 1; }; }
+    return { river: true, live, flow, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
   const NOBODY = document.createElement('canvas'); NOBODY.width = NOBODY.height = 1;   // what a tree or grass hides of the things behind it: nothing
 
