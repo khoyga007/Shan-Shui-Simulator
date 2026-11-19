@@ -459,10 +459,34 @@
             patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.3 - 0.32 * t) / 0.14), hi = 0.35 + 0.65 * sm((yBase - top[k]) / span / 0.5); return Rf() > patch * hi * (1 - 0.75 * t) ? null : [x, y, t]; };
         for (let q = 0; q < cnt / 14; q++) { const a = at(1.6); if (!a) continue; const [x, y, t] = a, r = H * (0.012 + 0.016 * Rf()), gd = g.createRadialGradient(x, y, 0, x, y, r); gd.addColorStop(0, `rgba(${INK},${(0.16 * (0.5 + 0.5 * near) * (1 - 0.6 * t)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
         g.fillStyle = `rgb(${INK})`;
+        // Sheet Y (11-19): the wood as real brushwork. Code dabs, however layered, stayed a pattern of dot clusters. Now forest
+        // patches (a wet mass with tree tops standing out of its upper edge) lie down the flank, each lower one over the foot of
+        // the one above as ridge behind ridge; the same in pale ink where the wood thins toward the mist and on far mountains;
+        // single far trees at its edge; and on the crest itself tree lines turned to the slope (not where it is steep: trees
+        // stand upright). Pieces keep upright: mirrored, never rotated, but for the tree lines.
+        const ky = (suf) => S.tex === 'code' ? [] : (STROKES['muse_' + suf] || []).filter((q) => q.im), kYL = ky('yl'), kYF = ky('yf'), kYT = ky('yt'), kYP = ky('yp'), pk = (K) => K[Math.floor(Rf() * K.length) % K.length];
+        if (kYF.length) { const w0 = H * (0.05 + 0.055 * near), lay = [], tries = Math.min(2200, Math.round(fa * area * reach / (w0 * w0 * 0.5) * 5)),
+            // (first still: islands of wood afloat on a bare flank, some hanging out over the mountain's side, single trees as large as
+            // clover leaves. Under the ridge the wood is now whole, stands only further down; a piece needs the mountain under both its ends)
+            atY = (pw, w) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depth[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t, ka = col(x - 0.42 * w), kb = col(x + 0.42 * w);
+              if (depth[ka] < 0.03 * H || depth[kb] < 0.03 * H || y < Math.max(top[ka], top[kb]) - 0.004 * H) return null;
+              const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.3 - 0.3 * t) / 0.14), hi = 0.4 + 0.6 * sm((yBase - top[k]) / span / 0.5); return Rf() > hi * (1 - 0.8 * t) * Math.max(patch, 1 - t / 0.22) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (Rf() < 0.5) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
+          for (let q = 0; q < tries; q++) { const r1 = Rf(), a = atY(1.9, w0 * (0.7 + 0.8 * r1)); if (!a) continue; const [x, y, t] = a, pale = kYP.length && Rf() < 0.05 + 0.7 * t + 0.3 * (1 - near); lay.push([y, x, t, pale ? pk(kYP) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
+          if (kYT.length) for (let q = 0; q < tries * 0.5; q++) { const a = atY(0.8, 0); if (!a) continue; const [x, y, t] = a; if (t < 0.25) continue; lay.push([y, x, t, pk(kYT), 2, Rf(), Rf()]); }
+          lay.sort((p, q) => p[0] - q[0]);
+          for (const [y, x, t, m, kind, r1, r2] of lay) {
+            if (kind === 2) put(m, x, y, w0 * (0.09 + 0.08 * r1), 0.95, (0.35 + 0.45 * r2) * (0.6 + 0.4 * near) * (1 - 0.4 * t), 0);
+            else put(m, x, y, w0 * (0.7 + 0.8 * r1) * (1 - 0.3 * t), 0.55, kind ? 0.6 + 0.4 * r2 : (0.5 + 0.45 * r2) * (0.65 + 0.35 * near) * (1 - 0.4 * t), 0); }
+          if (kYL.length) for (let x = bx0 + 0.04 * H; x < bx1 - 0.04 * H;) { const m = pk(kYL), w = H * (0.045 + 0.05 * Rf()) * (0.7 + 0.5 * near) * Math.min(1.6, m.w / m.h / 2.6), k = col(x), k1 = col(x - w / 2), k2 = col(x + w / 2), ang = Math.atan2(top[k2] - top[k1], w),
+              stand = sm((N(x / (0.05 * H) + 500, 2) - 0.4) / 0.14), hi = 0.3 + 0.7 * sm((yBase - top[k]) / span / 0.6);
+            if (Math.abs(ang) > 0.7 || depth[k] < 0.06 * H || Rf() > fa * hi * (0.2 + 0.8 * stand)) { x += w * 0.45; continue; }
+            put(m, x, (top[k1] + top[k2] + 2 * top[k]) / 4, w, 0.6, (0.6 + 0.35 * Rf()) * (0.65 + 0.35 * near), ang); x += w * (0.55 + 0.5 * Rf()); }
+          g.globalAlpha = 1; }
+        else {
         if (kM.length) for (let q = 0; q < cnt / 5; q++) { const a = at(1.35); if (!a) continue; const [x, y, t] = a, m = kM[Math.floor(Rf() * kM.length) % kM.length], w = s0 * (2.2 + 2.6 * Rf()) * (1 - 0.3 * t), h = w * m.h / m.w * (1 + 0.5 * Rf()); g.globalAlpha = (0.3 + 0.5 * Rf()) * (0.6 + 0.4 * near) * (1 - 0.5 * t); g.drawImage(m.im, x - w / 2, y - h / 2, w, h); }
         for (let q = 0; q < cnt / 2.5; q++) { const a = at(1.35); if (!a) continue; const [x, y, t] = a, sz = s0 * (0.4 + 0.8 * Rf() * Rf()) * (1 - 0.3 * t); g.globalAlpha = (0.3 + 0.5 * Rf()) * (0.6 + 0.4 * near) * (1 - 0.5 * t); g.beginPath();
           if (Rf() < 0.7) g.ellipse(x, y, sz * (0.3 + 0.25 * Rf()), sz * (0.75 + 0.6 * Rf()), (Rf() - 0.5) * 0.5, 0, 6.2832); else g.ellipse(x, y, sz * (0.45 + 0.3 * Rf()), sz * (0.4 + 0.25 * Rf()), Rf() * 3, 0, 6.2832);
-          g.fill(); } }
+          g.fill(); } } }
       g.globalAlpha = 1; }
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);

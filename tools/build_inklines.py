@@ -308,6 +308,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'u': trunks(src, ink, sufs=('_tu', '_tw'), ylow=0.78)    # trunks, each one pass of a wide brush; bare crowns (_tw: not used)
     elif kind == 'w': trunks(src, ink, sufs=('_cf', '_cx'), ylow=2)     # cliffs: 4 crag-top edges (blocky: not used), then 6 long drags of a half-dry brush, dark end left (laid down the rock face by the room)
     elif kind == 'x': rowsheet(src, ink, ('_xh', '_xa', '_xf', '_xm'), thr=0.06, blob=(15, 5, 5, 21))   # texture strokes of a mountain's flank (cun): hemp-fibre lines (pale, two or three abreast), axe-cut chops, folded-belt strokes, clusters of moss dots
+    elif kind == 'y': rowsheet(src, ink, ('_yl', '_yf', '_yt', '_yp'), thr=0.06, gap=7)   # forest seen from afar: tree lines of a wooded crest, forest patches (tree tops above, loose dabs below), single far trees, the patches again in pale ink; bottom of a piece = the ground
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
