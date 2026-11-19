@@ -149,18 +149,31 @@ def trunks(key, ink, thr=0.12):
         save(key + '_y', k, a); man[key + '_y'][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
 
 
-def rowsheet(key, ink, sufs, thr=0.1, gap=9):
+def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None):
     """a sheet of rows of separate pieces (N: foliage, O: grass), one kind a row: rows found as bands of ink, pieces as
-    runs of columns in a band (gap: what still joins two columns into one piece)"""
+    runs of columns in a band (gap: what still joins two columns into one piece).
+    blob (a width for every row): pieces found instead as islands of ink, grown by that much to hold an island of
+    separate dabs together. For rows whose pieces reach over or under each other (long pine needles) and so share
+    columns; a piece is then cut out by its own island, without its neighbour's ends"""
     u = ink.shape[1] / 2048; on = ink > thr
     bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(25 * u) | 1))) if b - a > 40 * u]
-    for (a, b), suf in zip(bands, sufs):
+    for j, ((a, b), suf) in enumerate(zip(bands, sufs)):
         man.pop(key + suf, None); k = 0
-        for ca, cb in runs(ndi.binary_dilation(on[a:b].any(axis=0), structure=np.ones(int(gap * u) | 1))):
-            if cb - ca < 40 * u: continue
-            q = ink[a:b, ca:cb]; rows = np.nonzero(q.max(axis=1) > thr)[0]; cols = np.nonzero(q.max(axis=0) > thr)[0]
+        if blob:
+            d = int(blob[j] * u) | 1; lab, _ = ndi.label(ndi.binary_dilation(on[a:b], structure=np.ones((d, d))))
+            cut = [(sl, i + 1) for i, sl in enumerate(ndi.find_objects(lab)) if max(sl[0].stop - sl[0].start, sl[1].stop - sl[1].start) >= 40 * u + d]
+            pcs = [ink[a:b][sl] * (lab[sl] == i) for sl, i in sorted(cut, key=lambda c: c[0][1].start)]
+        else: pcs = [ink[a:b, ca:cb] for ca, cb in runs(ndi.binary_dilation(on[a:b].any(axis=0), structure=np.ones(int(gap * u) | 1))) if cb - ca >= 40 * u]
+        for i, q in enumerate(pcs):
+            if i in DROP.get(key + suf, ()): continue
+            rows = np.nonzero(q.max(axis=1) > thr)[0]; cols = np.nonzero(q.max(axis=0) > thr)[0]
             save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1
     print(' rows', len(bands), 'of', len(sufs))
+
+
+# pieces of a row sheet left out, counted from the left. Muse N (v4): of its boughs the 5th and 6th came out as peaked
+# thatch roofs, the 7th as two smears one over the other with stray fans beside them
+DROP = {'muse_p': set(range(4, 16))}
 
 
 # -- mist (sheets D and E): not ink to lay down but a mask. A flat grey wash that mist has eaten into: grey = the ink
@@ -242,7 +255,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'k': tufts(src, ink)
     elif kind == 'l': fish(src, ink)
     elif kind == 'm': trunks(src, ink)
-    elif kind == 'n': rowsheet(src, ink, ('_n', '_p', '_q'), gap=5)      # pine needle fans (they stand close), pine boughs, clusters of leaf dots
+    elif kind == 'n': rowsheet(src, ink, ('_n', '_p', '_q'), blob=(5, 3, 15))      # pine needle fans (they stand close), pine boughs, clusters of leaf dots (loose dabs: held together by a wide blob)
     elif kind == 'o': rowsheet(src, ink, ('_u', '_v', '_z'), gap=15)     # grass tufts, low patches of grass, small plants: the bottom of a piece = the ground
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))

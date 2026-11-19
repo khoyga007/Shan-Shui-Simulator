@@ -737,7 +737,10 @@
         if (kitP.length) { const w0 = clamp(t.len * (0.5 + 0.35 * R()), 0.03 * H, 0.13 * H), cnt = t.Q ? clamp(Math.round(t.len / (0.055 * H)), 1, 4) : 1;
           for (let k = cnt - 1; k >= 0; k--) { const f = cnt === 1 ? 1 : 1 - 0.5 * k / (cnt - 0.5) + (k ? (R() - 0.5) * 0.08 : 0), q = t.Q ? t.Q[clamp(Math.round(f * (t.Q.length - 1)), 0, t.Q.length - 1)] : [t.x, t.y];
             turn(pick(kitP), q[0], q[1], w0 * (k ? 0.6 + 0.3 * R() : 1), (R() - 0.5) * 0.35, R() < 0.5, 0.9 + 0.1 * R()); } } }
-    } else if (kitQ.length) { const puff = (x, y, w) => { const q = pick(kitQ), h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate((R() - 0.5) * 0.9); g.scale(R() < 0.5 ? -1 : 1, R() < 0.5 ? -1 : 1); g.globalAlpha = 0.65 + 0.35 * R(); g.drawImage(q.im, -w / 2, -h / 2, w, h); g.restore(); g.globalAlpha = 1; };
+    } else if (kitQ.length) { // one kind of leaf to a tree (the sheet's clusters differ: round dabs, level dashes, slanting ones), and a dab keeps
+      // its size: a small cluster is not blown up to fill a large crown, several of it are laid there instead
+      const qT = pick(kitQ), cap = qT.w * H / 1300, puff = (x, y, w0) => { const w = Math.min(w0, cap), h = w * qT.h / qT.w, nr = clamp(Math.round((w0 / w) ** 2 * 0.7), 1, 6);
+        for (let i = 0; i < nr; i++) { const ox = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) : 0, oy = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) * 0.8 : 0; g.save(); g.translate(x + ox, y + oy); g.rotate((R() - 0.5) * 0.5); g.scale(R() < 0.5 ? -1 : 1, 1); g.globalAlpha = 0.65 + 0.35 * R(); g.drawImage(qT.im, -w / 2, -h / 2, w, h); g.restore(); } g.globalAlpha = 1; };
       for (const t of tips) { const w = clamp(t.len * (0.55 + 0.55 * R()), 0.035 * H, 0.15 * H);   // no larger: blown up on a tall tree the dabs were blots, flung far from the tree (r010)
         puff(t.x, t.y, w); if (R() < 0.4) puff(t.x + (R() - 0.5) * w * 0.9, t.y + (R() - 0.5) * w * 0.7, w * (0.6 + 0.4 * R())); } }
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
