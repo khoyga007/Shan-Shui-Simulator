@@ -31,7 +31,7 @@
   const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9, kind: 'mountain' };   // kind: what the next stroke becomes (keys 1 to 5)
   const KINDS = [['mountain', 'núi'], ['river', 'sông'], ['lake', 'hồ'], ['tree', 'cây'], ['grass', 'cỏ']];
   const say = (s) => { st.msg = s; st.msgT = D.T; };
-  function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; sync(); }
+  function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; if (typeof throwGrove === 'function') throwGrove(); sync(); }
   function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
   function penDown() { if (st.pen) return; st.pen = true; st.stroke = []; }
   function penUp() {
@@ -672,6 +672,11 @@
   // Ink over ink: a tree hides nothing behind it. No drawn-by-code version: always Muse's sheets, whatever the brush.
   const kitOf = (suf) => (STROKES['muse' + suf] || []).filter((q) => q.im);
   const FORCE = new URLSearchParams(location.search).get('tk');   // ?tk=willow: every tree of that kind, to look at it
+  // lead kind -> its company. Pine with mixed leaf trees; a leaf grove of two or three dottings; willow by the water with
+  // a bare tree; bamboo with an old dry tree (kumu zhushi); the wintry grove (hanlin) with the evergreens that outlast it.
+  const GROVES = { pine: ['dots', 'mi'], dots: ['jiezi', 'bare'], jiezi: ['dots', 'mi'], mi: ['jiezi', 'dots'], willow: ['bare', 'dots'], bamboo: ['bare'], bare: ['pine', 'bamboo'] };
+  const throwGrove = () => { const k = Object.keys(GROVES), g = new URLSearchParams(location.search).get('grove'); st.grove = GROVES[g] ? g : k[Math.floor(Math.random() * k.length)]; };
+  throwGrove();
   function tree(d) {
     const tB = performance.now(), H = D.H, R = dice(d.seed), P = calm(d.stroke, STEP, 5), n = P.length;
     if (n < 6) return null;
@@ -689,7 +694,11 @@
     if (!kitT.length) return null;
     // which tree: thrown by the stroke's seed (X throws again). Sheets R (_lj drooping leaf strokes, _lm level Mi dots), S (_wl willow
     // curtains), T (_bs bamboo stalks, _bl its leaves), U (_tu trunks, one pass of a wide brush each; with M's)
-    let kind = ['pine', 'pine', 'dots', 'dots', 'jiezi', 'jiezi', 'mi', 'willow', 'willow', 'bamboo', 'bamboo', 'bare'][Math.abs(d.seed) % 12]; if (FORCE) kind = FORCE;
+    // Not any tree next to any tree (Yang 11-19: seven kinds in one grove). As the old manuals group them: one kind leads a
+    // painting (about 7 trees in 10), one or two that go with it keep it company. The painting's grove is thrown when the
+    // paper is cleared (st.grove; ?grove=pine picks it); the stroke's seed then says which of the grove this tree is.
+    const gv = GROVES[st.grove] || GROVES.pine, hs = ((Math.abs(d.seed) * 2654435761) >>> 0) % 100;
+    let kind = hs < 70 ? st.grove : gv[hs % gv.length]; if (FORCE) kind = FORCE;
     if ((kind === 'jiezi' && !kitLJ.length) || (kind === 'mi' && !kitLM.length) || (kind === 'bamboo' && !kitBS.length)) kind = 'dots';
     const pine = kind === 'pine', bare = kind === 'bare', wil = kind === 'willow', tan = P.map((_, i) => { const a = P[Math.max(0, i - 3)], b = P[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
     let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
@@ -974,7 +983,7 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
   for (const [k] of SL) $('p_' + k).addEventListener('input', (e) => { S[k] = +e.target.value; save(); redo(false); sync(); });
   function sync() {
     if (!$('p_stat')) return;
-    $('p_stat').textContent = `Nét đang chọn: ${KINDS.map(([id, name], i) => (id === st.kind ? `[${i + 1} ${name}]` : `${i + 1} ${name}`)).join('  ')}\n` + (st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét');
+    $('p_stat').textContent = `Nét đang chọn: ${KINDS.map(([id, name], i) => (id === st.kind ? `[${i + 1} ${name}]` : `${i + 1} ${name}`)).join('  ')}\n` + (st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét') + `\nCây bức này: ${[st.grove].concat(GROVES[st.grove] || []).map((g, i) => ({ pine: 'thông', dots: 'lá chấm', jiezi: 'lá rủ', mi: 'chấm Mễ', willow: 'liễu', bamboo: 'trúc', bare: 'cây khô' }[g] + (i ? '' : ' (chính)'))).join(', ')}`;
     $('p_tex').textContent = `Nét bút: ${S.tex} (B)`;
     for (const [k] of SL) { $('p_' + k).value = S[k]; $('p_' + k + 'v').textContent = S[k].toFixed(2); }
   }
