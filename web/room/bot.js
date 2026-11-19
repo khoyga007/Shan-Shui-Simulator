@@ -149,6 +149,13 @@
       x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };
     for (let k = 0; k < 320; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 319 && k !== 30, noSnap: true }); if (k === 30) { Rm.G.draw(0); post('bot-paint-mid.jpg', snap()); } }   // the last stroke's ink runs down (1.6 s)
     const t0 = performance.now(); Rm.G.draw(0); const bakeMs = +(performance.now() - t0).toFixed(1);
+    { // what each element makes of a stroke (keys 1 to 3: the kind is read from how the stroke was flown)
+      const mk = (n, f) => Array.from({ length: n }, (_, i) => { const p = f(i / (n - 1)); return [p[0] * H, p[1] * H, 0.8]; }), len = (q) => q.reduce((L, p, i) => L + (i ? Math.hypot(p[0] - q[i - 1][0], p[1] - q[i - 1][1]) : 0), 0), g = (el, q) => Pt.guess(el, q, len(q));
+      const loop = (turns) => mk(150, (t) => [1.22 + 0.3 * Math.cos(t * turns), 0.8 + 0.15 * Math.sin(t * turns)]);
+      out.guess = { river: g('water', mk(140, (t) => [0.72 + 0.3 * Math.sin(t * 7.2) * (0.25 + 0.75 * t), 0.5 + 0.46 * t])), riverLevel: g('water', mk(80, (t) => [0.2 + 1.2 * t, 0.7 + 0.03 * Math.sin(t * 9)])), riverU: g('water', loop(3.3)),
+        lake: g('water', loop(5.9)), lakePast: g('water', loop(7.1)), lakeGap: g('water', loop(3.8)), lakeSmall: g('water', mk(60, (t) => [0.5 + 0.08 * Math.cos(t * 6.1), 0.8 + 0.05 * Math.sin(t * 6.1)])),
+        tree: g('wood', mk(60, (t) => [0.5 + 0.05 * t * t, 0.9 - 0.3 * t])), treeLean: g('wood', mk(60, (t) => [0.5 + 0.25 * t, 0.9 - 0.3 * t])), treeDown: g('wood', mk(60, (t) => [0.5, 0.5 + 0.3 * t])),
+        grass: g('wood', mk(80, (t) => [0.05 + 0.7 * t, 0.955 + 0.012 * Math.sin(t * 9)])), grassSlope: g('wood', mk(80, (t) => [0.05 + 0.7 * t, 0.9 - 0.2 * t])), earth: g('earth', loop(5.9)) }; }
     out.paint = { ...Pt.info(), flown: pr, bakeMs };
     post('bot-paint.jpg', snap());
     { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);

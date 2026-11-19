@@ -122,3 +122,25 @@ Exit criteria:
 
 ## Out of scope for now
 Story script, audio beyond placeholder, regions 2–6, save system, Steam.
+
+## Strokes = four elements (Yang 11-19)
+
+Player picks ELEMENT, game reads sub-kind from how stroke was flown. Replaces five kind keys.
+
+| key | element | makes | read from |
+|---|---|---|---|
+| 1 | Địa (earth) | mountain; later rock, bank, cliff | (todo) arch / small closed / long low |
+| 2 | Thuỷ (water) | river, lake | loop back to start = lake, else river |
+| 3 | Mộc (wood) | tree, grass | standing = tree, lying = grass |
+| 4 (todo) | Thiên (sky) | sun, moon, cloud, birds | loop CLOCKWISE = sun, COUNTER-CLOCKWISE = moon (Yang's rule; sign of loop area) |
+
+- Wrong guess: same element key again turns last stroke to next sub-kind (`turn`, paint.js). Lying stroke turned to tree = close branch (zhezhi).
+- Name Địa kept (pair Thiên/Địa), not Thổ. Not ngũ hành.
+- Unplaced: man-made (house, bridge, boat).
+- Idea parked: loop direction as modifier for other elements (e.g. water loop cw/ccw).
+
+Order agreed: (1) merge keys DONE -> (2) NEAR tier for Địa -> (3) water reflection for Thuỷ -> (4) Thiên.
+
+### Depth (why 2 and 3)
+All mountains read FAR (bình viễn only): tiny ridge trees fix scale, body = flat wash, low-on-paper only darkens. Need tầng cảnh: near/mid/far differ in DRAWING (tree size, rock faces, slope strokes), not tone alone.
+Water as layer divider + whole-mountain mirror image = modern ink style (classical leaves water blank); Yang wants it. Water comes from player's Thuỷ stroke (Claire's lean, Yang not yet confirmed), what stands above it mirrors.

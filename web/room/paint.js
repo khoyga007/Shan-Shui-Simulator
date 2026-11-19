@@ -28,8 +28,23 @@
   const INK = '18,18,24';
 
   // ---- state --------------------------------------------------------------------------------------------------------
-  const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9, kind: 'mountain' };   // kind: what the next stroke becomes (keys 1 to 5)
-  const KINDS = [['mountain', 'núi'], ['river', 'sông'], ['lake', 'hồ'], ['tree', 'cây'], ['grass', 'cỏ']];
+  const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9, kind: 'earth' };   // kind: the element of the next stroke (keys 1 to 3)
+  // Three strokes, not five (Yang 11-19): Địa (earth: mountains, later rocks and banks), Thuỷ (water: river, lake), Mộc
+  // (wood: trees, grass). The element is chosen; what the stroke becomes within it is read from how it was flown (guess).
+  // A fourth, Thiên (sky: sun flown clockwise, moon counter-clockwise, clouds, birds), is to come.
+  const KINDS = [['earth', 'Địa', 'núi'], ['water', 'Thuỷ', 'sông, hồ'], ['wood', 'Mộc', 'cây, cỏ']];
+  const SUBS = { earth: ['mountain'], water: ['river', 'lake'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', river: 'sông', lake: 'hồ', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
+  // water: a loop that comes back to its start (its last quarter passing near its first; flown past the start counts) is
+  // a lake, else a river. wood: a stroke that stands is a tree (the stroke its trunk), one that lies is grass (its ground);
+  // the slope is the one `tree` uses for a branch seen close, which is now reached by turning a lying stroke into a tree
+  function guess(el, q, L) {
+    const n = q.length, a = q[0], b = q[n - 1];
+    if (el === 'water') { const k = Math.max(1, n >> 2); let g = 1e9; for (let i = 0; i < k; i++) for (let j = n - k; j < n; j++) g = Math.min(g, Math.hypot(q[i][0] - q[j][0], q[i][1] - q[j][1])); return L > 0.3 * D.H && g < Math.max(SNAP * D.H, 0.15 * L) ? 'lake' : 'river'; }
+    if (el === 'wood') return Math.abs(b[1] - a[1]) > 0.58 * Math.abs(b[0] - a[0]) ? 'tree' : 'grass';
+    return 'mountain';
+  }
+  // guessed wrong: the key of the element again turns the last stroke into the next thing of that element
+  function turn() { const d = st.done[st.done.length - 1], subs = d && SUBS[d.el]; if (!subs || subs.length < 2 || d.el !== st.kind) return false; d.kind = subs[(subs.indexOf(d.kind) + 1) % subs.length]; d.m = null; bakeKey = ''; say(ELN[d.el] + ': đổi nét cuối thành ' + SUBN[d.kind]); return true; }
   const say = (s) => { st.msg = s; st.msgT = D.T; };
   function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; if (typeof throwGrove === 'function') throwGrove(); sync(); }
   function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
@@ -38,7 +53,7 @@
     if (!st.pen) return; st.pen = false;
     const q = st.stroke; st.stroke = []; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
     if (L < 0.06 * D.H) return;   // a tap, not a stroke
-    st.done.push({ stroke: q, kind: st.kind, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); sync();
+    const kind = guess(st.kind, q, L); st.done.push({ stroke: q, kind, el: st.kind, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); if (SUBS[st.kind].length > 1) say(ELN[st.kind] + ': ' + SUBN[kind] + ' (bấm ' + (KINDS.findIndex((k) => k[0] === st.kind) + 1) + ' lần nữa để đổi)'); sync();
   }
   function step(dt) {
     if (!st.pen || Rm.st.mouse) return;   // dragon off: the mouse lays the points itself (mPt)
@@ -1163,7 +1178,7 @@
       strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1)));
     }
     if (st.stroke.length > 1) strokePath(st.stroke, 0.85);
-    if (st.pen && st.kind === 'lake' && st.stroke.length > 8) {   // where the loop began: a faint dot, dark once the head is back near enough to close on release
+    if (st.pen && st.kind === 'water' && st.stroke.length > 8) {   // where the loop began: a faint dot, dark once the head is back near enough to close on release
       const q = st.stroke, a = q[0], b = q[q.length - 1]; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
       if (L > 0.3 * H) { const near = Math.hypot(b[0] - a[0], b[1] - a[1]) < SNAP * H; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.arc(a[0], a[1], H * (near ? 0.012 : 0.007), 0, 6.2832); c.fillStyle = `rgba(${INK},${near ? 0.6 : 0.25})`; c.fill(); }
     }
@@ -1196,9 +1211,10 @@
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
 Phím D: tắt rồng, vẽ thẳng bằng chuột
-Thả chuột: nét thành núi, sông, hồ, cây hoặc cỏ
-Phím 1: nét núi. Phím 2: nét sông. Phím 3: hồ (bay một vòng)
-Phím 4: cây (nét = thân, gốc ở dưới). Phím 5: cỏ (nét = dải đất)
+Phím 1: nét Địa (núi)
+Phím 2: nét Thuỷ. Bay một đường: sông. Bay một vòng về chỗ cũ: hồ
+Phím 3: nét Mộc. Nét dựng đứng: cây (nét = thân, gốc ở dưới). Nét nằm ngang: cỏ (nét = dải đất)
+Game đoán sai: bấm lại phím đó để đổi nét cuối (sông/hồ, cây/cỏ; cây nằm ngang = cành)
 Vẽ cao trên giấy: xa, nhạt, sông hẹp
 Vẽ thấp: gần, đậm, sông rộng</div>`;
   panel.insertBefore(pbox, panel.firstChild);
@@ -1210,7 +1226,7 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
   for (const [k] of SL) $('p_' + k).addEventListener('input', (e) => { S[k] = +e.target.value; save(); redo(false); sync(); });
   function sync() {
     if (!$('p_stat')) return;
-    $('p_stat').textContent = `Nét đang chọn: ${KINDS.map(([id, name], i) => (id === st.kind ? `[${i + 1} ${name}]` : `${i + 1} ${name}`)).join('  ')}\n` + (st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét') + `\nCây bức này: ${[st.grove].concat(GROVES[st.grove] || []).map((g, i) => ({ pine: 'thông', dots: 'lá chấm', jiezi: 'lá rủ', mi: 'chấm Mễ', willow: 'liễu', bamboo: 'trúc', bare: 'cây khô' }[g] + (i ? '' : ' (chính)'))).join(', ')}`;
+    $('p_stat').textContent = `Nét đang chọn: ${KINDS.map(([id, name, what], i) => (id === st.kind ? `[${i + 1} ${name}: ${what}]` : `${i + 1} ${name}`)).join('  ')}\n` + (st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét') + `\nCây bức này: ${[st.grove].concat(GROVES[st.grove] || []).map((g, i) => ({ pine: 'thông', dots: 'lá chấm', jiezi: 'lá rủ', mi: 'chấm Mễ', willow: 'liễu', bamboo: 'trúc', bare: 'cây khô' }[g] + (i ? '' : ' (chính)'))).join(', ')}`;
     $('p_tex').textContent = `Nét bút: ${S.tex} (B)`; $('p_mouse').textContent = Rm.st.mouse ? 'Bật rồng (D)' : 'Tắt rồng, vẽ bằng chuột (D)'; $('p_mouse').classList.toggle('on', !!Rm.st.mouse);
     for (const [k] of SL) { $('p_' + k).value = S[k]; $('p_' + k + 'v').textContent = S[k].toFixed(2); }
   }
@@ -1218,11 +1234,11 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true); else if (k === 'b') nextTex(); else if (k === 'd') setMouse(!Rm.st.mouse); else if (k === 'v') { MBLOB = !MBLOB; redo(false); say('Sương: ' + (MBLOB ? 'nhiều lớp (blob)' : 'cũ (một mảng)')); }
-    else if (KINDS[+k - 1] && !st.pen) { st.kind = KINDS[+k - 1][0]; say('Nét: ' + KINDS[+k - 1][1]); sync(); }
+    else if (KINDS[+k - 1] && !st.pen) { if (st.kind !== KINDS[+k - 1][0] || !turn()) { st.kind = KINDS[+k - 1][0]; say('Nét ' + KINDS[+k - 1][1] + ': ' + KINDS[+k - 1][2]); } sync(); }
   });
 
   try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
-  window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
+  window.__paint = { S, st, step, render, reset, undo, freeW, guess, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
     info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), S: { ...S } }) };
 })();
