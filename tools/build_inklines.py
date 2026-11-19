@@ -306,6 +306,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 's': rowsheet(src, ink, ('_wl', '_wb'), thr=0.06, blob=(11, 11), top=14)   # willow curtains hanging from a ruled line: in leaf, nearly bare
     elif kind == 't': trunks(src, ink, sufs=('_bs', '_bl'), ylow=0.6)     # bamboo: stalks (root left), groups of leaves (stem up)
     elif kind == 'u': trunks(src, ink, sufs=('_tu', '_tw'), ylow=0.78)    # trunks, each one pass of a wide brush; bare crowns (_tw: not used)
+    elif kind == 'v': trunks(src, ink, thr=0.08, sufs=('_wv', '_wvx'), ylow=2)   # single willow withes, base left: laid along a grown withe (no second kind on the sheet)
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

@@ -685,7 +685,7 @@
       for (let i = 1; i < n - 1; i++) { const t = i / (n - 1) * nk, k = Math.min(nk - 1, Math.floor(t)), z = kn[k] + (kn[k + 1] - kn[k]) * (0.5 - 0.5 * Math.cos(3.1416 * (t - k))), a = P0[Math.max(0, i - 3)], b = P0[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; P[i] = [P0[i][0] - (b[1] - a[1]) / l * z, P0[i][1] + (b[0] - a[0]) / l * z, P0[i][2]]; } }
     else if (P[0][1] < P[n - 1][1]) P.reverse();
     const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
-    const L = cum[n - 1], kitT = kitOf('_t'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), kitU = kitOf('_tu'), kitLJ = kitOf('_lj'), kitLM = kitOf('_lm'), kitWL = kitOf('_wl').concat(kitOf('_wb')).filter((q) => q.tone > 0.03), kitBS = kitOf('_bs').filter((q) => q.h < 0.06 * q.w), kitBL = kitOf('_bl'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    const L = cum[n - 1], kitT = kitOf('_t'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), kitU = kitOf('_tu'), kitLJ = kitOf('_lj'), kitLM = kitOf('_lm'), kitWL = kitOf('_wl').concat(kitOf('_wb')).filter((q) => q.tone > 0.03), kitBS = kitOf('_bs').filter((q) => q.h < 0.06 * q.w), kitBL = kitOf('_bl'), kitWV = kitOf('_wv').filter((q) => q.h < 0.1 * q.w), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
     if (!kitT.length) return null;
     // which tree: thrown by the stroke's seed (X throws again). Sheets R (_lj drooping leaf strokes, _lm level Mi dots), S (_wl willow
     // curtains), T (_bs bamboo stalks, _bl its leaves), U (_tu trunks, one pass of a wide brush each; with M's)
@@ -834,20 +834,34 @@
           let a = Math.atan2(p[1] - b0[1], p[0] - b0[0]) + (R() - 0.5) * 0.8; if (Math.sin(a) < -0.25) a = Math.cos(a) < 0 ? Math.PI + 0.25 : -0.25;
           const len = clamp(Math.min(L * (0.3 + 0.5 * R()), (rootY - p[1]) * (0.65 + 0.4 * R())), 0.04 * H, 0.6 * H), m = Math.max(8, Math.round(len / (0.012 * H))), tgt = 1.5708 - wd0 * (0.05 + 0.1 * R()), crv = (R() - 0.5) * 0.2 / m, W = [[p[0], p[1]]], al = 0.35 + 0.65 * R(); let x = p[0], y = p[1], xa2 = x, xb2 = x;
           for (let j = 1; j <= m; j++) { a += 0.3 * wrapA(tgt - a) + crv + (R() - 0.5) * 0.09; x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; W.push([x, y]); xa2 = Math.min(xa2, x); xb2 = Math.max(xb2, x); }
-          const pd = 0.022 * H, tx = Math.floor(xa2 - pd), ty = Math.floor(p[1] - pd), wc = document.createElement('canvas'); wc.width = Math.ceil((xb2 - xa2 + 2 * pd) * dpr); wc.height = Math.ceil((y - p[1] + 2 * pd) * dpr); const wg = wc.getContext('2d'); wg.setTransform(dpr, 0, 0, dpr, -tx * dpr, -ty * dpr);
+          const pd = Math.max(0.022 * H, 0.045 * len), tx = Math.floor(xa2 - pd), ty = Math.floor(p[1] - pd), wc = document.createElement('canvas'); wc.width = Math.ceil((xb2 - xa2 + 2 * pd) * dpr); wc.height = Math.ceil((y - p[1] + 2 * pd) * dpr); const wg = wc.getContext('2d'); wg.setTransform(dpr, 0, 0, dpr, -tx * dpr, -ty * dpr);
+          // Sheet V: real withes, each one pass of a fine brush with its leaves pressed on, lying level, base left. One of them laid
+          // along this withe's path in thin slices, at its own proportions (a long withe = larger leaves). Without the sheet: drawn
+          // The sheet's one withe in full leaf starts as thick as a branch: its first third is left off. The thin ones carry few leaves
+          // or none: theirs are pressed on by the code below (as on the drawn withe), so a tree is not bare by the luck of the draw
+          let realLeaf = false;
+          if (kitWV.length) { const lush = kitWV.filter((q) => q.h > 100), q = lush.length && R() < 0.35 ? pick(lush) : pick(kitWV), u0 = q.h > 100 ? 0.36 : 0, th = len * q.h / (q.w * (1 - u0)), fy = R() < 0.5 ? -1 : 1; wg.globalAlpha = al; realLeaf = q.h > 100;
+            for (let s2 = 0; s2 < len; s2 += 2) { const fj = s2 / len * m, j = Math.min(m - 1, Math.floor(fj)), fr = fj - j, A = W[Math.max(0, j - 1)], B = W[Math.min(m, j + 2)], l = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, ux = (B[0] - A[0]) / l, uy = (B[1] - A[1]) / l;
+              wg.setTransform(dpr * ux, dpr * uy, -fy * dpr * uy, fy * dpr * ux, dpr * (W[j][0] + (W[j + 1][0] - W[j][0]) * fr - tx), dpr * (W[j][1] + (W[j + 1][1] - W[j][1]) * fr - ty));
+              wg.drawImage(q.im, clamp((u0 + (1 - u0) * s2 / len) * q.w, 0, q.w - 2), 0, Math.max(1, 2.3 / len * (1 - u0) * q.w), q.h, 0, -q.c * th, 2.3, th); }
+            wg.setTransform(dpr, 0, 0, dpr, -tx * dpr, -ty * dpr);
+          } else {
           // (Drawn evenly it was "quá sạch và sleek", Yang 11-19.) A brush line: its weight comes and goes with the hand's
           // pressure, the ink thins as the brush empties and breaks off here and there (dry), heavier where it was set down
           wg.strokeStyle = wg.fillStyle = `rgb(${INK})`; wg.lineCap = 'butt'; let pr = 0.5 + 0.5 * R(), dry = R() < 0.5 ? 0.5 + 0.5 * R() : 2;
           for (let j = 1; j <= m; j++) { pr = clamp(pr + (R() - 0.5) * 0.3, 0.2, 1.2); const f = j / m, sub = 3; if (f > dry && R() < 0.35) continue;
             for (let q = 0; q < sub; q++) { const f0 = q / sub, f1 = (q + 1.25) / sub, lx = (t2) => W[j - 1][0] + (W[j][0] - W[j - 1][0]) * t2, ly = (t2) => W[j - 1][1] + (W[j][1] - W[j - 1][1]) * t2;
               wg.globalAlpha = al * (0.6 + 0.33 * pr) * (f > dry ? 0.55 : 1); wg.lineWidth = Math.max(0.5, H * (0.0026 - 0.0016 * f) * (0.45 + 0.75 * pr) * (j === 1 && q === 0 ? 1.8 : 1)); wg.beginPath(); wg.moveTo(lx(f0), ly(f0)); wg.lineTo(lx(f1) + (R() - 0.5) * 0.0008 * H, ly(f1)); wg.stroke(); } }
+          }
+          if (!realLeaf) { wg.fillStyle = `rgb(${INK})`;
           const dens = R() < 0.2 ? 0.3 : 0.6 + 0.4 * R(); let sd = R() < 0.5 ? -1 : 1;
           for (let u = 0.15 + 0.15 * R(); u < 1; u += (0.006 + 0.009 * R()) * H / dens / len) { const fj = u * m, j = Math.min(m - 1, Math.floor(fj)), fr = fj - j, px = W[j][0] + (W[j + 1][0] - W[j][0]) * fr, py = W[j][1] + (W[j + 1][1] - W[j][1]) * fr, ll = (0.007 + 0.008 * R()) * H * (0.7 + 0.5 * u);
             if (R() < 0.8) sd = -sd; wg.save(); wg.translate(px, py); wg.rotate(Math.atan2(W[j + 1][1] - W[j][1], W[j + 1][0] - W[j][0]) + sd * (0.3 + 0.5 * R())); wg.globalAlpha = al * (0.65 + 0.35 * R());
             // a leaf = the brush tip pressed and drawn off: fat near where it was set down, uneven, bent, no two alike; now and then pressed twice
             const fat = 0.12 + 0.2 * R(), bel = 0.25 + 0.3 * R(), bow = (R() - 0.5) * 0.35 * ll, lop = 0.6 + 0.8 * R();
             for (let z = 0, zn = R() < 0.25 ? 2 : 1; z < zn; z++) { wg.beginPath(); wg.moveTo(0, 0); wg.quadraticCurveTo(ll * bel, -ll * fat + bow, ll * (1 - 0.15 * z), bow * 0.6); wg.quadraticCurveTo(ll * bel, ll * fat * lop + bow, 0, 0); wg.fill(); wg.rotate((R() - 0.5) * 0.3); } wg.restore(); }
-          wg.setTransform(1, 0, 0, 1, 0, 0); wg.globalAlpha = 0.3; wg.globalCompositeOperation = 'destination-out'; wg.fillStyle = wg.createPattern(grain, 'repeat'); wg.fillRect(0, 0, wc.width, wc.height); wg.globalCompositeOperation = 'source-over';   // the paper's tooth shows through thin ink
+          }
+          wg.setTransform(1, 0, 0, 1, 0, 0); wg.globalAlpha = kitWV.length ? 0.11 : 0.3; wg.globalCompositeOperation = 'destination-out'; wg.fillStyle = wg.createPattern(grain, 'repeat'); wg.fillRect(0, 0, wc.width, wc.height); wg.globalCompositeOperation = 'source-over';   // the paper's tooth shows through thin ink
           curt.push({ cv: wc, x: tx, y: ty, w: wc.width / dpr, h: wc.height / dpr, x0: p[0], y0: p[1], ph: p[0] / (0.2 * H) + 2 * R(), amp: 0.03 + 0.04 * R() }); } }
     } else if (!bare && leafKit.length) { // one kind of leaf to a tree (the sheet's clusters differ: round dabs, level dashes, slanting ones), and a dab keeps
       // its size: a small cluster is not blown up to fill a large crown, several of it are laid there instead
