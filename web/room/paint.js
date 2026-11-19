@@ -706,18 +706,21 @@
     //               level and lifting only at the tip; the tiers shorten upward
     //      bare     nothing on the lowest part of the trunk (shed in the shade of the crown)
     const tips = [], wrapA = (v) => Math.atan2(Math.sin(v), Math.cos(v));
-    const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], sway = (R() - 0.5) * 0.7 / m, lvl = Math.cos(ang) < 0 ? Math.PI : 0, trop = pine ? 0 : 0.35 + 0.5 * R(); let a = ang;
+    const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], sway = (R() - 0.5) * 0.7 / m, lvl = Math.cos(ang) < 0 ? Math.PI : 0, dsg = lvl ? -1 : 1, trop = pine ? 0 : 0.35 + 0.5 * R(); let a = ang;
       for (let i = 1; i <= m; i++) { const f = i / m;
-        a += sway + (R() - 0.5) * 0.09 + (pine ? 1.2 * wrapA(lvl - a) / m + (f > 0.7 ? 1.6 * wrapA(-1.5708 - a) / m * (f - 0.7) / 0.3 * 0.5 : 0) : trop * 2 * f * wrapA(-1.5708 - a) / m);
+        a += sway + (R() - 0.5) * 0.09 + (pine ? 3 * wrapA(lvl + dsg * (0.3 * Math.sin(3.1416 * Math.min(1, f / 0.75)) - 0.65 * sm((f - 0.7) / 0.3)) - a) / m + (R() < 2.5 / m ? (R() - 0.5) * 0.9 : 0) : trop * 2 * f * wrapA(-1.5708 - a) / m);   // a pine's: level, sagging in its middle under its own weight, lifting at the tip, and crooked (a sudden turn here and there)
         if (Math.sin(a) > 0.3) a += (Math.cos(a) > 0 ? -1 : 1) * 0.07;   // a branch does not droop far: turned back toward level
         x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
-      limb(Q, u0); tips.push({ x, y, len, a });
+      limb(Q, u0); tips.push({ x, y, len, a, Q });
       if (depth < 2 && len > 0.06 * H && R() < (pine ? 0.3 : 0.65)) { const k = Math.round(m * (0.3 + 0.35 * R())); grow(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.5 * R()), len * (0.4 + 0.35 * R()), Math.min(0.93, u0 + 0.12), depth + 1); } };
     const at = (t) => { const i = clamp(Math.round(t * (n - 1)), 0, n - 1); return [P[i], Math.atan2(tan[i][1], tan[i][0]), tan[i]]; };
     if (pine) { const nt = clamp(Math.round(L / (0.11 * H)), 1, 4); let sg = R() < 0.5 ? -1 : 1;
       for (let k = 0; k < nt; k++) { const t0 = nt === 1 ? 0.6 : 0.34 + 0.56 * (k + 0.2 + 0.6 * R()) / nt, len0 = L * (0.42 - 0.26 * t0);
-        for (let j = 0, jn = R() < 0.75 ? 2 : 1; j < jn; j++, sg = -sg) { const t = clamp(t0 + (R() - 0.5) * 0.07, 0.25, 0.95), [p, base, tn] = at(t), lean = Math.abs(tn[0]) > 0.75;   // a trunk flown nearly level: its branches stand up off it
-          grow(p[0], p[1], lean ? base - Math.sign(tn[0]) * (0.7 + 0.5 * R()) * (j ? 0.6 : 1) : (sg > 0 ? 0 : Math.PI) + sg * (-0.25 + 0.5 * R()), clamp(len0 * (0.6 + 0.6 * R()), 0.03 * H, 0.26 * H), clamp(0.4 + 0.45 * t, 0, 0.88), 1); } }
+        // a whorl stands all round the trunk, three to five branches. Seen from the side: one or two at full length to
+        // left and right, the others (coming toward the eye or going away) short, and tilted a little up or down
+        for (let j = 0, jn = 2 + Math.floor(R() * 3); j < jn; j++, sg = -sg) { const t = clamp(t0 + (R() - 0.5) * 0.09, 0.25, 0.95), [p, base, tn] = at(t), lean = Math.abs(tn[0]) > 0.75, full = j < 2 ? 0.7 + 0.5 * R() : 0.25 + 0.35 * R();   // lean: a trunk flown nearly level, its branches stand up off it
+          if (j === 1 && R() < 0.25) continue;   // a tier with one side bare
+          grow(p[0], p[1], lean ? base - Math.sign(tn[0]) * (0.7 + 0.5 * R()) * (j ? 0.6 : 1) : (sg > 0 ? 0 : Math.PI) + sg * (j < 2 ? -0.3 + 0.45 * R() : -0.6 + 1.0 * R()), clamp(len0 * full, 0.025 * H, 0.26 * H), clamp(0.4 + 0.45 * t, 0, 0.88), 1); } }
     } else { const nb = clamp(Math.round(L / (0.07 * H)), 1, 6), ts = Array.from({ length: nb }, () => R()).sort((p, q) => p - q); let sg = R() < 0.5 ? -1 : 1;
       for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.6 : 0.24 + 0.7 * (0.6 * ts[k] + 0.4 * (k + 0.5) / nb), [p, base] = at(t), phi = clamp(0.95 - 0.6 * t + (R() - 0.5) * 0.35, 0.25, 1.1);   // wide below, steep above
         if (R() < 0.7) sg = -sg; let ang = base + sg * phi; if (Math.sin(ang) > 0.35) ang = base - sg * phi;   // out of the upper side of a leaning trunk
@@ -726,7 +729,11 @@
     // -- foliage: at the end of every limb, each of its own size; here and there a second one beside it
     if (pine) { const turn = (q, x, y, w, ang, flip, al) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = al; g.drawImage(q.im, -w / 2, -h * 0.8, w, h); g.restore(); g.globalAlpha = 1; };   // a bough lies on the end of its branch, its flat dark underside a little below it
       for (const t of tips) { if (kitN.length && R() < 0.4) turn(pick(kitN), t.x + Math.cos(t.a) * 0.02 * H, t.y + Math.sin(t.a) * 0.02 * H, clamp(t.len * (0.3 + 0.3 * R()), 0.02 * H, 0.07 * H), (R() - 0.5) * 1.2, R() < 0.5, 0.85);
-        if (kitP.length) turn(pick(kitP), t.x, t.y, clamp(t.len * (0.55 + 0.45 * R()), 0.03 * H, 0.14 * H), (R() - 0.5) * 0.4, R() < 0.5, 0.9 + 0.1 * R()); }
+        // needles grow along the outer half of a branch, on its side shoots: a band of boughs lying on it from the
+        // middle to the end, the largest at the end. (One bough at the very tip: a lollipop on a bare pole)
+        if (kitP.length) { const w0 = clamp(t.len * (0.5 + 0.35 * R()), 0.03 * H, 0.13 * H), cnt = t.Q ? clamp(Math.round(t.len / (0.055 * H)), 1, 4) : 1;
+          for (let k = cnt - 1; k >= 0; k--) { const f = cnt === 1 ? 1 : 1 - 0.5 * k / (cnt - 0.5) + (k ? (R() - 0.5) * 0.08 : 0), q = t.Q ? t.Q[clamp(Math.round(f * (t.Q.length - 1)), 0, t.Q.length - 1)] : [t.x, t.y];
+            turn(pick(kitP), q[0], q[1], w0 * (k ? 0.6 + 0.3 * R() : 1), (R() - 0.5) * 0.35, R() < 0.5, 0.9 + 0.1 * R()); } } }
     } else if (kitQ.length) { const puff = (x, y, w) => { const q = pick(kitQ), h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate((R() - 0.5) * 0.9); g.scale(R() < 0.5 ? -1 : 1, R() < 0.5 ? -1 : 1); g.globalAlpha = 0.65 + 0.35 * R(); g.drawImage(q.im, -w / 2, -h / 2, w, h); g.restore(); g.globalAlpha = 1; };
       for (const t of tips) { const w = clamp(t.len * (0.55 + 0.55 * R()), 0.035 * H, 0.15 * H);   // no larger: blown up on a tall tree the dabs were blots, flung far from the tree (r010)
         puff(t.x, t.y, w); if (R() < 0.4) puff(t.x + (R() - 0.5) * w * 0.9, t.y + (R() - 0.5) * w * 0.7, w * (0.6 + 0.4 * R())); } }
