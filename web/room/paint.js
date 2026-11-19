@@ -465,19 +465,19 @@
         // single far trees at its edge; and on the crest itself tree lines turned to the slope (not where it is steep: trees
         // stand upright). Pieces keep upright: mirrored, never rotated, but for the tree lines.
         const ky = (suf) => S.tex === 'code' ? [] : (STROKES['muse_' + suf] || []).filter((q) => q.im), kYL = ky('yl'), kYF = ky('yf'), kYT = ky('yt'), kYP = ky('yp'), pk = (K) => K[Math.floor(Rf() * K.length) % K.length];
-        if (kYF.length) { const w0 = H * (0.05 + 0.055 * near), lay = [], tries = Math.min(4200, Math.round(fa * area * reach / (w0 * w0 * 0.5) * 9)),   // (Yang 11-19: "phủ dày hơn": further down, whole over the upper half, far mountains too)
+        if (kYF.length) { const w0 = H * (0.05 + 0.055 * near), lay = [], tries = Math.min(5200, Math.round(fa * area * reach / (w0 * w0 * 0.5) * 9)),   // (Yang 11-19: "phủ dày hơn": further down, whole over the upper half, far mountains too)
             // (first still: islands of wood afloat on a bare flank, some hanging out over the mountain's side, single trees as large as
             // clover leaves. Under the ridge the wood is now whole, stands only further down; a piece needs the mountain under both its ends)
-            atY = (pw, w) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depth[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t, ka = col(x - 0.42 * w), kb = col(x + 0.42 * w);
-              if (depth[ka] < 0.03 * H || depth[kb] < 0.03 * H || y < Math.max(top[ka], top[kb]) - 0.004 * H) return null;
-              const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.2 - 0.3 * t) / 0.14), hi = 0.55 + 0.45 * sm((yBase - top[k]) / span / 0.5); return Rf() > hi * (1 - 0.5 * t) * Math.max(patch, 1 - t / 0.5) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (Rf() < 0.5) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
+            atY = (pw, w) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depthFull[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t, ka = col(x - 0.42 * w), kb = col(x + 0.42 * w);   // depthFull: the wedge-cut depth left the long shoulders of a mountain bare (Yang 11-19: "vẫn còn chỗ chưa được phủ")
+              if (y > yBase + 0.07 * H || depthFull[ka] < 0.03 * H || depthFull[kb] < 0.03 * H ||   /* below that the mist mask ends: wood showed under the sea of mist */ y < Math.max(top[ka], top[kb]) - 0.004 * H) return null;
+              const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.2 - 0.3 * t) / 0.14), hi = 0.55 + 0.45 * sm((yBase - top[k]) / span / 0.5); return Rf() > hi * (1 - 0.3 * t) * Math.max(patch, 1 - t / 0.85) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (Rf() < 0.5) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
           // (Yang 11-19, of the gaps between the stands low on the flank: "không nên nhạt mực như vậy, cho nó đen hẳn đi hoặc thêm
           // texture". The flat pale wash of the body showed through. Under the wood now its own ground: dark wet ink pooled over
           // the whole wooded reach (only where the mountain already has ink), paling toward the mist, and in it pale forest patches
           // laid large as brushwork, so a gap reads as deeper wood in shade, not as bare paper-grey)
           { g.globalCompositeOperation = 'source-atop'; const rr = H * (0.03 + 0.03 * near), nG = Math.min(1400, Math.round(area * reach / (rr * rr) * 2.2));
-            for (let q = 0; q < nG; q++) { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), 1.15), dp = depth[k]; if (dp < 0.04 * H) continue; const y = top[k] + dp * reach * t, r = rr * (0.7 + 0.8 * Rf()),
-                al = fa * (0.13 + 0.12 * near) * (1 - 0.75 * t) * (0.55 + 0.9 * N(x / (0.09 * H) + y / (0.13 * H) + 1300, 2)), gd = g.createRadialGradient(x, y, 0, x, y, r);
+            for (let q = 0; q < nG; q++) { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), 1.1), dp = depthFull[k]; if (dp < 0.04 * H) continue; const y = top[k] + dp * reach * t; if (y > yBase + 0.07 * H) continue; const r = rr * (0.7 + 0.8 * Rf()),
+                al = fa * (0.14 + 0.13 * near) * (1 - 0.5 * t) * (0.55 + 0.9 * N(x / (0.09 * H) + y / (0.13 * H) + 1300, 2)), gd = g.createRadialGradient(x, y, 0, x, y, r);
               gd.addColorStop(0, `rgba(${INK},${al.toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
             g.globalCompositeOperation = 'source-over';
             if (kYP.length) for (let q = 0; q < tries * 0.35; q++) { const r1 = Rf(), w = w0 * (1.1 + 1.1 * r1), a = atY(1.1, w); if (!a) continue; put(pk(kYP), a[0], a[1], w, 0.5, 1, 0); put(pk(kYP), a[0] + w * (Rf() - 0.5) * 0.5, a[1] + w * 0.1, w * 0.8, 0.5, 0.9, 0); } }
@@ -489,7 +489,7 @@
             else put(m, x, y, w0 * (0.7 + 0.8 * r1) * (1 - 0.3 * t), 0.55, kind ? 0.6 + 0.4 * r2 : (0.5 + 0.45 * r2) * (0.65 + 0.35 * near) * (1 - 0.4 * t), 0); }
           if (kYL.length) for (let x = bx0 + 0.04 * H; x < bx1 - 0.04 * H;) { const m = pk(kYL), w = H * (0.045 + 0.05 * Rf()) * (0.7 + 0.5 * near) * Math.min(1.6, m.w / m.h / 2.6), k = col(x), k1 = col(x - w / 2), k2 = col(x + w / 2), ang = Math.atan2(top[k2] - top[k1], w),
               stand = sm((N(x / (0.05 * H) + 500, 2) - 0.4) / 0.14), hi = 0.3 + 0.7 * sm((yBase - top[k]) / span / 0.6);
-            if (Math.abs(ang) > 0.7 || depth[k] < 0.06 * H || Rf() > fa * hi * (0.2 + 0.8 * stand)) { x += w * 0.45; continue; }
+            if (Math.abs(ang) > 0.7 || depthFull[k] < 0.06 * H || Rf() > fa * hi * (0.2 + 0.8 * stand)) { x += w * 0.45; continue; }
             put(m, x, (top[k1] + top[k2] + 2 * top[k]) / 4, w, 0.6, (0.6 + 0.35 * Rf()) * (0.65 + 0.35 * near), ang); x += w * (0.55 + 0.5 * Rf()); }
           g.globalAlpha = 1; }
         else {
