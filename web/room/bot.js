@@ -132,6 +132,8 @@
     // lake=2: only a little over half the loop flown (a wide gap). lake=3: flown past its own start (an overlap)
     if (new URLSearchParams(location.search).has('lake')) Pt.st.done.push({ kind: 'lake', stroke: Array.from({ length: 150 }, (_, i) => { const t = i / 149 * ({ 2: 3.8, 3: 7.1 }[new URLSearchParams(location.search).get('lake')] || 5.9); return [(1.22 + 0.3 * Math.cos(t)) * H, (0.8 + 0.15 * Math.sin(t)) * H, 0.8]; }), t0: D.T, seed: 9101 });
     // ?tree=1 (with r7): trees of several sizes (even seed = pine, odd = broadleaf), a bush, and grass along the ground
+    // ?branch=1 (with r7): a long level stroke high on the paper, from the left edge = a plum branch seen close, in flower
+    if (new URLSearchParams(location.search).has('branch')) Pt.st.done.push({ kind: 'tree', stroke: Array.from({ length: 90 }, (_, i) => { const t = i / 89; return [(0.03 + 1.05 * t) * H, (0.3 + 0.05 * Math.sin(t * 3.4) - 0.07 * t) * H, 0.6]; }), t0: D.T, seed: 9101 });
     if (new URLSearchParams(location.search).has('tree')) { const tr = (x, y, len, lean, seed) => Pt.st.done.push({ kind: 'tree', stroke: Array.from({ length: 60 }, (_, i) => { const t = i / 59; return [(x + lean * t * t * len + 0.03 * len * Math.sin(t * 5)) * H, (y - len * t) * H, 0.6]; }), t0: D.T, seed });
       tr(0.22, 0.95, 0.5, 0.3, 9200); tr(0.55, 0.93, 0.36, -0.25, 9201); tr(1.0, 0.6, 0.14, 0.1, 9202); tr(1.12, 0.6, 0.1, -0.1, 9203); tr(1.55, 0.96, 0.42, 0.15, 9203); tr(1.3, 0.94, 0.26, -0.3, 9204); tr(0.8, 0.95, 0.08, 0, 9205);
       const gr = (x0, x1, y, seed) => Pt.st.done.push({ kind: 'grass', stroke: Array.from({ length: 80 }, (_, i) => { const t = i / 79; return [(x0 + (x1 - x0) * t) * H, (y + 0.012 * Math.sin(t * 9)) * H, 0.6]; }), t0: D.T, seed });

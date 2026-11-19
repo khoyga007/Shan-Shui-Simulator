@@ -121,12 +121,13 @@ def fish(key, ink, thr=0.1):
             cols = np.nonzero(q.max(axis=0) > thr)[0]; save(key + suf, k, q[:, cols[0]:cols[-1] + 1]); k += 1
 
 
-def trunks(key, ink, thr=0.12):
+def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6):
     """sheet M: long trunks lying level, root at the left; straightened by their middle line (the ink's centre of weight
     per column, smoothed), which is laid on the stroke. Under them short branches, each cut whole: 'by' / 'ty' = the
     row of its base (left end) and of its tip (right end), as parts of its height"""
     u = ink.shape[1] / 2048; H, W = ink.shape; on = ink > thr
-    for suf in ('_t', '_y'): man.pop(key + suf, None)
+    T_, Y_ = key + sufs[0], key + sufs[1]   # sheet P is cut the same way: close branches (_bt) and twigs (_bw)
+    for kk in (T_, Y_): man.pop(kk, None)
     lab, n = ndi.label(ndi.binary_dilation(on, structure=np.ones((int(5 * u) | 1, int(41 * u) | 1))))
     k = 0
     for i, s in sorted(enumerate(ndi.find_objects(lab)), key=lambda t: t[1][0].start):
@@ -137,16 +138,16 @@ def trunks(key, ink, thr=0.12):
         padv = int(np.ceil(cen.max() - cen.min())) + 1; b = np.zeros((h + 2 * padv, w), np.float32); c0 = padv + int(round(cen.mean()))
         for x in range(w): sh = c0 - int(round(cen[x])); b[sh:sh + h, x] = a[:, x]
         rows = np.nonzero(b.max(axis=1) > thr)[0]; cols = np.nonzero(b.max(axis=0) > thr)[0]
-        b = b[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]; save(key + '_t', k, b); man[key + '_t'][-1]['c'] = round((c0 - rows[0]) / b.shape[0], 3); k += 1
+        b = b[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]; save(T_, k, b); man[T_][-1]['c'] = round((c0 - rows[0]) / b.shape[0], 3); k += 1
     lab, n = ndi.label(ndi.binary_dilation(on, structure=np.ones((int(9 * u) | 1, int(15 * u) | 1))))
     k = 0
     for i, s in sorted(enumerate(ndi.find_objects(lab)), key=lambda t: (t[1][0].start // int(120 * u), t[1][1].start)):
         ww = s[1].stop - s[1].start
-        if ww < 100 * u or ww > 0.4 * W or (s[0].start + s[0].stop) / 2 < 0.6 * H: continue
+        if ww < 100 * u or ww > 0.4 * W or (s[0].start + s[0].stop) / 2 < ylow * H: continue
         a = np.where(lab[s] == i + 1, ink[s], 0); rows = np.nonzero(a.max(axis=1) > thr)[0]; cols = np.nonzero(a.max(axis=0) > thr)[0]
         a = a[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]; h, w = a.shape; e = max(2, w // 10); ys = np.arange(h)[:, None]
         cy = lambda q: float((q * ys).sum() / max(1e-6, q.sum()) / h)
-        save(key + '_y', k, a); man[key + '_y'][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
+        save(Y_, k, a); man[Y_][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
 
 
 def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None):
@@ -168,6 +169,27 @@ def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None):
             if i in DROP.get(key + suf, ()): continue
             rows = np.nonzero(q.max(axis=1) > thr)[0]; cols = np.nonzero(q.max(axis=0) > thr)[0]
             save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1
+    print(' rows', len(bands), 'of', len(sufs))
+
+
+def flowers(key, path, sufs=('_fl', '_bd', '_pt')):
+    """sheet Q, the one sheet in colour: rows of plum blossoms, of buds on their calyx, of loose petals. A piece keeps
+    its colours: alpha = how far a pixel is from the white of the paper, its colour what gives the painted pixel back
+    when laid over white. Pieces = islands of paint in a row; the drips of black dots under the buds are islands of
+    their own, too small to be kept"""
+    A = np.asarray(Image.open(path).convert('RGB'), dtype=np.float32); bg = np.percentile(A.reshape(-1, 3), 75, axis=0)
+    al = np.clip((1 - (A / bg).min(axis=2)) * 1.6, 0, 1); col = np.clip((A - (1 - al[..., None]) * bg) / np.maximum(al[..., None], 0.02), 0, 255)
+    u = A.shape[1] / 2048; on = al > 0.08; d = int(7 * u) | 1
+    bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(25 * u) | 1))) if b - a > 40 * u]
+    for (a, b), suf in zip(bands, sufs):
+        man.pop(key + suf, None); lab, _ = ndi.label(ndi.binary_dilation(on[a:b], structure=np.ones((d, d))))
+        cut = sorted(((sl, i + 1) for i, sl in enumerate(ndi.find_objects(lab)) if max(sl[0].stop - sl[0].start, sl[1].stop - sl[1].start) >= 45 * u + d), key=lambda c: c[0][1].start)
+        for k, (sl, i) in enumerate(cut):
+            m = al[a:b][sl] * (lab[sl] == i); rows = np.nonzero(m.max(axis=1) > 0.08)[0]; cols = np.nonzero(m.max(axis=0) > 0.08)[0]
+            box = (slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1)); m = m[box]
+            rgba = np.dstack([col[a:b][sl][box], np.round(m * 255)]).astype(np.uint8); fn = f'{key}{suf}-{k + 1}.png'
+            Image.fromarray(rgba).save(os.path.join(OUT, fn), optimize=True)
+            man.setdefault(key + suf, []).append({'f': fn, 'w': int(m.shape[1]), 'h': int(m.shape[0]), 'tone': round(float(m.mean()), 3)})
     print(' rows', len(bands), 'of', len(sufs))
 
 
@@ -236,6 +258,7 @@ for name in sorted(os.listdir(SRC)):
     stem = os.path.splitext(name)[0].lower().split()
     src, kind = stem[0], (stem[1] if len(stem) > 1 else '')
     if ONLY and kind != ONLY: continue
+    if kind == 'q': flowers(src, os.path.join(SRC, name)); print(name); continue
     L = np.asarray(Image.open(os.path.join(SRC, name)).convert('L'), dtype=np.float32)
     if kind in ('d', 'e'):
         dark = np.clip(float(np.percentile(L, 97)) - L, 0, None)
@@ -255,6 +278,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'k': tufts(src, ink)
     elif kind == 'l': fish(src, ink)
     elif kind == 'm': trunks(src, ink)
+    elif kind == 'p': trunks(src, ink, sufs=('_bt', '_bw'), ylow=0.72)   # close branches of an old plum tree, and its twigs (base left)
     elif kind == 'n': rowsheet(src, ink, ('_n', '_p', '_q'), blob=(5, 3, 15))      # pine needle fans (they stand close), pine boughs, clusters of leaf dots (loose dabs: held together by a wide blob)
     elif kind == 'o': rowsheet(src, ink, ('_u', '_v', '_z'), gap=15)     # grass tufts, low patches of grass, small plants: the bottom of a piece = the ground
     elif kind == 'b': loose(src, ink)
