@@ -6,6 +6,9 @@ alpha, plus strokes.json {key: [{f, w, h, tone}]}.
   <Source> C.png  6 level bands of wash, dark upper edge, thinning downward  key <source>_c
   <Source> D.png  5 level bands of grey wash, mist eating in from below      key <source>_m  (masks, not ink)
   <Source> E.png  3 x 2 grey patches, a bank of mist drifted into each       key <source>_e  (masks, not ink)
+  <Source> F.png  8 long level river banks, waterline on top                 key <source>_f
+  <Source> G.png  10 hair-thin level lines of current                        key <source>_g
+  <Source> H.png  riverside rocks and short ripples, scattered               keys <source>_k (rocks), <source>_r (ripples)
 Level strokes and bands are straightened: every column is slid up so the upper edge is level (they arc a little; bent
 along a ridge, the upper edge is the ridge line). usage: python tools/build_inklines.py"""
 import json, os
@@ -28,10 +31,10 @@ def save(key, k, b, ext='png'):
     man.setdefault(key, []).append({'f': fn, 'w': int(b.shape[1]), 'h': int(b.shape[0]), 'tone': round(float(b.mean()), 3)})
 
 
-def level(key, ink, see, edge, keep, ext='png'):
+def level(key, ink, see, edge, keep, ext='png', grow=(5, 41), gain=0):
     """long level strokes / bands: see = ink level that counts when finding them, edge = level of the upper edge,
     keep = level under which the margins are cropped"""
-    mask = ndi.binary_dilation(ink > see, structure=np.ones((5, 41)))
+    mask = ndi.binary_dilation(ink > see, structure=np.ones(grow))   # grow: what still belongs to a stroke (a bank's flicks and pebbles hang loose under it)
     lab, n = ndi.label(mask)
     boxes = [(i + 1, s) for i, s in enumerate(ndi.find_objects(lab)) if s[1].stop - s[1].start > 0.4 * ink.shape[1]]
     boxes.sort(key=lambda b: b[1][0].start)
@@ -49,23 +52,26 @@ def level(key, ink, see, edge, keep, ext='png'):
         b = np.zeros_like(a)
         for x in range(w): b[:h - sh[x], x] = a[sh[x]:, x]
         rows = np.nonzero(b.max(axis=1) > keep)[0]; cols = np.nonzero(b.max(axis=0) > keep)[0]
-        save(key, k, b[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1], ext)
+        b = b[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]
+        if gain: b = np.clip(b * gain / max(1e-6, float(np.percentile(b[b > keep], 95))), 0, 1)   # pale hairlines brought up to a common strength
+        save(key, k, b, ext)
 
 
-def loose(key, ink):
+def loose(key, ink, thr=0.3, crop=0.15, long='_b', comp='_d', gain=0):
     """short strokes and dot clusters, scattered: told apart by shape (a stroke is long and low)"""
     u = ink.shape[1] / 2048
-    mask = ndi.binary_dilation(ink > 0.3, structure=np.ones((int(17 * u) | 1, int(23 * u) | 1)))
+    mask = ndi.binary_dilation(ink > thr, structure=np.ones((int(17 * u) | 1, int(23 * u) | 1)))
     lab, n = ndi.label(mask)
     ka = kd = 0
     for i, s in enumerate(ndi.find_objects(lab)):
         hh, ww = s[0].stop - s[0].start, s[1].stop - s[1].start
         if ww < 40 * u or hh < 25 * u: continue
         a = np.where(lab[s] == i + 1, ink[s], 0)
-        rows = np.nonzero(a.max(axis=1) > 0.15)[0]; cols = np.nonzero(a.max(axis=0) > 0.15)[0]
+        rows = np.nonzero(a.max(axis=1) > crop)[0]; cols = np.nonzero(a.max(axis=0) > crop)[0]
+        if not len(rows) or not len(cols): continue
         a = a[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]
-        if a.shape[1] > 1.9 * a.shape[0]: save(key + '_b', ka, a); ka += 1
-        else: save(key + '_d', kd, a); kd += 1
+        if a.shape[1] > 1.9 * a.shape[0]: save(key + long, ka, np.clip(a * gain / max(1e-6, float(a.max())), 0, 1) if gain else a); ka += 1
+        else: save(key + comp, kd, a); kd += 1
 
 
 # -- mist (sheets D and E): not ink to lay down but a mask. A flat grey wash that mist has eaten into: grey = the ink
@@ -138,6 +144,9 @@ for name in sorted(os.listdir(SRC)):
     if kind == '': level(src, ink, 0.3, 0.35, 0.2)
     elif kind == 'a': level(src + '_a', ink, 0.3, 0.35, 0.2)
     elif kind == 'c': level(src + '_c', ink, 0.1, 0.3, 0.05, 'webp')
+    elif kind == 'f': level(src + '_f', ink, 0.3, 0.35, 0.12, grow=(27, 41))            # river banks: upper edge = the waterline
+    elif kind == 'g': level(src + '_g', ink, 0.12, 0.12, 0.05, grow=(5, 121), gain=0.9)   # lines of current, hair-thin and pale
+    elif kind == 'h': loose(src, ink, thr=0.1, crop=0.05, long='_r', comp='_k', gain=0.9)   # ripples (long, low) and riverside rocks
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

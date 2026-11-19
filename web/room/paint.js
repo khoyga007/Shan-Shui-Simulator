@@ -454,27 +454,36 @@
     //    stream cuts into the land (never even along the whole river: that reads as an outline)
     const gate = (sg, ph) => (i) => N(cum[i] / (0.16 * H) + ph, 2) + clamp(-sg * bend(i) * 0.9, -0.12, 0.28);
     const kit = (STROKES[S.tex] || []).filter((q) => q.im);
+    // the river's own sheets (Yang 11-19: its banks borrowed the ridge strokes of a mountain): _f banks, waterline on top,
+    // flicks and pebbles hanging off it onto the land; _g hair lines of current; _r ripples; _k riverside rocks
+    const own = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
+    const kitF = own('_f'), kitG = own('_g'), kitR = own('_r').filter((q) => q.tone < 0.15), kitK = own('_k').concat(own('_r').filter((q) => q.tone >= 0.15)),   // a wide group of rocks is cut as a long piece like a ripple: told apart by how much ink it holds
+       bankKit = kitF.length ? kitF : kit, tall = kitF.length ? 1.9 : 1, lift = kitF.length ? 0.03 : 0.12, sides = [];
     for (const [E, sg, ph] of [[A, -1, 300], [B, 1, 400]]) {
       const ga = gate(sg, ph), gz = gate(sg, ph + 37), et = frame(E), ec = [0]; for (let i = 1; i < n; i++) ec.push(ec[i - 1] + Math.hypot(E[i][0] - E[i - 1][0], E[i][1] - E[i - 1][1]));
       // a little wash on the land along the bank, where the bank is dark
-      gs.lineCap = 'round'; gs.strokeStyle = '#000';
+      sides.push({ E, ga, sg }); gs.lineCap = 'round'; gs.strokeStyle = '#000';
       for (let i = 1; i < n; i++) { if (gz(i) < 0.56) continue; gs.lineWidth = (0.012 * H + 0.7 * hw[i]) * env(i); gs.beginPath(); gs.moveTo(E[i - 1][0], E[i - 1][1]); gs.lineTo(E[i][0], E[i][1]); gs.stroke(); }
       const tone = (i) => env(i) * (0.4 + 0.6 * nearY(E[i][1]));   // far reaches pale
-      if (kit.length) {   // the bank line: a real stroke in thin slices, its dark edge on the water, the rest on the land
-        const q = kit[Math.floor(R() * kit.length) % kit.length], ds = 2, per = 0.6 * H, off = R() * 2; let j = 0;
+      if (bankKit.length) {   // the bank line: a real stroke in thin slices, its dark edge on the water, the rest on the land
+        const q = bankKit[Math.floor(R() * bankKit.length) % bankKit.length], ds = 2, per = 0.6 * H, off = R() * 2; let j = 0;
         for (let a = 0; a < ec[n - 1]; a += ds) {
           while (j < n - 2 && ec[j + 1] < a) j++;
           const al = sm((ga(j) - 0.42) / 0.12) * env(j); if (al < 0.05) continue;   // a stretch of bank begins and ends thin, the brush set down and lifted
           const f = clamp((a - ec[j]) / Math.max(1e-6, ec[j + 1] - ec[j]), 0, 1), px = E[j][0] + (E[j + 1][0] - E[j][0]) * f, py = E[j][1] + (E[j + 1][1] - E[j][1]) * f, tx = et[j][0], ty = et[j][1];
-          const th = al * H * (0.006 + 0.013 * nearY(py)) * (0.7 + 0.6 * N(a / (0.05 * H) + ph + 60, 2)); let v = (a / per + off) % 2; if (v > 1) v = 2 - v;
+          const th = tall * al * H * (0.006 + 0.013 * nearY(py)) * (0.7 + 0.6 * N(a / (0.05 * H) + ph + 60, 2)); let v = (a / per + off) % 2; if (v > 1) v = 2 - v;
           gk.setTransform(dpr * tx, dpr * ty, -sg * dpr * ty, sg * dpr * tx, dpr * (px - ox), dpr * (py - oy));   // laid opaque: slices overlap a little, and at part alpha every overlap showed as a dark hair, the bank as a comb
-          gk.drawImage(q.im, clamp(v * (q.w - 2), 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / per * q.w), q.h, 0, -0.12 * th, ds + 0.8, th);
+          gk.drawImage(q.im, clamp(v * (q.w - 2), 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / per * q.w), q.h, 0, -lift * th, ds + 0.8, th);
         }
         home(gk);
       } else { g.strokeStyle = `rgb(${INK})`; g.lineCap = 'round';
         for (let i = 1; i < n; i++) { const al = sm((ga(i) - 0.42) / 0.12) * tone(i); if (al < 0.02) continue; g.globalAlpha = al * 0.8; g.lineWidth = H * (0.0015 + 0.003 * nearY(E[i][1])) * (0.6 + 0.8 * N(cum[i] / (0.03 * H) + ph, 2)); g.beginPath(); g.moveTo(E[i - 1][0], E[i - 1][1]); g.lineTo(E[i][0], E[i][1]); g.stroke(); }
         g.globalAlpha = 1; }
     }
+    // a few rocks on the banks, where a bank is drawn: standing upright, their foot on the waterline
+    if (kitK.length) for (let k = 0, cnt = Math.round(L / (0.3 * H)); k < cnt; k++) { const sd = sides[R() < 0.5 ? 0 : 1], q = kitK[Math.floor(R() * kitK.length) % kitK.length]; let i = -1;
+      for (let t = 0; t < 6 && i < 0; t++) { const c2 = 4 + Math.floor(R() * (n - 8)); if (sd.ga(c2) > 0.5 && env(c2) > 0.6) i = c2; }
+      if (i < 0) continue; const w = H * (0.012 + 0.026 * nearY(sd.E[i][1])) * (0.7 + 0.6 * R()), h = w * q.h / q.w; gk.drawImage(q.im, sd.E[i][0] - sd.sg * tan[i][1] * w * 0.3 - w / 2, sd.E[i][1] - h * 0.82, w, h); }
     { raw(gk); const gd = gk.createLinearGradient(0, 0, 0, chh); for (let k = 0; k <= 8; k++) gd.addColorStop(k / 8, `rgba(0,0,0,${(0.78 * (0.4 + 0.6 * nearY(oy + k / 8 * chh / dpr))).toFixed(3)})`);   // far reaches pale
       gk.globalCompositeOperation = 'destination-in'; gk.fillStyle = gd; gk.fillRect(0, 0, cw, chh); raw(g); g.drawImage(bnk, 0, 0); home(g); }
     gs.globalCompositeOperation = 'destination-out'; gs.fillStyle = '#000'; water(gs); gs.fill(); gs.globalCompositeOperation = 'source-over';
@@ -482,7 +491,21 @@
       raw(g); g.globalAlpha = 0.22; g.globalCompositeOperation = 'destination-over'; g.drawImage(w2, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g); }
     // -- the current: a few thin lines along the stream, short, each keeping to its own place between the banks
     g.strokeStyle = `rgb(${INK})`; g.lineCap = 'round';
-    for (let k = 0, cnt = Math.round(L / (0.07 * H)); k < cnt; k++) {   // near the banks, the middle of the stream left bare (long and down the middle they were the lane lines of a road)
+    if (kitG.length) { const [cur, gc] = mk();   // real hair lines, laid opaque and paled as one (as the banks)
+      for (let k = 0, cnt = Math.round(L / (0.08 * H)); k < cnt; k++) {
+        const i0 = Math.floor(R() * (n - 4)), i1 = Math.min(n - 1, i0 + Math.round(H * (0.05 + 0.15 * R()) / STEP)), u0 = (R() < 0.5 ? -1 : 1) * (0.3 + 0.45 * R()), ph = R() * 90, q = kitG[Math.floor(R() * kitG.length) % kitG.length], fr = R();
+        if (i1 - i0 < 4 || hw[(i0 + i1) >> 1] < 0.012 * H) continue; const Q = [];
+        for (let i = i0; i <= i1; i++) { const w = hw[i] * clamp(u0 + 0.3 * (N(cum[i] / (0.06 * H) + ph, 2) - 0.5), -0.8, 0.8); Q.push([P[i][0] - tan[i][1] * w, P[i][1] + tan[i][0] * w * FORE]); }
+        const lp = cum[i1] - cum[i0], frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = fr * (1 - frac) * q.w, th0 = H * (0.0022 + 0.003 * nearY(Q[0][1])) * (0.7 + 0.6 * fr), ds = 2, m = Q.length;   // th0: the height of the piece, the line in it about half of that. (At the piece's own proportions a short stretch of it came out as a grey bar)
+        for (let a = 0; a < lp; a += ds) { const fi = a / lp * (m - 1), j = Math.min(m - 2, fi | 0), f = fi - j, th = th0 * (0.15 + 0.85 * sm(a / (0.3 * lp)) * sm((lp - a) / (0.3 * lp))), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1;
+          gc.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx * f - ox), dpr * (Q[j][1] + dy * f - oy)); gc.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.8, th); } }
+      home(gc);
+      // ripples: a few small flat waves in the broad reaches, lying level whichever way the stream runs
+      if (kitR.length) for (let k = 0, cnt = Math.round(L / (0.22 * H)); k < cnt; k++) { const i = Math.floor(R() * n), q = kitR[Math.floor(R() * kitR.length) % kitR.length], u = (R() - 0.5) * 0.9, sz = R(); if (hw[i] < 0.022 * H || env(i) < 0.5) continue;
+        const w = Math.min(0.09 * H, hw[i] * (0.6 + 0.6 * sz)), h = w * q.h / q.w; gc.drawImage(q.im, P[i][0] - tan[i][1] * hw[i] * u - w / 2, P[i][1] + tan[i][0] * hw[i] * u * FORE - h / 2, w, h); }
+      raw(gc); const gd = gc.createLinearGradient(0, 0, 0, chh); for (let k = 0; k <= 8; k++) gd.addColorStop(k / 8, `rgba(0,0,0,${(0.6 * (0.4 + 0.6 * nearY(oy + k / 8 * chh / dpr))).toFixed(3)})`);
+      gc.globalCompositeOperation = 'destination-in'; gc.fillStyle = gd; gc.fillRect(0, 0, cw, chh); raw(g); g.drawImage(cur, 0, 0); home(g);
+    } else for (let k = 0, cnt = Math.round(L / (0.07 * H)); k < cnt; k++) {   // near the banks, the middle of the stream left bare (long and down the middle they were the lane lines of a road)
       const i0 = Math.floor(R() * (n - 4)), len = Math.round(H * (0.03 + 0.07 * R()) / STEP), u0 = (R() < 0.5 ? -1 : 1) * (0.4 + 0.35 * R()), ph = R() * 90, a0 = 0.1 + 0.16 * R(), w0 = 0.0011 + 0.0012 * R();
       g.beginPath(); let m = 0;
       for (let i = i0; i < Math.min(n, i0 + len); i++, m++) { const u = clamp(u0 + 0.3 * (N(cum[i] / (0.06 * H) + ph, 2) - 0.5), -0.8, 0.8), w = hw[i] * u, x = P[i][0] - tan[i][1] * w, y = P[i][1] + tan[i][0] * w * FORE; if (m) g.lineTo(x, y); else g.moveTo(x, y); }

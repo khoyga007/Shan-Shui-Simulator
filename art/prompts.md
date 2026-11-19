@@ -137,3 +137,16 @@ sumi-e ink wash painting of a single cloud curling into a spiral, classical East
 - Vẫn thêm triện hay chữ: thêm `Absolutely no red marks and no writing anywhere.`
 - Sông hoặc mây vẫn uốn cong: thêm `Draw it as a straight ruler-flat strip; it will be bent later by software.`
 - Ra ảnh chụp hoặc tranh 3D: thêm `Hand-painted with brush and ink, flat, not a photograph, not 3D.`
+
+## River sheets (11-19) -> web/assets/inklines/"<Source> F|G|H.png", Muse first
+
+Shared tail for all three: `Pure black sumi ink on flat pure white background, no paper texture, no colour, no shading of the background, no frame, no text, no seal. Each piece separate, wide white gaps between pieces, nothing touching or overlapping. Traditional Chinese shan shui brushwork, not Western watercolour, no blooms, no cauliflower edges.`
+
+F, river banks (cut by level(), upper edge = waterline):
+`A brush practice sheet, landscape 16:9. Eight long horizontal brush strokes stacked top to bottom, each spanning almost the full width, evenly spaced. Each stroke is the bank of a river as painted in shan shui: its UPPER edge is a crisp dark line (the waterline), nearly level with slight unevenness; BELOW that edge the ink breaks down into dry-brush drag, short downward flicks and a few small dark dots of pebbles, fading out within a short distance. The weight varies along each stroke: pressed dark in places, thin and broken in others, with one or two short gaps. Strokes differ from each other: some heavy and rocky, some light and sandy.` + tail
+
+G, current lines (cut by level()):
+`A brush practice sheet, landscape 16:9. Ten very thin long horizontal ink lines stacked top to bottom, each spanning almost the full width, evenly spaced. Each is a line of flowing water drawn with the tip of a fine brush in one pass: hair-thin, gently wavering, thicker where the brush pressed and vanishing where it lifted, breaking off and resuming two or three times, pale to mid grey ink. Some lines are a pair of two close parallel hairlines. No waves, no curls, no dots.` + tail
+
+H, loose pieces (cut by loose(): long low = ripple strokes, compact = rocks):
+`A brush practice sheet, landscape 16:9. About twenty-four small separate ink pieces scattered evenly. Half are riverside rocks in shan shui style: angular outline in a dark dry stroke, top left white, a little grey wash at the base, single rocks and groups of two or three, different sizes. Half are short water ripples: two to four thin shallow arcs lying side by side like a small flat wave or the wake around a stone, hair-thin, grey.` + tail
