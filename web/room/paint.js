@@ -464,7 +464,7 @@
         // the one above as ridge behind ridge; the same in pale ink where the wood thins toward the mist and on far mountains;
         // single far trees at its edge; and on the crest itself tree lines turned to the slope (not where it is steep: trees
         // stand upright). Pieces keep upright: mirrored, never rotated, but for the tree lines.
-        const ky = (suf) => S.tex === 'code' ? [] : (STROKES['muse_' + suf] || []).filter((q) => q.im), kYL = ky('yl'), kYF = ky('yf'), kYT = ky('yt'), kYP = ky('yp'), pk = (K) => K[Math.floor(Rf() * K.length) % K.length];
+        const ky = (suf) => S.tex === 'code' ? [] : (STROKES['muse_' + suf] || []).filter((q) => q.im), kYL = ky('yl'), kYF = ky('yf'), kYT = ky('yt'), kYP = ky('yp'), kZA = ky('za'), kZB = ky('zb'), kZC = ky('zc'), pk = (K) => K[Math.floor(Rf() * K.length) % K.length];
         // (Yang 11-19, of an upright peak banded with forest from top to foot: "núi thẳng này làm sao mà cây mọc được như vậy?" Nothing
         // grows on a rock face. Where the ridge runs steeper than about 68 degrees (a plain peak's flank at 55 to 60 keeps its wood: at 60 the big mountain of the bot still lost half its coat) the flank under it is bare rock; and under a
         // gentle stretch between steep ones (the summit of a pillar) the wood only reaches down as far as that stretch is wide: a
@@ -482,12 +482,12 @@
         // its own halo of dabs: stamps. Less wood is now a shallower wood: one whole band under the ridge, as dense as any, that
         // stops sooner. No islands.)
         const reachY = reach * clamp(fa, 0.22, 1);
-        if (kYF.length) { const w0 = H * (0.05 + 0.055 * near), lay = [], tries = Math.min(7500, Math.round(area * reachY / (w0 * w0 * 0.5) * 4.6))   /* x10 with the darker ground was one flat black (Yang: "chưa đạt"): the mark is the stretch he ticked green, dark stands crowding each other with tree tops and grey showing between, and that evenly everywhere */,   // (Yang 11-19: "phủ dày hơn": further down, whole over the upper half, far mountains too)
+        if (kYF.length) { const w0 = H * (0.05 + 0.055 * near), lay = [], tries = Math.min(7500, Math.round(area * reachY / (w0 * w0 * 0.5) * 4.6 * (kZA.length || kZB.length ? 0.85 : 1)))   /* x10 with the darker ground was one flat black (Yang: "chưa đạt"): the mark is the stretch he ticked green, dark stands crowding each other with tree tops and grey showing between, and that evenly everywhere */,   // (Yang 11-19: "phủ dày hơn": further down, whole over the upper half, far mountains too)
             // (first still: islands of wood afloat on a bare flank, some hanging out over the mountain's side, single trees as large as
             // clover leaves. Under the ridge the wood is now whole, stands only further down; a piece needs the mountain under both its ends)
             atY = (pw, w) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depthFull[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reachY * t, ka = col(x - 0.42 * w), kb = col(x + 0.42 * w);   // depthFull: the wedge-cut depth left the long shoulders of a mountain bare (Yang 11-19: "vẫn còn chỗ chưa được phủ")
               if (x - 0.5 * w < bx0 - 0.035 * H - extL || x + 0.5 * w > bx1 + 0.035 * H + extR /* a piece reaching past the mountain's own canvas was cut off straight */ || y > yBase + 0.07 * H || depthFull[ka] < 0.03 * H || depthFull[kb] < 0.03 * H ||   /* below that the mist mask ends: wood showed under the sea of mist */ y < Math.max(top[ka], top[kb]) - 0.004 * H) return null;
-              const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.2 - 0.3 * t) / 0.14), hi = 0.55 + 0.45 * sm((yBase - top[k]) / span / 0.5); /* Yang 11-19, a red cross on a stretch of thin wood with single trees showing, a green tick on the solid dark mass: "không được có điểm thưa như kia". The wood is whole everywhere: no stands, no thinning down the flank or on low stretches of the ridge */ return Rf() > (1 - 0.12 * t) * grow(k, y) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (Rf() < 0.5) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
+              const patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.2 - 0.3 * t) / 0.14), hi = 0.55 + 0.45 * sm((yBase - top[k]) / span / 0.5); /* Yang 11-19, a red cross on a stretch of thin wood with single trees showing, a green tick on the solid dark mass: "không được có điểm thưa như kia". The wood is whole everywhere: no stands, no thinning down the flank or on low stretches of the ridge */ return Rf() > (1 - 0.12 * t) * grow(k, y) ? null : [x, y, t]; }, put = (m, x, y, w, yo, al, ang, mir) => { const h = w * m.h / m.w; g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (mir === undefined ? Rf() < 0.5 : mir) g.scale(-1, 1); g.globalAlpha = al; g.drawImage(m.im, -w / 2, -h * yo, w, h); g.restore(); };
           // (Yang 11-19, of the gaps between the stands low on the flank: "không nên nhạt mực như vậy, cho nó đen hẳn đi hoặc thêm
           // texture". The flat pale wash of the body showed through. Under the wood now its own ground: dark wet ink pooled over
           // the whole wooded reach (only where the mountain already has ink), paling toward the mist, and in it pale forest patches
@@ -498,11 +498,21 @@
               gd.addColorStop(0, `rgba(${INK},${al.toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
             g.globalCompositeOperation = 'source-over';
             if (kYP.length) for (let q = 0; q < tries * 0.35; q++) { const r1 = Rf(), w = w0 * (1.1 + 1.1 * r1), a = atY(1.1, w); if (!a) continue; put(pk(kYP), a[0], a[1], w, 0.5, 1, 0); put(pk(kYP), a[0] + w * (Rf() - 0.5) * 0.5, a[1] + w * 0.1, w * 0.8, 0.5, 0.9, 0); } }
-          for (let q = 0; q < tries; q++) { const r1 = Rf(), a = atY(1.0, w0 * (0.7 + 0.8 * r1)); if (!a) continue; const [x, y, t] = a, pale = kYP.length && Rf() < 0.03 + 0.15 * t * t + 0.08 * (1 - near); lay.push([y, x, t, pale ? pk(kYP) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
+          for (let q = 0; q < tries; q++) { const r1 = Rf(), a = atY(1.0, w0 * (0.7 + 0.8 * r1)); if (!a) continue; const [x, y, t] = a, pale = kYP.length && Rf() < 0.03 + 0.15 * t * t + 0.08 * (1 - near); if (!pale && t < 0.8 && drop[col(x)] > 1e8 && (kZA.length || kZB.length)) {
+              // Sheet Z (11-19; Yang of sheet Y's patches in use: "texture từng mảng rừng trông hơi giả tạo": five mounds of one size, each
+              // in its own halo of dabs, repeated). Long woods, laid about twice as wide: level ones where the ridge above runs level, the
+              // slanting ones where it climbs, turned the way it climbs (never rotated: the tree tops stand). Not at the foot (their
+              // lower edge runs out in long drips), not on a capped summit, and only where the mountain is under both ends.
+              const wz = w0 * (1.5 + 1.1 * r1), ka = col(x - 0.42 * wz), kb = col(x + 0.42 * wz), sl = (top[kb] - top[ka]) / (0.84 * wz), as = Math.abs(sl), r3 = Rf();
+              if (x - 0.5 * wz > bx0 - 0.035 * H - extL && x + 0.5 * wz < bx1 + 0.035 * H + extR && depthFull[ka] > 0.03 * H && depthFull[kb] > 0.03 * H && slp[ka] < 2.1 && slp[kb] < 2.1 && y > top[col(x)] + 0.17 * wz /* (0.25 left a bare strip between the ridge and the slanting woods under it) */ /* the sheet's tree tops are stout: over the ridge they stood as a row of fingers. The ridge keeps sheet Y's tree lines */) {
+                if (kZB.length && as > 0.45 && as < 1.6 && r3 < 0.6) { lay.push([y, x, t, pk(kZB), 4, r1, Rf(), sl > 0]); continue; }
+                if (kZA.length && as < 0.4 && y > Math.max(top[ka], top[kb]) + 0.18 * wz && r3 < 0.55) { lay.push([y, x, t, pk(kZA), 3, r1, Rf()]); continue; } } }
+            lay.push([y, x, t, pale ? pk(kYP) : kZC.length && Rf() < 0.07 ? pk(kZC) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
           if (kYT.length) for (let q = 0; q < tries * 0.5; q++) { const a = atY(0.8, 0); if (!a) continue; const [x, y, t] = a; if (t < 0.93) continue;   /* single trees only at the very foot, where the wood meets the mist */ lay.push([y, x, t, pk(kYT), 2, Rf(), Rf()]); }
           lay.sort((p, q) => p[0] - q[0]);
-          for (const [y, x, t, m, kind, r1, r2] of lay) {
-            if (kind === 2) put(m, x, y, w0 * (0.09 + 0.08 * r1), 0.95, (0.35 + 0.45 * r2) * (0.6 + 0.4 * near) * (1 - 0.4 * t), 0);
+          for (const [y, x, t, m, kind, r1, r2, mir] of lay) {
+            if (kind >= 3) put(m, x, y, w0 * (1.5 + 1.1 * r1) * (1 - 0.25 * t), kind === 3 ? 0.5 : 0.5, (0.55 + 0.4 * r2) * (0.65 + 0.35 * near) * (1 - 0.12 * t), 0, kind === 4 ? mir : undefined);
+            else if (kind === 2) put(m, x, y, w0 * (0.09 + 0.08 * r1), 0.95, (0.35 + 0.45 * r2) * (0.6 + 0.4 * near) * (1 - 0.4 * t), 0);
             else put(m, x, y, w0 * (0.7 + 0.8 * r1) * (1 - 0.3 * t), 0.55, kind ? 0.6 + 0.4 * r2 : (0.55 + 0.4 * r2) * (0.65 + 0.35 * near) * (1 - 0.12 * t), 0); }
           if (kYL.length) for (let x = bx0 + 0.04 * H; x < bx1 - 0.04 * H;) { const m = pk(kYL), w = H * (0.045 + 0.05 * Rf()) * (0.7 + 0.5 * near) * Math.min(1.6, m.w / m.h / 2.6), k = col(x), k1 = col(x - w / 2), k2 = col(x + w / 2), ang = Math.atan2(top[k2] - top[k1], w),
               stand = sm((N(x / (0.05 * H) + 500, 2) - 0.4) / 0.14), hi = 0.3 + 0.7 * sm((yBase - top[k]) / span / 0.6);

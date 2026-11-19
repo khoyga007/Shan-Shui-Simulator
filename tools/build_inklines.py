@@ -169,7 +169,7 @@ def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6, core=False):
         save(Y_, k, a); man[Y_][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
 
 
-def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0):
+def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None):
     """a sheet of rows of separate pieces (N: foliage, O: grass), one kind a row: rows found as bands of ink, pieces as
     runs of columns in a band (gap: what still joins two columns into one piece).
     blob (a width for every row): pieces found instead as islands of ink, grown by that much to hold an island of
@@ -188,6 +188,10 @@ def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0):
             if i in DROP.get(key + suf, ()): continue
             rows = np.nonzero(q.max(axis=1) > thr)[0]
             if top: q = q[rows[0] + int(top * u):]; rows = np.nonzero(q.max(axis=1) > thr)[0]   # sheet S: the ruled line a willow curtain hangs from, cut off
+            if skirt and skirt[j]:   # sheet Z: under a wood the wet ink ran down in long drips. Kept: from its upper edge (tree tops smoothed over) down by that share of its height, then faded out
+                q = q[rows[0]:rows[-1] + 1]; hq = q.shape[0]; t0 = np.where((q > thr).any(axis=0), (q > thr).argmax(axis=0), hq).astype(np.float32)
+                t0 = ndi.median_filter(t0, size=int(81 * u) | 1, mode='nearest'); q = q * np.clip((t0[None, :] + (skirt[j] + 0.12) * hq - np.arange(hq)[:, None]) / (0.12 * hq), 0, 1)
+                rows = np.nonzero(q.max(axis=1) > thr)[0]
             cols = np.nonzero(q.max(axis=0) > thr)[0]
             save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1
     print(' rows', len(bands), 'of', len(sufs))
@@ -216,7 +220,9 @@ def flowers(key, path, sufs=('_fl', '_bd', '_pt')):
 
 # pieces of a row sheet left out, counted from the left. Muse N (v4): of its boughs the 5th and 6th came out as peaked
 # thatch roofs, the 7th as two smears one over the other with stray fans beside them
-DROP = {'muse_p': set(range(4, 16))}
+# Muse Z: of its slanting woods the forked one is a coral branch; of the small woods only the broad blot is a wood (the
+# others: a fin, a crescent, a sliver, two comets of splayed hairs)
+DROP = {'muse_p': set(range(4, 16)), 'muse_zb': {2}, 'muse_zc': {0, 1, 2, 4, 5}}
 
 
 # -- mist (sheets D and E): not ink to lay down but a mask. A flat grey wash that mist has eaten into: grey = the ink
@@ -309,6 +315,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'w': trunks(src, ink, sufs=('_cf', '_cx'), ylow=2)     # cliffs: 4 crag-top edges (blocky: not used), then 6 long drags of a half-dry brush, dark end left (laid down the rock face by the room)
     elif kind == 'x': rowsheet(src, ink, ('_xh', '_xa', '_xf', '_xm'), thr=0.06, blob=(15, 5, 5, 21))   # texture strokes of a mountain's flank (cun): hemp-fibre lines (pale, two or three abreast), axe-cut chops, folded-belt strokes, clusters of moss dots
     elif kind == 'y': rowsheet(src, ink, ('_yl', '_yf', '_yt', '_yp'), thr=0.06, gap=7)   # forest seen from afar: tree lines of a wooded crest, forest patches (tree tops above, loose dabs below), single far trees, the patches again in pale ink; bottom of a piece = the ground
+    elif kind == 'z': rowsheet(src, ink, ('_za', '_zb', '_zc'), thr=0.06, blob=(5, 5, 5), skirt=(0.4, 0.22, 0))   # forest masses: long level woods (tree tops above, runs of ink below: cut off), woods slanting up to the right (they reach over each other: cut as islands), small woods
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
