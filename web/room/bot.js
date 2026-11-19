@@ -118,7 +118,7 @@
     else if (new URLSearchParams(location.search).get('fix')) {   // ?fix=r008: strokes of an F8 report (tools/rep2fix.py), laid down as recorded
       const xr = new XMLHttpRequest(); xr.open('GET', 'fixtures/' + new URLSearchParams(location.search).get('fix') + '.json', false); xr.send();
       JSON.parse(xr.responseText).forEach((s7, i7) => Pt.st.done.push({ kind: new URLSearchParams(location.search).get('kind') || undefined, stroke: s7.map((q) => [q[0] * H, q[1] * H, q[2]]), t0: D.T, seed: 8001 + i7 })); }   // &kind=tree: laid down as that kind of stroke
-    else if (new URLSearchParams(location.search).has('r7')) R7.forEach((s7, i7) => Pt.st.done.push({ stroke: s7.map((q) => [q[0] * H, q[1] * H, q[2]]), t0: D.T, seed: 7001 + i7 }));
+    else if (new URLSearchParams(location.search).has('r7')) R7.forEach((s7, i7) => (new URLSearchParams(location.search).get('m7') || '0123').includes(String(i7)) /* &m7=3: only those of the four (same seeds) */ && Pt.st.done.push({ stroke: s7.map((q) => [q[0] * H, q[1] * H, q[2]]), t0: D.T, seed: 7001 + i7 }));
     else {
     fly((t) => [fw * (0.1 + 0.62 * t), H * (0.34 - 0.09 * Math.sin(t * 9.42) - 0.02 * Math.sin(t * 21))], 0.7);                 // far range, three tops
     fly((t) => [fw * (0.36 + 0.6 * t), H * (0.66 - 0.24 * Math.sin(t * 3.1416) - 0.06 * Math.sin(t * 9.42))], 0.6);              // near, one big mountain with shoulders

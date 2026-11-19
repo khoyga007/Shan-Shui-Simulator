@@ -322,7 +322,9 @@
       if (tx > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.008 + 0.022 * R()) / (0.5 + 0.5 * tx)) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], lo = 1 - rock, r1 = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R();
           if (r5 > lo + rock * (0.22 + 0.78 * sm((N(x / (0.075 * H) + 311, 2) - 0.4) / 0.16))) continue;
           const swc = q.w * (1 - 0.35 * rock * r4),   // the dark, solid end and most of the dry run: cut shorter than that, a streak was a black bar
-             len = Math.min(0.6 * H, depth[k] * (lo * (0.5 + 0.7 * r1) * 0.5 + rock * (0.3 + 0.75 * r1))), wd = clamp(len * q.h / swc * (1.4 + 2 * r2 + 2.5 * rock * r2), 0.008 * H, (0.035 + 0.055 * rock) * H),
+             // (on a slope, begun up to half way down and up to 0.6 of the depth long, a drag ran out below the foot of the wood: a fan
+             // of ruled dry hairs standing in the mist, some down past the end of the mist mask. It now ends by 0.45 of the depth)
+             len = Math.min(0.6 * H, depth[k] * (lo * (0.5 + 0.7 * r1) * 0.5 + rock * (0.3 + 0.75 * r1)), rock > 0.5 ? 1e9 : Math.max(0.03 * H, depth[k] * (0.45 - 0.5 * lo * r3 * r3))), wd = clamp(len * q.h / swc * (1.4 + 2 * r2 + 2.5 * rock * r2), 0.008 * H, (0.035 + 0.055 * rock) * H),
             sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5)) + rock * ((N(x / (0.2 * H) + 97, 1) - 0.5) * 0.5 + 0.14 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), fl = R() < 0.5 ? 1 : -1,
             y = ts[k] - 0.006 * H + depth[k] * (lo * 0.5 * r3 * r3 + rock * (r3 < 0.45 ? 0 : 0.65 * (r3 - 0.45) / 0.55));
           g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); const low = rock * (r3 < 0.45 ? 0 : 1);   // begun down the face, away from the dark of the top: pale and narrow, or its solid end stood on the wall as a black slab
@@ -492,11 +494,13 @@
           // texture". The flat pale wash of the body showed through. Under the wood now its own ground: dark wet ink pooled over
           // the whole wooded reach (only where the mountain already has ink), paling toward the mist, and in it pale forest patches
           // laid large as brushwork, so a gap reads as deeper wood in shade, not as bare paper-grey)
-          { g.globalCompositeOperation = 'source-atop'; const rr = H * (0.03 + 0.03 * near), nG = Math.min(1400, Math.round(area * reachY / (rr * rr) * 2.2));
+          // (it was laid source-atop and did nothing: ink over ink with the alpha kept is no change. Now laid plainly, kept under
+          // the ridge line by a clip, at UND of its strength: at full strength the wood closes to one flat black)
+          { const UND = 0.4; g.save(); g.beginPath(); g.moveTo(bx0 - 0.1 * H, yBase + 0.4 * H); g.lineTo(bx0 - 0.1 * H, top[0]); for (let k = 0; k < nb; k++) g.lineTo(bx0 + k * BIN, top[k] + 0.004 * H); g.lineTo(bx1 + 0.1 * H, top[nb - 1]); g.lineTo(bx1 + 0.1 * H, yBase + 0.4 * H); g.closePath(); g.clip(); const rr = H * (0.03 + 0.03 * near), nG = Math.min(1400, Math.round(area * reachY / (rr * rr) * 2.2));
             for (let q = 0; q < nG; q++) { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), 1.1), dp = depthFull[k]; if (dp < 0.04 * H) continue; const y = top[k] + dp * reachY * t; if (y > yBase + 0.07 * H) continue; const r = rr * (0.7 + 0.8 * Rf()),
                 al = grow(k, y) * (0.15 + 0.12 * near) * (1 - 0.2 * t) * (0.55 + 0.9 * N(x / (0.09 * H) + y / (0.13 * H) + 1300, 2)), gd = g.createRadialGradient(x, y, 0, x, y, r);
-              gd.addColorStop(0, `rgba(${INK},${al.toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
-            g.globalCompositeOperation = 'source-over';
+              gd.addColorStop(0, `rgba(${INK},${(UND * al).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
+            g.restore(); g.fillStyle = `rgb(${INK})`;
             if (kYP.length) for (let q = 0; q < tries * 0.35; q++) { const r1 = Rf(), w = w0 * (1.1 + 1.1 * r1), a = atY(1.1, w); if (!a) continue; put(pk(kYP), a[0], a[1], w, 0.5, 1, 0); put(pk(kYP), a[0] + w * (Rf() - 0.5) * 0.5, a[1] + w * 0.1, w * 0.8, 0.5, 0.9, 0); } }
           for (let q = 0; q < tries; q++) { const r1 = Rf(), a = atY(1.0, w0 * (0.7 + 0.8 * r1)); if (!a) continue; const [x, y, t] = a, pale = kYP.length && Rf() < 0.03 + 0.15 * t * t + 0.08 * (1 - near); if (!pale && t < 0.8 && drop[col(x)] > 1e8 && (kZA.length || kZB.length)) {
               // Sheet Z (11-19; Yang of sheet Y's patches in use: "texture từng mảng rừng trông hơi giả tạo": five mounds of one size, each
@@ -582,6 +586,10 @@
               if (e2 < 0.995 && relP > -tUp) a = Math.max(a, (1 - e2) * (relP >= tDn ? 1 : 1 - smp(tb, ut + 517, tb.b + relP * tk)) * foot * sm((t + 0.1 * H - y) / (0.07 * H)));
               for (const bk of banks) { const fu = (x - bk.x0) / bk.pw, fv = (y - bk.y0) / bk.ph; if (fu <= 0 || fu >= 1 || fv <= 0 || fv >= 1) continue; const fi = bk.sd === 'l' ? fu : 1 - fu;
                 a = Math.max(a, (1 - smp(bk.p, (bk.flip ? 1 - fu : fu) * bk.p.w, fv * bk.p.h)) * sm(fi / 0.1) * sm((1 - fi) / 0.14) * sm(fv / 0.14) * sm((1 - fv) / 0.14) * foot); } }   // faded on all four sides: left open on the side it came in by, the patch showed as an upright edge
+            // an end that comes down near the level of the sea is lost in it whole: between the bank on the ridge line and the
+            // sea a strip of foot showed through, cut off from its mountain (a grey smudge at the left foot, bot still r7).
+            // Not for an end high above the sea: mist from there down is the upright white column again
+            if (e2 < 0.995) a = Math.max(a, (1 - e2) * (1 - sm((cM[i] - t - 0.06 * H) / (0.1 * H))) * sm((y - t - 0.005 * H) / (0.03 * H)));
             if (a < 0.004) continue;
             if (dx < 0.27 * H) a *= sm(dx / (H * (0.06 + 0.12 * v2(u + 5.2, y * sv + 1.3)))); }   // no upright edge where the mask ends
           else if (relS < -band && !inP) continue;
