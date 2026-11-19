@@ -146,3 +146,11 @@ Mirror v1 gaps: trees/reeds (live layers) not mirrored; image still (no moving r
 ### Depth (why 2 and 3)
 All mountains read FAR (bình viễn only): tiny ridge trees fix scale, body = flat wash, low-on-paper only darkens. Need tầng cảnh: near/mid/far differ in DRAWING (tree size, rock faces, slope strokes), not tone alone.
 Water as layer divider + whole-mountain mirror image = modern ink style (classical leaves water blank); Yang wants it. Water comes from player's Thuỷ stroke (Yang CONFIRMED 11-19: "mặt nước soi bóng là do vẽ bằng nét thuỷ"), no preset waterline; what stands above it mirrors.
+
+### Địa near tier + stroke teaching (Yang 11-19, discussion, NO code yet)
+- Refs from Yang (5 imgs): near land = 3 kinds. bank (low, flat/humped top, slanted hatch, bottom fades into water) / rock outcrop-islet (small dark lumpy, flat-cut foot on water + reflection) / cliff (vertical, downward strokes, flat top, tree at lip).
+- Reads "near" because: texture strokes on body (cun), hard top edge + flat-cut foot (no mist), trees big vs land.
+- Style: WASH (dark ink mass, cun only as accent) to match far mountains; not line-style. Yang "ừ" 11-19.
+- Proposed Địa guess (not final): tall arch=mountain / long low level=bank / short lumpy=rock / steep vertical=cliff; press 1 again cycles. Height on paper = far/near as now.
+- Needs new sheet: cun strokes (vertical + slanted), lumpy top-edge strokes, small rock clusters, moss dots. Code does: mass from stroke, flat foot, mirror, big trees at lip.
+- IDEA (Yang): game teaches the player which stroke shape gives which thing — like a painting manual (cf. Mustard Seed Garden Manual, organised by rock/tree/figure). Parked; candidates: ghost dragon flies the sample stroke, stroke book filling in as shapes are discovered.
