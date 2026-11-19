@@ -664,10 +664,10 @@
 
   // One stroke -> one tree (Yang 11-19, key 4). The stroke is the trunk: its lower end the root, its upper end the top,
   // bent as it was flown; the code grows the branches and hangs the foliage. Own sheets: M (_t trunks lying level, root
-  // at the left, 'c' = the row of the middle line; _y branches, base left, 'by' / 'ty' = base and tip rows), N (_n pine
+  // at the left, 'c' = the row of the middle line; its short branch pieces _y are not used: a branch is grown), N (_n pine
   // needle fans, _p pine boughs, flat underneath; _q clusters of leaf dots).
-  //   kind    a pine (level branches, a bough lying on each, fans at the tips) or a broadleaf tree (branches reaching
-  //           up, clusters of leaf dots at their ends): one or the other, by the stroke's seed (X draws it the other way)
+  //   kind    a pine (branches standing off the trunk, a bough on the end of each) or a broadleaf tree (branches
+  //           forking off at a shallow angle, a cluster of leaf dots at the end of each): one or the other, by the stroke's seed (X draws it the other way)
   //   size    everything follows the length of the stroke: a long one is a tall tree, a short one a bush
   // Ink over ink: a tree hides nothing behind it. No drawn-by-code version: always Muse's sheets, whatever the brush.
   const kitOf = (suf) => (STROKES['muse' + suf] || []).filter((q) => q.im);
@@ -675,44 +675,45 @@
     const tB = performance.now(), H = D.H, R = dice(d.seed), P = calm(d.stroke, STEP, 5), n = P.length;
     if (n < 6) return null; if (P[0][1] < P[n - 1][1]) P.reverse();
     const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
-    const L = cum[n - 1], kitT = kitOf('_t'), kitY = kitOf('_y'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    const L = cum[n - 1], kitT = kitOf('_t'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
     if (!kitT.length) return null;
     const pine = (d.seed & 1) === 0, tan = P.map((_, i) => { const a = P[Math.max(0, i - 3)], b = P[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
     let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
     const pad = Math.round(clamp(0.8 * L, 0.1 * H, 0.42 * H)), ox = Math.floor(xa) - pad, oy = Math.floor(ya) - pad, cw = Math.ceil((xb - xa + 2 * pad + 2) * dpr), chh = Math.ceil((yb - ya + 2 * pad + 2) * dpr);   // room on every side, under the root too: a trunk flown level or bent over hangs its foliage below its own root (r010: cut off along a ruled line)
     const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'), home = () => g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); home();
-    // -- the trunk: a real one in thin slices along the stroke, thick at the root and running out to a point
-    { const q = pick(kitT), th = clamp(1.6 * L * q.h / q.w, 0.006 * H, 0.075 * H), ds = 2, fl = R() < 0.5 ? -1 : 1; let j = 0;
-      for (let a = 0; a < L; a += ds) { while (j < n - 2 && cum[j + 1] < a) j++; const f = clamp((a - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), 0, 1), px = P[j][0] + (P[j + 1][0] - P[j][0]) * f, py = P[j][1] + (P[j + 1][1] - P[j][1]) * f, tx = tan[j][0], ty = tan[j][1];
-        g.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (px - ox), dpr * (py - oy)); g.drawImage(q.im, clamp(a / L * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.3) / L * q.w), q.h, 0, -q.c * th, ds + 0.3, th); }   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
-      home(); }
-    // -- branches: from a third of the way up to the top, to one side and the other, shorter toward the top. A pine's
-    //    lie about level, a broadleaf tree's reach up. A pine carries few boughs, each standing clear of the next
-    const hang = [], nb = clamp(Math.round(L / ((pine ? 0.08 : 0.06) * H)), 1, pine ? 5 : 7); let sg = R() < 0.5 ? -1 : 1;
-    // Where and which way: set by the trunk, not by the paper. A branch leaves the trunk at an angle to it (a pine's
-    // nearly square, a broadleaf's leaning toward the top; now and then one leans back), to one side or the other,
-    // and never downward: on a trunk flown level or bent over, both sides' branches come out of its upper side.
-    // Unevenly spaced and of uneven length. (First version: left and right by turns at one fixed rise, evenly spaced.
-    // On a level trunk that gave a row of crossed pairs, XXXX: Yang 11-19, "mọc có pattern quá")
-    const ts = Array.from({ length: nb }, () => R()).sort((p, q) => p - q);
-    for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.75 : 0.3 + 0.66 * (0.55 * ts[k] + 0.45 * (k + 0.5) / nb), i = clamp(Math.round(t * (n - 1)), 0, n - 1), p = P[i], len = clamp(L * (0.44 - 0.27 * t) * (0.45 + 0.95 * R()), 0.02 * H, 0.2 * H);
-      let phi = pine ? 1.15 + 0.6 * R() : R() < 0.22 ? 1.75 + 0.45 * R() : 0.45 + 0.95 * R(); if (R() < 0.7) sg = -sg;
-      const dir = (s2) => { const c0 = Math.cos(phi), s0 = Math.sin(phi) * s2; return [tan[i][0] * c0 - tan[i][1] * s0, tan[i][1] * c0 + tan[i][0] * s0]; };
-      let u = dir(sg); if (u[1] > 0.1) { const v = dir(-sg); if (v[1] < u[1]) u = v; } if (u[1] > 0.1) { phi = 0.5; u = dir(1); }   // neither side goes up (a trunk hanging down): along the trunk
-      const bs = u[0] < 0 ? -1 : 1, rise = Math.atan2(-u[1], Math.abs(u[0]));
-      if (kitY.length) { const q = pick(kitY), hh = len * q.h / q.w; g.save(); g.translate(p[0], p[1]); g.scale(bs, 1); g.rotate(-rise - Math.atan2((q.ty - q.by) * q.h, q.w)); g.drawImage(q.im, 0, -q.by * hh, len, hh); g.restore(); }
-      hang.push({ x: p[0], y: p[1], ux: u[0], uy: u[1], len, sg: bs, rise }); }
-    const top = P[n - 1], crown = clamp(0.3 * L, 0.03 * H, 0.17 * H);
-    // -- foliage. turn(): a piece, the middle of its foot at (x, y)
-    const turn = (q, x, y, w, ang, flip, a) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = a; g.drawImage(q.im, -w / 2, -h, w, h); g.restore(); g.globalAlpha = 1; };
-    if (pine) {
-      for (const b of hang) { if (kitN.length && R() < 0.45) turn(pick(kitN), b.x + b.ux * b.len * 0.95, b.y + b.uy * b.len * 0.95, Math.min(0.075 * H, b.len * (0.45 + 0.3 * R())), b.sg * (0.5 + 0.5 * R()), R() < 0.5, 0.85);
-        if (kitP.length) { const w = b.len * (0.7 + 0.35 * R()), f = 0.6 + 0.2 * R(), q = pick(kitP); turn(q, b.x + b.ux * b.len * f, b.y + b.uy * b.len * f + 0.1 * w * q.h / q.w, w, -b.sg * 0.5 * b.rise, b.sg < 0, 0.9 + 0.1 * R()); } }
-      if (kitP.length) { const q = pick(kitP), w = crown * (1.1 + 0.4 * R()); turn(q, top[0], top[1] + 0.3 * w * q.h / q.w, w, (R() - 0.5) * 0.3, R() < 0.5, 1); }
-    } else if (kitQ.length) { const puff = (x, y, w) => { w = Math.min(w, 0.15 * H); const q = pick(kitQ), h = w * q.h / q.w;   // no larger: blown up on a tall tree the dabs were blots, flung far from the tree (r010)
-        g.save(); g.translate(x, y); g.rotate((R() - 0.5) * 0.9); g.scale(R() < 0.5 ? -1 : 1, R() < 0.5 ? -1 : 1); g.globalAlpha = 0.7 + 0.3 * R(); g.drawImage(q.im, -w / 2, -h / 2, w, h); g.restore(); g.globalAlpha = 1; };
-      for (const b of hang) { puff(b.x + b.ux * b.len * 0.9, b.y + b.uy * b.len * 0.9, b.len * (1.0 + 0.6 * R())); if (R() < 0.6) puff(b.x + b.ux * b.len * 0.5, b.y + b.uy * b.len * 0.5 - 0.15 * b.len, b.len * (0.7 + 0.5 * R())); }
-      for (let k = 0, kn = 2 + Math.floor(R() * 2); k < kn; k++) puff(top[0] + (R() - 0.5) * crown * 1.2, top[1] + (R() - 0.2) * crown * 0.8, crown * (1.5 + 0.7 * R())); }
+    // -- limbs. Trunk and branches are the same thing at different sizes: a stretch of a real trunk (from u0 of the piece
+    //    to its tip, so every limb runs out to a point; further along the piece = thinner) in thin slices along a path
+    const qT = pick(kitT), fl = R() < 0.5 ? -1 : 1, th0 = clamp(1.6 * L * qT.h / qT.w, 0.006 * H, 0.075 * H);
+    const limb = (Q, u0) => { const m = Q.length, cl = [0]; for (let i = 1; i < m; i++) cl.push(cl[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1])); const Lq = cl[m - 1], ds = 2; let j = 0;
+      for (let a = 0; a < Lq; a += ds) { while (j < m - 2 && cl[j + 1] < a) j++; const f = clamp((a - cl[j]) / Math.max(1e-6, cl[j + 1] - cl[j]), 0, 1), A = Q[Math.max(0, j - 2)], B = Q[Math.min(m - 1, j + 3)], l = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, tx = (B[0] - A[0]) / l, ty = (B[1] - A[1]) / l;
+        g.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - ox), dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - oy));   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
+        g.drawImage(qT.im, clamp((u0 + (1 - u0) * a / Lq) * qT.w, 0, qT.w - 2), 0, Math.max(1, (ds + 0.3) / Lq * (1 - u0) * qT.w), qT.h, 0, -qT.c * th0, ds + 0.3, th0); }
+      home(); };
+    limb(P, 0);
+    // -- branches, as Yang drew one (11-19, in Paint: "it has to be random"): a branch FORKS off its limb at a shallow
+    //    angle and runs on beside it toward the tip, bending as it goes; to either side, below the limb as well as
+    //    above; long (up to half the limb); now and then it forks again. Each ends in foliage. Nothing even: place,
+    //    side, angle, length and bend are all thrown.
+    //    (Before: short straight pieces stuck on the trunk left and right by turns at one fixed rise. On a trunk flown
+    //    level that was a row of crossed pairs, XXXX, then a row of stakes: "mọc có pattern quá")
+    const tips = [];
+    const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], curl = (R() - 0.5) * 1.5 / m; let a = ang;
+      for (let i = 1; i <= m; i++) { a += curl + (R() - 0.5) * 0.09; if (Math.sin(a) > 0.3) a += (Math.cos(a) > 0 ? -1 : 1) * 0.07;   // a branch does not droop far: turned back toward level
+        x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
+      limb(Q, u0); tips.push({ x, y, len, a });
+      if (depth < 2 && len > 0.06 * H && R() < 0.55) { const k = Math.round(m * (0.3 + 0.35 * R())); grow(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.5 * R()), len * (0.4 + 0.35 * R()), Math.min(0.93, u0 + 0.12), depth + 1); } };
+    { const nb = clamp(Math.round(L / (0.07 * H)), 1, 6), ts = Array.from({ length: nb }, () => R()).sort((p, q) => p - q); let sg = R() < 0.5 ? -1 : 1;
+      for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.6 : 0.2 + 0.72 * (0.6 * ts[k] + 0.4 * (k + 0.5) / nb), i = clamp(Math.round(t * (n - 1)), 0, n - 1), base = Math.atan2(tan[i][1], tan[i][0]), phi = pine ? 0.8 + 0.6 * R() : 0.3 + 0.55 * R();
+        if (R() < 0.65) sg = -sg; let ang = base + sg * phi; if (Math.sin(ang) > 0.5) ang = base - sg * phi;   // not straight down
+        grow(P[i][0], P[i][1], ang, clamp(L * (0.5 - 0.3 * t) * (0.5 + 0.8 * R()), 0.03 * H, 0.3 * H), clamp(0.35 + 0.5 * t, 0, 0.88), 1); } }
+    tips.push({ x: P[n - 1][0], y: P[n - 1][1], len: clamp(0.35 * L, 0.04 * H, 0.2 * H), a: -1.57 });
+    // -- foliage: at the end of every limb, each of its own size; here and there a second one beside it
+    if (pine) { const turn = (q, x, y, w, ang, flip, al) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = al; g.drawImage(q.im, -w / 2, -h * 0.8, w, h); g.restore(); g.globalAlpha = 1; };   // a bough lies on the end of its branch, its flat dark underside a little below it
+      for (const t of tips) { if (kitN.length && R() < 0.4) turn(pick(kitN), t.x + Math.cos(t.a) * 0.02 * H, t.y + Math.sin(t.a) * 0.02 * H, clamp(t.len * (0.3 + 0.3 * R()), 0.02 * H, 0.07 * H), (R() - 0.5) * 1.2, R() < 0.5, 0.85);
+        if (kitP.length) turn(pick(kitP), t.x, t.y, clamp(t.len * (0.55 + 0.45 * R()), 0.03 * H, 0.14 * H), (R() - 0.5) * 0.4, R() < 0.5, 0.9 + 0.1 * R()); }
+    } else if (kitQ.length) { const puff = (x, y, w) => { const q = pick(kitQ), h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate((R() - 0.5) * 0.9); g.scale(R() < 0.5 ? -1 : 1, R() < 0.5 ? -1 : 1); g.globalAlpha = 0.65 + 0.35 * R(); g.drawImage(q.im, -w / 2, -h / 2, w, h); g.restore(); g.globalAlpha = 1; };
+      for (const t of tips) { const w = clamp(t.len * (0.55 + 0.55 * R()), 0.035 * H, 0.15 * H);   // no larger: blown up on a tall tree the dabs were blots, flung far from the tree (r010)
+        puff(t.x, t.y, w); if (R() < 0.4) puff(t.x + (R() - 0.5) * w * 0.9, t.y + (R() - 0.5) * w * 0.7, w * (0.6 + 0.4 * R())); } }
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1), peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
