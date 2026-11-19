@@ -480,10 +480,13 @@
         for (let i = 1; i < n; i++) { const al = sm((ga(i) - 0.42) / 0.12) * tone(i); if (al < 0.02) continue; g.globalAlpha = al * 0.8; g.lineWidth = H * (0.0015 + 0.003 * nearY(E[i][1])) * (0.6 + 0.8 * N(cum[i] / (0.03 * H) + ph, 2)); g.beginPath(); g.moveTo(E[i - 1][0], E[i - 1][1]); g.lineTo(E[i][0], E[i][1]); g.stroke(); }
         g.globalAlpha = 1; }
     }
-    // a few rocks on the banks, where a bank is drawn: standing upright, their foot on the waterline
+    // a few rocks on the banks, where a bank is drawn: upright, and wholly on the land, just clear of the bank line.
+    // (Set with their foot on the line, a rock on the near bank stood up into the water and one on a level reach sat
+    // across the line: Yang 11-19, now in the stream, now on the stroke)
     if (kitK.length) for (let k = 0, cnt = Math.round(L / (0.3 * H)); k < cnt; k++) { const sd = sides[R() < 0.5 ? 0 : 1], q = kitK[Math.floor(R() * kitK.length) % kitK.length]; let i = -1;
       for (let t = 0; t < 6 && i < 0; t++) { const c2 = 4 + Math.floor(R() * (n - 8)); if (sd.ga(c2) > 0.5 && env(c2) > 0.6) i = c2; }
-      if (i < 0) continue; const w = H * (0.012 + 0.026 * nearY(sd.E[i][1])) * (0.7 + 0.6 * R()), h = w * q.h / q.w; gk.drawImage(q.im, sd.E[i][0] - sd.sg * tan[i][1] * w * 0.3 - w / 2, sd.E[i][1] - h * 0.82, w, h); }
+      if (i < 0) continue; const w = H * (0.012 + 0.026 * nearY(sd.E[i][1])) * (0.7 + 0.6 * R()), h = w * q.h / q.w; const ex = -sd.sg * tan[i][1], ey = sd.sg * tan[i][0], out = 0.5 * (Math.abs(ex) * w + Math.abs(ey) * h) + 0.003 * H;   // out: from the bank line to the rock's middle, half the rock's size across the bank and a hair more
+        gk.drawImage(q.im, sd.E[i][0] + ex * out - w / 2, sd.E[i][1] + ey * out - h / 2, w, h); }
     { raw(gk); const gd = gk.createLinearGradient(0, 0, 0, chh); for (let k = 0; k <= 8; k++) gd.addColorStop(k / 8, `rgba(0,0,0,${(0.78 * (0.4 + 0.6 * nearY(oy + k / 8 * chh / dpr))).toFixed(3)})`);   // far reaches pale
       gk.globalCompositeOperation = 'destination-in'; gk.fillStyle = gd; gk.fillRect(0, 0, cw, chh); raw(g); g.drawImage(bnk, 0, 0); home(g); }
     gs.globalCompositeOperation = 'destination-out'; gs.fillStyle = '#000'; water(gs); gs.fill(); gs.globalCompositeOperation = 'source-over';
