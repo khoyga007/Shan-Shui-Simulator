@@ -643,7 +643,8 @@
               // (nor did a dry drag: a faint hair, and two of them crossing stood as an X on a far hill. An axe-cut chop reads: broad, dark, its head up the slope)
               // (sheet AL: a split-brush stroke, a band of dry streaks from one solid head, turned to fall with the slope: Muse's fall to the right as painted, Gemini's to the left, each mirrored for the other side; or a large chop)
               const wl = Math.max(len, 0.03 * H), al = (0.65 + 0.35 * Rt()) * (0.65 + 0.35 * near);
-              if (kLA.length && r4 < 0.65) { const q = pr(kLA), mus = /^muse/.test(q.f); put(q, x, y + 0.3 * wl * q.h / q.w, 1.1 * wl, 0.5, al, sg * clamp(an0 - (mus ? 0.95 : 0.42), -0.5, 0.5) || 0.01, mus ? sg < 0 : sg > 0); }
+              // (Yang 11-19, of a rank of even slanting streaks at a mountain's foot, over the pale wash where it meets the mist: "vệt sọc chéo". A split-brush stroke is a band of parallel streaks: on dark wood it is grain, on pale wash a hatching. Kept to the upper flank, where the wood is dark: none that reaches below the middle of the reach, and paler the lower it lies)
+              if (kLA.length && r4 < 0.65) { const q = pr(kLA), mus = /^muse/.test(q.f); if (y + 0.85 * wl * q.h / q.w > top[k] + dp * rc * 0.5) continue; put(q, x, y + 0.3 * wl * q.h / q.w, 1.1 * wl, 0.5, al * (1 - 0.7 * r1), sg * clamp(an0 - (mus ? 0.95 : 0.42), -0.5, 0.5) || 0.01, mus ? sg < 0 : sg > 0); }
               else if (kLX.length) put(pr(kLX), x, y, 0.6 * wl, 0.5, al, (Rt() - 0.5) * 0.5 || 0.01, Rt() < 0.5);
               else if (kXA.length) stamp(pr(kXA), x, y, an, 0.55 * len, (0.45 + 0.4 * r4) * (0.6 + 0.4 * near)); }
             if (kXA.length) for (let x = bx0 + 0.03 * H; x < bx1 - 0.03 * H; x += H * (0.02 + 0.05 * Rt())) { const k = col(x), r1 = Rt(), r2 = Rt(); if (depthFull[k] < 0.05 * H || N(x / (0.09 * H) + chO + 4400, 2) < 0.55) continue;
