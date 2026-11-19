@@ -780,6 +780,23 @@
             if (kH.length) each(clamp(Math.round(w / (0.3 * H)), 1, 5), (x, top, dep) => { const fx = Rk() < 0.5 ? -1 : 1; mark(xm, pk(kH), x, top + dep * (0.2 + 0.5 * Rk()), clamp((0.1 + 0.16 * Rk()) * H, 0.04 * H, 0.6 * w), slopeAt(x) + fx * 0.28 + (Rk() - 0.5) * 0.2, 1, fx, 0.5, 0.5); });
             if (kR.length) each(Math.round(w / (0.22 * H)) + 1, (x, top, dep) => mark(xm, pk(kR), x, top + dep * (0.1 + 0.3 * Rk()), (0.04 + 0.04 * Rk()) * H, slopeAt(x), 0.55 + 0.25 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.5));
             xm.setTransform(1, 0, 0, 1, 0, 0); xm.globalCompositeOperation = 'destination-in'; xm.drawImage(body, 0, 0); gc.save(); gc.setTransform(1, 0, 0, 1, 0, 0); gc.globalAlpha = 1; gc.drawImage(tm, 0, 0); gc.restore();
+            // Stones and a rough upper line (Yang 11-19: "đất đang hơi phẳng quá, đất thì phải có vài viên sỏi đá trồi lên, phải sần sùi, lởm
+            // chởm 1 tý"). All of it rock marks of sheet AG laid over the finished body, none masked by it, so they break its outline:
+            //   rim     small chops (_gs) every which way along the upper line, standing half out of it
+            //   gravel  small clusters of blunt dots (_gm) lying on the line, half sunk (large they stood as stamped grids of blocks)
+            //   stones  a few lumps of two or three chops overlapping, half sunk, a sliver taken out of the upper left (the lit face)
+            //   in the face  small chops strewn through the upper part, some dark, some taken out pale: a pitted face, no flat wash
+            { const kS = K('_gs'), kM = K('_gm'), Rs = dice(d.seed ^ 0x51c9), ps = (kit) => kit[Math.floor(Rs() * kit.length) % kit.length], sd = () => (Rs() < 0.5 ? -1 : 1),
+                px = gc.getImageData(0, 0, cw2, ch2).data, ink = (x, y) => { const u = Math.round((x - ox) * dpr), v = Math.round((y - oy) * dpr); return u >= 0 && v >= 0 && u < cw2 && v < ch2 && px[(v * cw2 + u) * 4 + 3] > 70; },
+                eachS = (n, f) => { for (let i = 0; i < n; i++) { const x = bx0 + (0.04 + 0.92 * (i + Rs()) / n) * w, top = topAt(x), dep = foot - top; if (dep > 0.012 * H && ink(x, top + 0.014 * H)) f(x, top, dep); } },
+                out = (f) => { gc.globalCompositeOperation = 'destination-out'; f(); gc.globalCompositeOperation = 'source-over'; };
+              if (kS.length) eachS(clamp(Math.round(w / (0.022 * H)), 6, 110), (x, top, dep) => { const y = top + dep * (0.06 + 0.5 * Rs() * Rs()), s = (0.007 + 0.012 * Rs()) * H, rot = Rs() * 6.283, q = ps(kS), fx = sd(); if (!ink(x, y)) return;
+                if (Rs() < 0.3) out(() => mark(gc, q, x, y, s, rot, 0.1 + 0.16 * Rs(), fx, 0.5, 0.5)); else mark(gc, q, x, y, 0.8 * s, rot, 0.7 + 0.3 * Rs(), fx, 0.5, 0.5); });
+              if (kS.length) eachS(clamp(Math.round(w / (0.02 * H)), 6, 110), (x, top) => { const r = Rs(), s = (0.008 + 0.016 * Rs() * Rs()) * H, rot = Rs() * 6.283; if (r > 0.35) mark(gc, ps(kS), x, top + 0.001 * H, s, rot, 0.85 + 0.15 * Rs(), sd(), 0.5, 0.6); });
+              if (kM.length) eachS(Math.round(w / (0.14 * H)) + 1, (x, top) => { const s = (0.009 + 0.008 * Rs()) * H; mark(gc, ps(kM), x, top + 0.1 * s, s, Rs() * 6.283, 0.95, sd(), 0.5, 0.5); });
+              if (kS.length) eachS(clamp(Math.round(w / (0.22 * H)) + (Rs() < 0.5 ? 1 : 0), 1, 7), (x, top) => { const s = (0.014 + 0.026 * Rs() * Rs()) * H, r0 = Rs() * 6.283;
+                for (let k = 0; k < 3; k++) mark(gc, ps(kS), x + (k - 1) * 0.3 * s, top + (0.1 - 0.2 * Rs()) * s, s * (0.7 + 0.4 * Rs()), r0 + k * 2.1 + Rs(), 1, sd(), 0.5, 0.5);
+                out(() => mark(gc, ps(kS), x - 0.12 * s, top - 0.2 * s, 0.45 * s, Rs() * 6.283, 0.55, sd(), 0.5, 0.5)); }); }
             if (kG.length) each(Math.round(w / (0.18 * H)), (x, top, dep) => dep > 0.3 * hl && gc.getImageData(Math.round((x - ox) * dpr), Math.round((top + 0.016 * H - oy) * dpr), 1, 1).data[3] > 70 && mark(gc, pk(kG), x, top + 0.004 * H, (0.02 + 0.02 * Rk()) * H, 0.5 * slopeAt(x), 0.7 + 0.3 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.95)); } } }
       if (land === 'bank') { const nb = ts.length, fw = clamp(0.12 * (bx1 - bx0), 0.02 * H, 0.1 * H);
         for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1;
