@@ -1052,12 +1052,29 @@
     // -- limbs. Trunk and branches are the same thing at different sizes: a stretch of a real trunk (from u0 of the piece
     //    to its tip, so every limb runs out to a point; further along the piece = thinner) in thin slices along a path
     const kitAll = kitT.concat(kitU), kitDry = kitAll.filter((q) => q.tone < 0.42), qT = pick(zhe ? kitBT : kind === 'bamboo' ? kitBS : bare && kitDry.length ? kitDry : kitAll), fl = R() < 0.5 ? -1 : 1, th0 = zhe ? clamp(0.85 * L * qT.h / qT.w, 0.025 * H, 0.07 * H) : clamp((pine ? 2.7 : 1.6) * L * qT.h / qT.w, 0.006 * H, (pine ? 0.11 : 0.075) * H);   // an old pine is sparse but never gaunt: a stout trunk, stout limbs (as thin as a pole it looked sickly, Yang 11-19)
-    const limb = (Q, u0, G = g, X = ox, Y = oy) => { const m = Q.length, cl = [0]; for (let i = 1; i < m; i++) cl.push(cl[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1])); const Lq = cl[m - 1], ds = 2; let j = 0;
+    const wrapR = (v) => Math.atan2(Math.sin(v), Math.cos(v));
+    const limb = (Q, u0, G = g, X = ox, Y = oy, q_ = qT, th_ = th0) => { const m = Q.length, cl = [0]; for (let i = 1; i < m; i++) cl.push(cl[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1])); const Lq = cl[m - 1], ds = 2; let j = 0;
       for (let a = 0; a < Lq; a += ds) { while (j < m - 2 && cl[j + 1] < a) j++; const f = clamp((a - cl[j]) / Math.max(1e-6, cl[j + 1] - cl[j]), 0, 1), A = Q[Math.max(0, j - 2)], B = Q[Math.min(m - 1, j + 3)], l = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, tx = (B[0] - A[0]) / l, ty = (B[1] - A[1]) / l;
         G.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - X), dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - Y));   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
-        G.drawImage(qT.im, clamp((u0 + (1 - u0) * a / Lq) * qT.w, 0, qT.w - 2), 0, Math.max(1, (ds + 0.3) / Lq * (1 - u0) * qT.w), qT.h, 0, -qT.c * th0, ds + 0.3, th0); }
+        G.drawImage(q_.im, clamp((u0 + (1 - u0) * a / Lq) * q_.w, 0, q_.w - 2), 0, Math.max(1, (ds + 0.3) / Lq * (1 - u0) * q_.w), q_.h, 0, -q_.c * th_, ds + 0.3, th_); }
       G.setTransform(dpr, 0, 0, dpr, -X * dpr, -Y * dpr); };
     limb(P, 0);
+    // -- roots (Yang 11-19: "mấy cái cây này đâu có rễ?"; a sheet of whole tree feet came out as Western pen drawing, and he
+    //    chose: grown by code from the brush strokes, as the branches are, no pasted foot). A root is a limb: the thin end
+    //    of the trunk's own stroke laid along a path that leaves the trunk a little above its cut, to one side and the
+    //    other by turns, runs down and out, lies over toward level along the ground and dips at its end like a claw.
+    //    The thick starts overlap the trunk's blunt cut and hide it. Bamboo: a fan of short dry whiskers under the cane.
+    //    Dice of its own, so the tree above it is the tree it was.
+    if (!zhe) { const Rr = dice(d.seed ^ 0x3c19), bam = kind === 'bamboo', kD = kitDry.length ? kitDry : kitAll, qR = bam ? kD[Math.floor(Rr() * kD.length) % kD.length] : qT, thR = bam ? Math.max(0.6 * th0, 0.004 * H) : th0,
+        ux = tan[0][0], uy = tan[0][1], nr = bam ? 4 + Math.floor(Rr() * 3) : 2 + Math.floor(Rr() * 2) + (th0 > 0.02 * H ? 1 : 0) + (th0 > 0.045 * H ? 1 : 0); let sd = Rr() < 0.5 ? -1 : 1;
+      for (let k = 0; k < nr; k++) { sd = -sd; const len = bam ? (0.012 + 0.016 * Rr()) * H : Math.max(0.014 * H, th0 * (1.0 + 1.5 * Rr()) * (k < 2 ? 1 : 0.7)), m = Math.max(6, Math.round(len / 3)), up = bam ? 0.05 : 0.12 + 0.3 * Rr(),
+          Q = [[P[0][0] + ux * up * th0 + (bam ? (k / (nr - 1) - 0.5) * 0.5 * th0 : sd * 0.14 * th0), P[0][1] + uy * up * th0]], aT = (sd > 0 ? 0 : Math.PI) + sd * (0.05 + 0.2 * Rr()), ek = Math.round(m * (0.3 + 0.4 * Rr())), et = (Rr() - 0.5) * 0.7;
+        let a = bam ? 1.5708 + (k / (nr - 1) - 0.5) * 1.7 + (Rr() - 0.5) * 0.3 : 1.5708 - sd * (0.35 + 0.6 * Rr()), x = Q[0][0], y = Q[0][1];
+        for (let i = 1; i <= m; i++) { const f = i / m;
+          if (bam) a += (Rr() - 0.5) * 0.2 + (a < 1.5708 ? -0.25 : 0.25) / m;
+          else a += (f < 0.7 ? 2.6 * wrapR(aT - a) / m : sd * 1.5 / m) + (Rr() - 0.5) * 0.12 + (i === ek ? et : 0);
+          x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
+        if (bam) g.globalAlpha = 0.75; limb(Q, bam ? 0.72 + 0.15 * Rr() : 0.42 + 0.3 * Rr() + (k < 2 ? 0 : 0.1), g, ox, oy, qR, thR); g.globalAlpha = 1; } }
     // The branch is alive (Yang 11-19: swaying in the wind, a petal or a blossom letting go now and then). The old wood
     // is painted once and stays; every twig is a small painting of its own (its wood, its blossoms), turned a little
     // about the point it grows from, each frame, on a layer of its own (as a river's current): a shoot on an old side
