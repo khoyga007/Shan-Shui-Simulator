@@ -697,7 +697,7 @@
     const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'), home = () => g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); home();
     // -- limbs. Trunk and branches are the same thing at different sizes: a stretch of a real trunk (from u0 of the piece
     //    to its tip, so every limb runs out to a point; further along the piece = thinner) in thin slices along a path
-    const qT = pick(zhe ? kitBT : kind === 'bamboo' ? kitBS : kitT.concat(kitU)), fl = R() < 0.5 ? -1 : 1, th0 = zhe ? clamp(0.85 * L * qT.h / qT.w, 0.025 * H, 0.07 * H) : clamp(1.6 * L * qT.h / qT.w, 0.006 * H, 0.075 * H);
+    const kitAll = kitT.concat(kitU), kitDry = kitAll.filter((q) => q.tone < 0.42), qT = pick(zhe ? kitBT : kind === 'bamboo' ? kitBS : bare && kitDry.length ? kitDry : kitAll), fl = R() < 0.5 ? -1 : 1, th0 = zhe ? clamp(0.85 * L * qT.h / qT.w, 0.025 * H, 0.07 * H) : clamp(1.6 * L * qT.h / qT.w, 0.006 * H, 0.075 * H);
     const limb = (Q, u0, G = g, X = ox, Y = oy) => { const m = Q.length, cl = [0]; for (let i = 1; i < m; i++) cl.push(cl[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1])); const Lq = cl[m - 1], ds = 2; let j = 0;
       for (let a = 0; a < Lq; a += ds) { while (j < m - 2 && cl[j + 1] < a) j++; const f = clamp((a - cl[j]) / Math.max(1e-6, cl[j + 1] - cl[j]), 0, 1), A = Q[Math.max(0, j - 2)], B = Q[Math.min(m - 1, j + 3)], l = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, tx = (B[0] - A[0]) / l, ty = (B[1] - A[1]) / l;
         G.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - X), dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - Y));   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
@@ -793,9 +793,10 @@
     const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], sway = (R() - 0.5) * 0.7 / m, lvl = Math.cos(ang) < 0 ? Math.PI : 0, dsg = lvl ? -1 : 1, trop = pine ? 0 : (0.35 + 0.5 * R()) * (wil ? 0 : 1); let a = ang;
       // a pine branch is crooked by elbows: one to three sharp turns, down then up by turns, straight between them.
       // (Small random turns all along were smoothed away by the pull to level and did not read at a small size)
-      const ne = 1 + (R() < 0.6) + (len > 0.1 * H && R() < 0.5), el = pine ? Array.from({ length: ne }, (_, j) => Math.max(1, Math.round(m * (0.12 + 0.6 * (j + 0.3 + 0.4 * R()) / ne)))) : []; let es = R() < 0.7 ? 1 : -1;
+      const ne = 1 + (R() < 0.6) + (len > 0.1 * H && R() < 0.5), el = pine || bare ? Array.from({ length: ne }, (_, j) => Math.max(1, Math.round(m * (0.12 + 0.6 * (j + 0.3 + 0.4 * R()) / ne)))) : []; let es = R() < 0.7 ? 1 : -1;
       for (let i = 1; i <= m; i++) { const f = i / m;
         a += sway + (R() - 0.5) * 0.09 + (pine ? 1.6 * wrapA(lvl + dsg * (0.3 * Math.sin(3.1416 * Math.min(1, f / 0.75)) - 0.65 * sm((f - 0.7) / 0.3)) - a) / m + (el.includes(i) ? dsg * (es = -es) * -(0.5 + 0.4 * R()) : 0) :trop * 2 * f * wrapA(-1.5708 - a) / m);   // a pine's: level, sagging in its middle under its own weight, lifting at the tip, and crooked (a sudden turn here and there)
+        if (bare) a += (R() - 0.5) * 0.14 + (el.includes(i) ? (es = -es) * (0.35 + 0.5 * R()) : 0);   // bare wood shows how it grew: by fits and turns, an elbow where a shoot died and a side bud took over. (In one smooth bow each, on a smooth pole: antlers, "mất tự nhiên", Yang 11-19)
         if (wil) a += 2.4 * f * wrapA(lvl + dsg * 0.75 - a) / m;   // a willow's limb: up and out of the trunk, then over and down under its own weight, more and more toward its end
         if (!wil && Math.sin(a) > 0.3) a += (Math.cos(a) > 0 ? -1 : 1) * 0.07;   // a branch does not droop far: turned back toward level
         x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
