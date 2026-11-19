@@ -301,13 +301,14 @@ def wisps(key, ink, sufs=('_aw', '_ap', '_av'), counts=(6, 8, 5), thr=0.05):
     print(' wisp rows', len(bands), 'of', len(sufs))
 
 
-def banks(key, ink, suf, n=1, skip=(), blur=2, wide=512, thr=0.1, melt=0.3):
+def banks(key, ink, suf, n=1, skip=(), blur=2, wide=512, thr=0.1, melt=0.3, ys=None):
     """sheets AB, AC (11-19): mist asked as fog seen, not as brush marks, and it came as such: soft grey banks and puffs. AB:
     five long banks, one to a row (n=1; the fourth is a hard-rimmed lens: skipped). AC: two rows of five puffs (n=5), cut at
     the emptiest columns. Barely melted (they are soft already, and their shapes are what they are for), brought to full
     strength, feathered at the cuts."""
     u = ink.shape[1] / 2048; on = ink > thr; man.pop(key + suf, None); k = j = 0
     bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(7 * u) | 1))) if b - a > 40 * u]
+    if ys: bands = [(int(y0 * ink.shape[0]), int(y1 * ink.shape[0])) for y0, y1 in ys]   # rows given by hand (scraps of one row reach into the next)
     for a, b in bands:
         a, b = max(0, a - int(20 * u)), min(ink.shape[0], b + int(20 * u)); band = ink[a:b]; cols = np.nonzero(on[a:b].any(axis=0))[0]; c0, c1 = max(0, cols[0] - int(20 * u)), min(ink.shape[1], cols[-1] + 1 + int(20 * u))
         sm_ = ndi.gaussian_filter1d(band[:, c0:c1].sum(axis=0), 9 * u); W = c1 - c0; cuts = [0]
@@ -367,6 +368,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'aa': wisps(src, ink)
     elif kind == 'ab': banks(src, ink, '_mw', skip=(3,), wide=384)   # long banks of mist (the large wisps that shape the top of the mist)
     elif kind == 'ac': banks(src, ink, '_mp', n=5, wide=256)   # puffs of mist (the small and middling wisps)
+    elif kind == 'ad': banks(src, ink, '_mx', wide=384, blur=6, melt=0.12, ys=((0.03, 0.255), (0.44, 0.625), (0.79, 0.98)))   # AB v3 (kept as AD): torn flat scraps with hard edges, not mist; rows 1, 3, 5 kept as OUTLINES only (irregular, holed), melted hard here
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
