@@ -162,6 +162,8 @@
       const put = (kind, q, seed) => { const pl = Pt.plant(q, kind); if (pl.kind) Pt.st.done.push({ kind: pl.kind, el: 'wood', stroke: pl.q, root: pl.root, t0: D.T, seed }); return pl.kind || 'refused'; };
       out.plant = { treeAir: put('tree', mk(60, (t) => [0.3 + 0.05 * t, 0.8 - 0.4 * t]), 9200), treeDeep: put('tree', mk(60, (t) => [1.35 - 0.04 * t, 0.9 - 0.4 * t]), 9203), grass: put('grass', mk(80, (t) => [0.1 + 0.6 * t, 0.83 + 0.01 * Math.sin(t * 9)]), 9300),
         treeWater: put('tree', mk(60, (t) => [1.33, 0.68 - 0.3 * t]), 9204), grassWater: put('grass', mk(60, (t) => [1.28 + 0.12 * t, 0.67]), 9301), branch: put('grass', mk(90, (t) => [0.03 + 1.05 * t, 0.2 + 0.03 * Math.sin(t * 3.4)]), 9101) }; }
+    // ?tip=1: a bank sloping down to the right into the paper's bottom, grass flown along its top and on past its end (r017: tufts stood on the thin tip and beyond it)
+    if (new URLSearchParams(location.search).has('tip')) { const tp = (kind, x0, x1, seed) => Pt.st.done.push({ kind, el: kind === 'grass' ? 'wood' : 'earth', stroke: Array.from({ length: 90 }, (_, i) => { const t = x0 + (x1 - x0) * i / 89; return [t * H, (0.8 + 0.13 * t / 1.2 + (kind === 'grass' ? 0.004 : 0)) * H, 0.6]; }), t0: D.T, seed }); tp('bank', 0.0, 1.2, 9521); tp('grass', 0.3, 1.45, 9331); }
     Rm.S.cap = cap0;
     const snap =() => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
       x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };
