@@ -1318,9 +1318,15 @@
   // its foot alone it stood before the water, unmirrored, and painted over it).
   const zk = (d) => { if (d.m.solid) return st.done.reduce((z, o) => (o.m && o.m.wat && d.m.yBase > o.m.yTop && d.m.yBase <= o.m.yBase && d.m.cx > o.m.ox && d.m.cx < o.m.ox + o.m.wat.width / dpr ? Math.max(z, o.m.yBase + 0.5) : z), d.m.yBase);
     let z = d.m.yBase; if (!d.m.river) for (const o of st.done) if (o.m && o.m.sea && z > o.m.yBase && meanY(d) < o.m.yBase) z = o.m.yBase - 0.5 + 0.4 * clamp((d.m.yBase - o.m.yBase) / D.H, 0, 1); return z; };
+  // Near land begun or ended close to a side of the paper runs off that side (Yang 11-19: "nét đất mà bắt đầu từ sát cạnh
+  // thì nó tự snap"): flown by hand the stroke starts a little inside the edge, and the bank ended there in a faded stump with
+  // bare paper beside it. The end is carried on, level, to beyond the edge. Once a stroke. The right side: the paper's, under the panel.
+  function snapEdge(d) { if (d.snapped || (d.kind !== 'bank' && d.kind !== 'rock')) return; d.snapped = true; const q = d.stroke, H = D.H, near = 0.07 * H, out = 0.08 * H;
+    for (const end of [0, 1]) { const p = end ? q[q.length - 1] : q[0], x = p[0] < near ? -out : p[0] > freeW() - near ? D.W + out : null; if (x === null) continue;
+      const add = []; for (let k = 1; k <= 6; k++) add.push([p[0] + (x - p[0]) * k / 6, p[1], p[2]]); if (end) q.push(...add); else q.unshift(...add.reverse()); } d.my = undefined; }
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, sea, tree, grass }[d.kind] || mountain)(d) || false;
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) { snapEdge(d); d.m = ({ river, lake, sea, tree, grass }[d.kind] || mountain)(d) || false; }
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => zk(p) - zk(q)), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
