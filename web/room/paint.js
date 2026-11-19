@@ -302,8 +302,14 @@
         mark(P[i2][0], P[i2][1] + 0.003 * H, 1.5708 - side * (0.35 + 0.5 * R()), Math.min(0.2 * H, dc * (0.3 + 0.45 * R())), H * 0.0048 * (0.6 + 0.8 * R()), 0.6, 1.5708 - Math.sign(side) * (0.1 + 0.5 * R())); }
     }
     { const kitCF = (STROKES.muse_cf || []).filter((q) => q.im).slice(-6);   // the sheet's upper four (crag-top edges) came out as blocks: left out
-      if (rock > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.01 + 0.028 * R())) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], len = Math.min(0.6 * H, depth[k] * (0.5 + 0.7 * R())), wd = clamp(len * q.h / q.w * (1.4 + 2 * R()), 0.012 * H, 0.07 * H);
-          g.setTransform(0, dpr, -dpr, 0, dpr * (x - ox), dpr * (ts[k] - 0.006 * H - oy)); g.globalAlpha = rock * (0.3 + 0.55 * R()); g.drawImage(q.im, 0, -wd / 2, len, wd); }
+      // Not the crag alone: any mountain's flank was a smooth grey slide ("thân núi quá trơn nhẵn", Yang 11-19). The same dry drags,
+      // thinner, paler and shorter, are laid down every slope as its texture strokes (hemp-fibre cun): from the ridge and from
+      // a way below it, running down and outward with the fall of the slope. A hill of wash keeps next to none.
+      const tx = Math.max(rock, 0.75 * (1 - hill) * Math.min(1.4, S.cun / 0.6));
+      if (tx > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.008 + 0.022 * R()) / (0.5 + 0.5 * tx)) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], lo = 1 - rock, r1 = R(), r2 = R(), r3 = R(),
+            len = Math.min(0.6 * H, depth[k] * (0.5 + 0.7 * r1) * (1 - 0.5 * lo)), wd = clamp(len * q.h / q.w * (1.4 + 2 * r2), 0.008 * H, (0.07 - 0.035 * lo) * H),
+            sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), y = ts[k] - 0.006 * H + lo * depth[k] * 0.5 * r3 * r3;
+          g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = tx * (0.3 + 0.55 * R()) * (1 - 0.45 * lo); g.drawImage(q.im, 0, -wd / 2, len, wd); }
         g.globalAlpha = 1; home(g); } }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
