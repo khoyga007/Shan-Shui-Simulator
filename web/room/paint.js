@@ -32,20 +32,32 @@
   // Three strokes, not five (Yang 11-19): Địa (earth: mountains, later rocks and banks), Thuỷ (water: river, lake), Mộc
   // (wood: trees, grass). The element is chosen; what the stroke becomes within it is read from how it was flown (guess).
   // A fourth, Thiên (sky: sun flown clockwise, moon counter-clockwise, clouds, birds), is to come.
-  const KINDS = [['earth', 'Địa', 'núi, bờ đất, đá'], ['water', 'Thuỷ', 'sông, hồ'], ['wood', 'Mộc', 'cây, cỏ']];
-  const SUBS = { earth: ['mountain', 'bank', 'rock'], water: ['river', 'lake'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', bank: 'bờ đất', rock: 'mỏm đá', river: 'sông', lake: 'hồ', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
+  const KINDS = [['earth', 'Địa', 'núi, bờ đất, đá'], ['water', 'Thuỷ', 'sông, hồ, mặt nước'], ['wood', 'Mộc', 'cây, cỏ']];
+  const SUBS = { earth: ['mountain', 'bank', 'rock'], water: ['river', 'lake', 'sea'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', bank: 'bờ đất', rock: 'mỏm đá', river: 'sông', lake: 'hồ', sea: 'mặt nước', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
   // water: a loop that comes back to its start (its last quarter passing near its first; flown past the start counts) is
   // a lake, else a river. wood: a stroke that stands is a tree (the stroke its trunk), one that lies is grass (its ground);
   // the slope is the one `tree` uses for a branch seen close, which is now reached by turning a lying stroke into a tree
   function guess(el, q, L) {
     const n = q.length, a = q[0], b = q[n - 1];
+    let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of q) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
+    // water flown level across most of the paper is no river: it is the waterline, the far shore above it, the near one below
+    if (el === 'water' && xb - xa >= 0.7 * freeW() && yb - ya < 0.08 * (xb - xa)) return 'sea';
     if (el === 'water') { const k = Math.max(1, n >> 2); let g = 1e9; for (let i = 0; i < k; i++) for (let j = n - k; j < n; j++) g = Math.min(g, Math.hypot(q[i][0] - q[j][0], q[i][1] - q[j][1])); return L > 0.3 * D.H && g < Math.max(SNAP * D.H, 0.15 * L) ? 'lake' : 'river'; }
     if (el === 'wood') return Math.abs(b[1] - a[1]) > 0.58 * Math.abs(b[0] - a[0]) ? 'tree' : 'grass';
-    // earth (Yang 11-19, the near tier): a short stroke is a rock (it stands where the stroke was flown, as wide as it), a
-    // long one flown nearly level is an earth bank; all else a mountain (a low gentle arc stays a washed hill)
-    let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of q) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
-    if (xb - xa < 0.3 * D.H && L < 0.55 * D.H) return 'rock';
-    return yb - ya < 0.07 * (xb - xa) ? 'bank' : 'mountain';
+    // earth (Yang 11-19: "dùng chính đường thuỷ ngăn cách phản chiếu để phân biệt"): water parts the far shore from the near.
+    // A stroke flown beyond the water is a mountain; one flown on this side of it (most of its points below a waterline,
+    // or in or before a lake) is near land: short, a rock; else an earth bank. No water on the paper yet: a mountain.
+    // (Before, by shape alone: a low arc could be a far hill or a near bank, and the guess was often wrong.)
+    if (!nearSide(q)) return 'mountain';
+    return xb - xa < 0.3 * D.H && L < 0.55 * D.H ? 'rock' : 'bank';
+  }
+  const meanY = (d) => (d.my === undefined ? (d.my = d.stroke.reduce((a, p) => a + p[1], 0) / d.stroke.length) : d.my);
+  function nearSide(q) {
+    for (const o of st.done) { let c2 = 0;
+      if (o.kind === 'sea') { const y = meanY(o); for (const p of q) if (p[1] > y) c2++; }
+      else if (o.kind === 'lake') { if (!o.bb) { let xa = 1e9, xb = -1e9, ya = 1e9; for (const p of o.stroke) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); } o.bb = [xa, xb, ya]; } for (const p of q) if (p[0] > o.bb[0] && p[0] < o.bb[1] && p[1] > o.bb[2]) c2++; }
+      if (c2 > q.length / 2) return true; }
+    return false;
   }
   // guessed wrong: the key of the element again turns the last stroke into the next thing of that element
   function turn() { const d = st.done[st.done.length - 1], subs = d && SUBS[d.el]; if (!subs || subs.length < 2 || d.el !== st.kind) return false; d.kind = subs[(subs.indexOf(d.kind) + 1) % subs.length]; d.m = null; bakeKey = ''; say(ELN[d.el] + ': đổi nét cuối thành ' + SUBN[d.kind]); return true; }
@@ -926,6 +938,29 @@
     return { river: true, wat, top: topS, w0: (ya - oy) * dpr, w1: (yb - oy) * dpr, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
+  // The waterline (Yang 11-19): a Thuỷ stroke flown level across most of the paper. Not a river and not a lake: it is
+  // set dead level (at the stroke's mean height; water that leans or bends reads wrong) and runs from edge to edge. All
+  // that is farther stands above it and shows upside down in it (mirror), the water reaching to the foot of the paper and
+  // paling into it. No shore is drawn: a thin broken line where water meets the far land, a few level dashes on the water.
+  // What is drawn lower than the line stands before the water (zk).
+  function sea(d) {
+    const tB = performance.now(), H = D.H, W = D.W, R = dice(d.seed), y = clamp(Math.round(meanY(d)), 0.08 * H, 0.94 * H);
+    const pad = Math.round(0.03 * H), ox = 0, oy = y - pad, cw = Math.ceil(W * dpr), chh = Math.ceil((H - oy) * dpr);
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
+    const [cv, g] = mk(), [body, gb] = mk(), [wat, gw] = mk(), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
+    gw.fillStyle = '#000'; gw.fillRect(-10, y, W + 20, H - y + 10);
+    raw(gb); gb.filter = `blur(${(0.0025 * H * dpr).toFixed(1)}px)`; gb.drawImage(wat, 0, 0); gb.filter = 'none';
+    const kitJ = (STROKES[S.tex + '_j'] || []).filter((q) => q.im).length ? STROKES[S.tex + '_j'].filter((q) => q.im) : (STROKES.muse_j || []).filter((q) => q.im);
+    const dash = (x, yy, len, hh, a) => { g.globalAlpha = a; if (kitJ.length) { const q = kitJ[Math.floor(R() * kitJ.length) % kitJ.length]; g.drawImage(q.im, x - len / 2, yy - hh / 2, len, Math.min(hh, len * q.h / q.w)); } else g.fillRect(x - len / 2, yy - hh / 4, len, hh / 2); };
+    // where water meets the far land: long thin stretches, with gaps
+    for (let x = -0.1 * H; x < W;) { const len = H * (0.12 + 0.35 * R()); if (R() < 0.7) dash(x + len / 2, y + 0.001 * H, len, 0.003 * H, 0.2 + 0.25 * R()); x += len * (0.8 + 0.5 * R()); }
+    // on the water: few, larger toward the near side, none in the lowest stretch (the water pales into the paper)
+    for (let k = 0, kn = Math.round(W * (H - y) / (0.02 * H * H)); k < kn; k++) { const f = R(), x = R() * W, r1 = R(), r2 = R(); if (r2 > 0.2 + 0.5 * f || f > 0.9) continue;
+      dash(x, y + (0.02 + 0.98 * f) * (H - y), H * (0.025 + 0.08 * f) * (0.6 + 0.8 * r1), H * (0.0025 + 0.003 * f), (0.3 + 0.3 * r1) * (1 - f * f)); }
+    g.globalAlpha = 1; raw(g); g.globalCompositeOperation = 'source-in'; g.fillStyle = `rgb(${INK})`; g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over';
+    return { river: true, sea: true, wat, top: new Float32Array(cw).fill(pad * dpr), w0: pad * dpr, w1: chh, live: null, flow: null, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: y, yTop: y, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+  }
+
   // One stroke -> one tree (Yang 11-19, key 4). The stroke is the trunk: its lower end the root, its upper end the top,
   // bent as it was flown; the code grows the branches and hangs the foliage. Own sheets: M (_t trunks lying level, root
   // at the left, 'c' = the row of the middle line; its short branch pieces _y are not used: a branch is grown), N (_n pine
@@ -1199,7 +1234,7 @@
     const tM = performance.now();
     const w = m.wat.width, h = m.wat.height, X0 = Math.round(m.ox * dpr), Y0 = Math.round(m.oy * dpr), H = D.H;
     if (!m.r1) { const mk2 = () => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; return cv; }; m.r1 = mk2(); m.r2 = mk2(); }
-    const g1 = m.r1.getContext('2d'), g2 = m.r2.getContext('2d'), sw = Math.max(2, Math.round(2 * dpr)), MIRK = clamp(0.92 * (m.w1 - m.w0) / Math.max(1, Y0 + m.w0 - yFar * dpr), 0.3, 0.62);   // squeezed further where the tallest thing behind would not fit: the whole of it shows, top and all (a lake under a great mountain showed only its foot, an even grey)
+    const g1 = m.r1.getContext('2d'), g2 = m.r2.getContext('2d'), sw = Math.max(2, Math.round(2 * dpr)), MIRK = clamp(0.92 * (m.w1 - m.w0) / Math.max(1, Y0 + m.w0 - yFar * dpr), 0.3, m.sea ? 0.66 : 0.62), wEnd = m.sea ? Math.min(m.w1, m.w0 + Math.max(0.12 * D.H * dpr, 1.1 * MIRK * (Y0 + m.w0 - yFar * dpr))) : m.w1;   // (a waterline: the image pales out over its own length, not over the whole water down to the foot of the paper) squeezed further where the tallest thing behind would not fit: the whole of it shows, top and all (a lake under a great mountain showed only its foot, an even grey)
     g1.setTransform(1, 0, 0, 1, 0, 0); g1.clearRect(0, 0, w, h);
     // the picture above the water, copied out once: read strip by strip from the canvas being painted, every strip waited on the painting (0.6 s)
     const sy0 = Math.max(0, Math.floor(yFar * dpr) - 4), shh = Math.max(1, Math.ceil(Y0 + m.w1) - sy0); if (!m.r3) m.r3 = document.createElement('canvas'); if (m.r3.width !== w || m.r3.height !== shh) { m.r3.width = w; m.r3.height = shh; }
@@ -1209,21 +1244,24 @@
       g1.setTransform(1, 0, 0, -MIRK, 0, t); g1.drawImage(m.r3, x, Math.floor(Y0 + t) - sy0 - sh, sw, sh, x, -sh, sw, sh); }
     g2.setTransform(1, 0, 0, 1, 0, 0); g2.globalCompositeOperation = 'source-over'; g2.clearRect(0, 0, w, h);
     const bh = Math.max(1, Math.round(0.0022 * H * dpr)), R = dice(m.w0 * 7919 + w), per = 0.011 * H * dpr;
-    for (let y = Math.floor(m.w0); y < m.w1; y += bh) { const f = (y - m.w0) / (m.w1 - m.w0), r = R(); if (r < 0.02 + 0.07 * f) continue;
-      g2.globalAlpha = (0.6 - 0.42 * f) * (0.8 + 0.2 * r); g2.drawImage(m.r1, 0, y, w, bh, Math.round((0.0008 + 0.0045 * f) * H * dpr * Math.sin(y / per + 5 * Math.sin(y / (3.7 * per)))), y, w, bh); }
+    for (let y = Math.floor(m.w0); y < wEnd; y += bh) { const f = (y - m.w0) / (wEnd - m.w0), r = R(); if (!m.sea && r < 0.02 + 0.07 * f) continue;   // (not on a waterline: a band left out ran from edge to edge of the paper, a ruled white line)
+      g2.globalAlpha = (m.sea ? 0.74 * Math.pow(1 - f, 1.25) : 0.6 - 0.42 * f) * (0.8 + 0.2 * r); g2.drawImage(m.r1, 0, y, w, bh, Math.round((0.0008 + 0.0045 * f) * H * dpr * Math.sin(y / per + 5 * Math.sin(y / (3.7 * per)))), y, w, bh); }
     g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-in'; g2.drawImage(m.wat, 0, 0); g2.globalCompositeOperation = 'source-over';
     b.setTransform(1, 0, 0, 1, 0, 0); b.globalAlpha = 1; b.filter = `blur(${(0.0016 * H * dpr).toFixed(2)}px)`; b.drawImage(m.r2, X0, Y0); b.filter = 'none'; m.mirMs = +(performance.now() - tM).toFixed(1);
   }
   // far ones first; but a bank or a rock whose foot lies in a lake's water stands in that lake, so it is laid after it (by
   // its foot alone it lay behind the lake's near shore, and the water wiped it out)
-  const zk = (d) => (d.m.solid ? st.done.reduce((z, o) => (o.m && o.m.wat && d.m.yBase > o.m.yTop && d.m.yBase <= o.m.yBase && d.m.cx > o.m.ox && d.m.cx < o.m.ox + o.m.wat.width / dpr ? Math.max(z, o.m.yBase + 0.5) : z), d.m.yBase) : d.m.yBase);
+  // A mountain most of which was flown above a waterline stands beyond that water, though its ends dip below the line (by
+  // its foot alone it stood before the water, unmirrored, and painted over it).
+  const zk = (d) => { if (d.m.solid) return st.done.reduce((z, o) => (o.m && o.m.wat && d.m.yBase > o.m.yTop && d.m.yBase <= o.m.yBase && d.m.cx > o.m.ox && d.m.cx < o.m.ox + o.m.wat.width / dpr ? Math.max(z, o.m.yBase + 0.5) : z), d.m.yBase);
+    let z = d.m.yBase; if (!d.m.river) for (const o of st.done) if (o.m && o.m.sea && z > o.m.yBase && meanY(d) < o.m.yBase) z = o.m.yBase - 0.5 + 0.4 * clamp((d.m.yBase - o.m.yBase) / D.H, 0, 1); return z; };
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, tree, grass }[d.kind] || mountain)(d) || false;
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, sea, tree, grass }[d.kind] || mountain)(d) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => zk(p) - zk(q)), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
-      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && o.m.yBase <= d.m.yBase && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, d.m.tone);
+      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && zk(o) <= zk(d) && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, d.m.tone);
         if (d.m.mist) { const [mx, my, q] = d.m.mxy; b.globalCompositeOperation = 'destination-out'; b.globalAlpha = mistA(d); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high'; b.drawImage(d.m.mist, Math.round(mx * dpr), Math.round(my * dpr), d.m.mist.width * q * dpr, d.m.mist.height * q * dpr); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; } } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     // moving water: each river's layer of current, redrawn for this instant, cut away where anything nearer stands
@@ -1280,10 +1318,10 @@
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
 Phím D: tắt rồng, vẽ thẳng bằng chuột
-Phím 1: nét Địa. Nét vòm: núi. Nét dài gần phẳng: bờ đất. Nét ngắn: mỏm đá
-Phím 2: nét Thuỷ. Bay một đường: sông. Bay một vòng về chỗ cũ: hồ
+Phím 1: nét Địa. Vẽ bên kia mặt nước (hoặc chưa có nước): núi. Vẽ bên này mặt nước, trong hay trước hồ: nét dài ra bờ đất, nét ngắn ra mỏm đá
+Phím 2: nét Thuỷ. Bay một đường: sông. Bay một vòng về chỗ cũ: hồ. Bay thẳng ngang gần hết giấy: mặt nước soi bóng
 Phím 3: nét Mộc. Nét dựng đứng: cây (nét = thân, gốc ở dưới). Nét nằm ngang: cỏ (nét = dải đất)
-Game đoán sai: bấm lại phím đó để đổi nét cuối (núi/bờ đất/đá, sông/hồ, cây/cỏ; cây nằm ngang = cành)
+Game đoán sai: bấm lại phím đó để đổi nét cuối (núi/bờ đất/đá, sông/hồ/mặt nước, cây/cỏ; cây nằm ngang = cành)
 Vẽ cao trên giấy: xa, nhạt, sông hẹp
 Vẽ thấp: gần, đậm, sông rộng</div>`;
   panel.insertBefore(pbox, panel.firstChild);

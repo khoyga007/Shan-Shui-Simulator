@@ -130,7 +130,7 @@ Player picks ELEMENT, game reads sub-kind from how stroke was flown. Replaces fi
 | key | element | makes | read from |
 |---|---|---|---|
 | 1 | Địa (earth) | mountain; later rock, bank, cliff | (todo) arch / small closed / long low |
-| 2 | Thuỷ (water) | river, lake | loop back to start = lake, else river |
+| 2 | Thuỷ (water) | river, lake, waterline (`sea`) | level across >=70% of free paper width = waterline; loop back to start = lake; else river |
 | 3 | Mộc (wood) | tree, grass | standing = tree, lying = grass |
 | 4 (todo) | Thiên (sky) | sun, moon, cloud, birds | loop CLOCKWISE = sun, COUNTER-CLOCKWISE = moon (Yang's rule; sign of loop area) |
 
@@ -140,7 +140,9 @@ Player picks ELEMENT, game reads sub-kind from how stroke was flown. Replaces fi
 - Idea parked: loop direction as modifier for other elements (e.g. water loop cw/ccw).
 
 Order (Yang swapped 11-19): (1) merge keys DONE -> (2) water mirror, lake only, v1 DONE (`mirror`, paint.js; key M on/off; bot `r7=1&lake=4`) -> (3) NEAR tier for Địa -> (4) Thiên -> (5) Nhân.
-PARKED (Yang 11-19, agreed, "để sau"): third Thuỷ shape = stroke flown straight and level across >=~70% of frame width -> WATERLINE: all above mirrored below it, water down to paper bottom fading to white, no shore, line snapped dead level, things drawn lower stand before it; mirror scale ~0.6-0.7 (no squeeze).
+WATERLINE DONE 11-19 (`sea`, paint.js; bot `r7=1&sea=1&near=1`, reports/waterline.jpg): level Thuỷ stroke across >=70% width -> line snapped dead level at stroke mean y, edge to edge; all farther mirrored below (scale <=0.66, pales over own length), water to paper bottom, no shore; things lower stand before it. A mountain mostly above the line stays behind it even if its ends dip below (`zk`).
+ĐỊA RULE = WATER SIDE (Yang's idea 11-19, replaces shape guess): no water yet -> every Địa stroke = mountain. Majority of stroke points below a waterline, or inside/in front of a lake -> near land: short = rock, else bank. Beyond water -> mountain. Decided at draw time; water drawn later does NOT re-class old strokes; key 1 again still cycles.
+Waterline gaps: image is flat grey (detail lost in bands), still, trees not mirrored; hard cut of mountain ink at the line.
 Mirror v1 gaps: trees/reeds (live layers) not mirrored; image still (no moving ripple); appears at once when lake's reveal ends; river has none.
 
 ### Depth (why 2 and 3)
