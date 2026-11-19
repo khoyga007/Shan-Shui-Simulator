@@ -123,7 +123,7 @@ Exit criteria:
 ## Out of scope for now
 Story script, audio beyond placeholder, regions 2–6, save system, Steam.
 
-## Strokes = four elements (Yang 11-19)
+## Strokes = five elements (Yang 11-19)
 
 Player picks ELEMENT, game reads sub-kind from how stroke was flown. Replaces five kind keys.
 
@@ -136,7 +136,7 @@ Player picks ELEMENT, game reads sub-kind from how stroke was flown. Replaces fi
 
 - Wrong guess: same element key again turns last stroke to next sub-kind (`turn`, paint.js). Lying stroke turned to tree = close branch (zhezhi).
 - Name Địa kept (pair Thiên/Địa), not Thổ. Not ngũ hành.
-- Unplaced: man-made (house, bridge, boat).
+- FIFTH element added by Yang 11-19: Nhan (man) = people, houses; also takes bridge, boat, pavilion. Key 5 (todo, after Thien). Thien/Dia/Nhan = tam tai. Sub-kind rules NOT yet agreed (Claire's proposal only: closed box/roof shape = house, short standing stroke = person, level stroke over water = bridge, short level stroke on water = boat).
 - Idea parked: loop direction as modifier for other elements (e.g. water loop cw/ccw).
 
 Order agreed: (1) merge keys DONE -> (2) NEAR tier for Địa -> (3) water reflection for Thuỷ -> (4) Thiên.
