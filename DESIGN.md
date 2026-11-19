@@ -162,3 +162,5 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
   Gaps: a tall narrow rock comes out as a black spiky post (ridge stroke too heavy for its width); no big trees at the lip; cliff not in the guess; lake's mirror does not show rocks standing in it (own image only). Not hand-tested.
 
 - Moving water (11-19, code in): image in lake / waterline relaid every frame, bands drift (two travelling waves); dragon head over water drops spreading rings (sheet L `_o`), bands near a live ring swing wider. NOT a surface sim (no shore/ring interaction). `?wave=0` = still, key M = image off. Cost ~1.3-3.5 ms/frame in bot (1080p). Open: land pieces own baked images stay still; rings only from the head.
+
+- Water motion v2 (11-19, Yang saw nothing in v1): swell x2.5, light streaks travel down the image, glints (sheet H `_r` ripple marks, come and go all over the water, also with nothing mirrored), pointer leaves rings when the dragon is off. Bot `&rip=1` reports `waterMovedShare` (share of lower paper changing in 0.5 s, no rings): v1 0.002, v2 0.01.

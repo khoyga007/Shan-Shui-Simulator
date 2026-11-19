@@ -1246,6 +1246,7 @@
   // shore at that column, so an image hangs from the shore it belongs to, and squeezed (the water is seen aslant). Then,
   // level band by level band: shifted sideways by a ripple that grows toward the near shore, paler the nearer, with a
   // band left out here and there (a streak of light on the water). Kept inside the water, laid a little blurred.
+  const MXY = { x: -1, y: -1 };   // the pointer (dragon off: it leaves the rings)
   let BOTRIP = null;   // the bot: a point standing in for the dragon's head (__paint.ripAt)
   let MIRROR = true;   // key M: the image in the water on and off, to compare
   function mirror(b, m, yFar) {
@@ -1267,6 +1268,7 @@
     const bh = Math.max(1, Math.round(0.0022 * H * dpr)), R = dice(m.w0 * 7919 + w); m.per = 0.011 * H * dpr; m.bh = bh; m.bd = [];
     for (let y = Math.floor(m.w0); y < wEnd; y += bh) { const f = (y - m.w0) / (wEnd - m.w0), r = R(); if (!m.sea && r < 0.02 + 0.07 * f) continue;   // (not on a waterline: a band left out ran from edge to edge of the paper, a ruled white line)
       m.bd.push([y, f, (m.sea ? 0.74 * Math.pow(1 - f, 1.25) : 0.6 - 0.42 * f) * (0.93 + 0.07 * r)]); }   // (nearly even: the bands are no longer blurred together after they are laid, and 0.8 to 1 showed as scan lines)
+    { const n = Math.round(clamp(w * (h - m.w0) / (0.012 * H * H * dpr * dpr), 4, 60)), Rg = dice(m.w0 * 31 + w * 7); m.gl = Array.from({ length: n }, (_, i) => ({ p: 2.6 + 2.4 * Rg(), ph: Rg(), sd: 1000 + i * 17, v: (Rg() - 0.5) * 0.05 })); }
     if (!WAVES) { drawMir(m, 0); b.setTransform(1, 0, 0, 1, 0, 0); b.globalAlpha = 1; b.drawImage(m.r2, X0, Y0); }
     m.mirMs = +(performance.now() - tM).toFixed(1);
   }
@@ -1284,7 +1286,17 @@
     g2.setTransform(1, 0, 0, 1, 0, 0); g2.globalCompositeOperation = 'source-over'; g2.clearRect(0, 0, w, h);
     for (const [y, f, a] of m.bd) { let ag = 1; for (const q of rs) { const l = (T - q.t0) / RIPL, dy = (y - (q.y - m.oy) * dpr) / (0.03 * H * dpr); if (l < 1) ag += 1.5 * q.s * (1 - l) * Math.exp(-dy * dy); }
       const ph = y / per + 5 * Math.sin(y / (3.7 * per));
-      g2.globalAlpha = a; g2.drawImage(m.r4, 0, y, w, bh, ((0.0008 + 0.0045 * f) * Math.sin(ph - 1.5 * T) + (0.0004 + 0.0028 * f) * Math.sin(0.43 * ph + 0.8 * T + 2)) * ag * H * dpr, y, w, bh); }
+      g2.globalAlpha = a * (1 - (0.12 + 0.3 * f) * (0.5 + 0.5 * Math.sin(0.31 * ph + 1.6 * T)) * Math.min(ag, 2)) /* streaks of light travelling down the water */; g2.drawImage(m.r4, 0, y, w, bh, ((0.002 + 0.01 * f) * Math.sin(ph - 2.2 * T) + (0.001 + 0.006 * f) * Math.sin(0.43 * ph + 1.1 * T + 2)) * ag * H * dpr, y, w, bh); }
+    // glints: short level ripple marks that come up, drift a little and go, all over the water, whether or not anything
+    // is mirrored in it (Yang 11-19, of the swell alone: "anh chả thấy gì cả": a pale blurred image shifted by a few px
+    // does not read as moving, and water with nothing behind it had nothing to shift). Sheet H's pale ripples (_r); a
+    // thin line without them. Each has its own period and place; larger and darker toward the near side.
+    { const kr = S.tex === 'code' ? [] : (STROKES.muse_r || []).filter((q) => q.im && q.tone < 0.15); g2.strokeStyle = `rgb(${INK})`;
+      for (const q of m.gl) { const u = T / q.p + q.ph, l = u - Math.floor(u), n = Math.floor(u), a = Math.sin(3.1416 * l); if (a < 0.05) continue;
+        const R = dice(q.sd + n * 131), x = R() * w, y = m.w0 + (0.03 + 0.97 * Math.pow(R(), 1.3)) * (h - m.w0), f = (y - m.w0) / Math.max(1, h - m.w0), wd = H * dpr * (0.025 + 0.075 * f) * (0.7 + 0.6 * R()), cx = x + q.v * (l - 0.5) * H * dpr * (0.4 + f);
+        g2.globalAlpha = Math.min(1, (0.6 + 0.4 * f) * a * a);
+        if (kr.length) { const o = kr[Math.floor(R() * kr.length) % kr.length], hh = Math.min(wd * o.h / o.w, 0.25 * wd); g2.drawImage(o.im, cx - wd / 2, y - hh / 2, wd, hh); g2.drawImage(o.im, cx - wd / 2, y - hh / 2, wd, hh); /* twice: the sheet's ripples are pale, once they did not show */ }
+        else { g2.lineWidth = Math.max(1, 0.0011 * H * dpr); g2.beginPath(); g2.moveTo(cx - wd / 2, y); g2.quadraticCurveTo(cx, y - 0.04 * wd, cx + wd / 2, y); g2.stroke(); } } }
     const ko = S.tex === 'code' ? [] : (STROKES.muse_o || []).filter((q) => q.im);
     for (const q of rs) for (const dl of [0, 0.4]) { const l = (T - q.t0 - dl) / RIPL; if (l <= 0 || l >= 1) continue;
       const nr = clamp((q.y / H - 0.3) / 0.6, 0, 1), wd = H * (0.02 + (0.1 + 0.12 * nr) * l) * (dl ? 0.7 : 1) * dpr, cx = (q.x - m.ox) * dpr, cy = (q.y - m.oy) * dpr; g2.globalAlpha = 0.9 * q.s * sm(l / 0.08) * Math.pow(1 - l, 1.4);
@@ -1320,7 +1332,8 @@
     old.forEach((d, k) => { if (d.m.flow) flowOf(d, 1, k); });
     if (WAVES && MIRROR) {
       rip = rip.filter((q) => T >= q.t0 && T - q.t0 < RIPL + 0.5);
-      if (!Rm.st.mouse || BOTRIP) { const hc = BOTRIP || Rm.hc, wd = [...old].reverse().find((d) => d.m.wat && d.m.bd && inWater(d.m, hc.x, hc.y));
+      if (!(Rm.st.mouse && st.pen) || BOTRIP) { const hc = BOTRIP || (Rm.st.mouse ? MXY : Rm.hc),   // dragon off: the pointer skims the water
+         wd = [...old].reverse().find((d) => d.m.wat && d.m.bd && inWater(d.m, hc.x, hc.y));
         if (wd && !old.some((d) => onSolid(d.m, hc.x, hc.y))) { const dd = ripLast ? Math.hypot(hc.x - ripLast[0], hc.y - ripLast[1]) : -1;
           if (dd < 0 || dd > 0.05 * H) { rip.push({ x: hc.x, y: hc.y, t0: T, s: dd < 0 ? 0.7 : clamp(0.45 + 0.5 * dd / Math.max(0.016, T - ripLast[2]) / H, 0.45, 1), m: wd.m, k: (Math.random() * 97) | 0 }); if (rip.length > 16) rip.shift(); ripLast = [hc.x, hc.y, T]; } }
         else ripLast = null; }
@@ -1359,6 +1372,7 @@
   // flies, unseen) and the stroke is what the mouse itself draws, button held. Speed as the dragon's would be read,
   // capped at the dragon's own limit: a mouse crosses the paper far faster, and every stroke came out bone dry.
   let mT = 0, mV = 0;
+  document.addEventListener('mousemove', (e) => { MXY.x = e.clientX; MXY.y = e.clientY; });
   const mPt = (e) => { if (!st.pen || !Rm.st.mouse) return; const q = st.stroke, l = q[q.length - 1], d = l ? Math.hypot(e.clientX - l[0], e.clientY - l[1]) : 0; if (l && d <= 1.5) return;
     const dt = Math.max(0.004, (e.timeStamp - mT) / 1000); mT = e.timeStamp; mV = l ? 0.6 * mV + 0.4 * Math.min(Rm.S.cap, d / dt / D.H) : 0; q.push([e.clientX, e.clientY, mV]); };
   const setMouse = (on, quiet) => { penUp(); Rm.st.mouse = on; try { localStorage.setItem('room.mouse', on ? '1' : '0'); } catch { /* private window */ }
