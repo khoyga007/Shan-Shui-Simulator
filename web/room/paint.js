@@ -618,7 +618,7 @@
           // how thick: thousands of flat pale wisps are laid by it, each taking only a little of the ink under it. Where many
           // lie it is white, where few the mountain shows through pale; wisps also stray up above the sea, thinner the
           // higher. Only well under the level of the sea (the old mask moved down and melted) is it whole, as before.
-          const kA = (suf) => S.tex === 'code' ? [] : (STROKES['muse' + suf] || []).filter((q) => q.im), or = (a, b) => a.length ? a : b, kW = or(kA('_mx').concat(kA('_mw')), kA('_aw')), kP = or(kA('_mp'), kA('_ap')), kV = [];   // sheets AB, AC (11-19): banks and puffs of fog as the wisps (asked as fog seen; AA, asked as wet brush touches, came as hairy comets, blooms and flat torn veils: kept only for want of these). Brush 'code': the one drawn blob
+          const kA = (suf) => S.tex === 'code' ? [] : (STROKES['muse' + suf] || []).filter((q) => q.im), kW = kA('_aw'), kP = kA('_ap'), kV = kA('_av');   // sheet AA (11-19): real wet touches as the wisps: long trailing ones, puffs (laid flat), torn veils. Brush 'code': the one drawn blob
           // Laid in three kinds (Yang 11-19, of the first lay: "chưa thấy khác lắm": thousands of small faint wisps average
           // out, whatever their shape, and the sheet could not be seen). Deep in the sea the many small ones, as before, for
           // an even white. Along its top few and large ones, each taking much: tongues of mist whose shape reads. And

@@ -301,34 +301,6 @@ def wisps(key, ink, sufs=('_aw', '_ap', '_av'), counts=(6, 8, 5), thr=0.05):
     print(' wisp rows', len(bands), 'of', len(sufs))
 
 
-def banks(key, ink, suf, n=1, skip=(), blur=2, wide=512, thr=0.1, melt=0.3, ys=None):
-    """sheets AB, AC (11-19): mist asked as fog seen, not as brush marks, and it came as such: soft grey banks and puffs. AB:
-    five long banks, one to a row (n=1; the fourth is a hard-rimmed lens: skipped). AC: two rows of five puffs (n=5), cut at
-    the emptiest columns. Barely melted (they are soft already, and their shapes are what they are for), brought to full
-    strength, feathered at the cuts."""
-    u = ink.shape[1] / 2048; on = ink > thr; man.pop(key + suf, None); k = j = 0
-    bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(7 * u) | 1))) if b - a > 40 * u]
-    if ys: bands = [(int(y0 * ink.shape[0]), int(y1 * ink.shape[0])) for y0, y1 in ys]   # rows given by hand (scraps of one row reach into the next)
-    for a, b in bands:
-        a, b = max(0, a - int(20 * u)), min(ink.shape[0], b + int(20 * u)); band = ink[a:b]; cols = np.nonzero(on[a:b].any(axis=0))[0]; c0, c1 = max(0, cols[0] - int(20 * u)), min(ink.shape[1], cols[-1] + 1 + int(20 * u))
-        sm_ = ndi.gaussian_filter1d(band[:, c0:c1].sum(axis=0), 9 * u); W = c1 - c0; cuts = [0]
-        for i in range(1, n): lo, hi = int(W * (i - 0.4) / n), int(W * (i + 0.4) / n); cuts.append(lo + int(sm_[lo:hi].argmin()))
-        cuts.append(W)
-        for i in range(n):
-            j += 1
-            if j - 1 in skip: continue
-            q = ndi.gaussian_filter(band[:, c0 + cuts[i]:c0 + cuts[i + 1]], blur * u); q = np.clip((q - 0.02) / max(1e-6, float(np.percentile(q, 99.5)) - 0.02), 0, 1)
-            hq, wq = q.shape; f = max(2, int(0.04 * wq)); win = np.ones(wq, np.float32); win[:f] = np.linspace(0, 1, f) ** 2; win[-f:] = np.linspace(1, 0, f) ** 2
-            fy = max(2, int(0.08 * hq)); wy = np.ones(hq, np.float32); wy[:fy] = np.linspace(0, 1, fy); wy[-fy:] = np.linspace(1, 0, fy)
-            q = q * win[None, :] * wy[:, None]
-            # a bank of smoke has a rim (dense right up to its outline): laid flat and at full strength the pieces stood in the mist as
-            # hard-edged bars, slab on slab (bot still, 11-19). Each is thinned from its outline inward over `melt` of its height
-            fd = np.clip(ndi.distance_transform_edt(q > 0.08) / max(2.0, melt * hq), 0, 1); q = ndi.gaussian_filter(q * fd * fd * (3 - 2 * fd), 2 * blur * u); q = np.clip(q / max(1e-6, float(np.percentile(q, 99.5))), 0, 1)
-            rows = np.nonzero(q.max(axis=1) > 0.03)[0]; cs = np.nonzero(q.max(axis=0) > 0.03)[0]; q = q[rows[0]:rows[-1] + 1, cs[0]:cs[-1] + 1]
-            save(key + suf, k, shrink(q, wide)); k += 1
-    print(' mist rows', len(bands), 'pieces', k)
-
-
 for name in sorted(os.listdir(SRC)):
     if not name.lower().endswith('.png'): continue
     stem = os.path.splitext(name)[0].lower().split()
@@ -366,9 +338,6 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'y': rowsheet(src, ink, ('_yl', '_yf', '_yt', '_yp'), thr=0.06, gap=7)   # forest seen from afar: tree lines of a wooded crest, forest patches (tree tops above, loose dabs below), single far trees, the patches again in pale ink; bottom of a piece = the ground
     elif kind == 'z': rowsheet(src, ink, ('_za', '_zb', '_zc'), thr=0.06, blob=(5, 5, 5), skirt=(0.4, 0.22, 0))   # forest masses: long level woods (tree tops above, runs of ink below: cut off), woods slanting up to the right (they reach over each other: cut as islands), small woods
     elif kind == 'aa': wisps(src, ink)
-    elif kind == 'ab': banks(src, ink, '_mw', skip=(3,), wide=384)   # long banks of mist (the large wisps that shape the top of the mist)
-    elif kind == 'ac': banks(src, ink, '_mp', n=5, wide=256)   # puffs of mist (the small and middling wisps)
-    elif kind == 'ad': banks(src, ink, '_mx', wide=384, blur=6, melt=0.12, ys=((0.03, 0.255), (0.44, 0.625), (0.79, 0.98)))   # AB v3 (kept as AD): torn flat scraps with hard edges, not mist; rows 1, 3, 5 kept as OUTLINES only (irregular, holed), melted hard here
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
