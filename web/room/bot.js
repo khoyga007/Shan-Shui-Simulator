@@ -133,6 +133,10 @@
     // ?crag=1: flat-topped crags, flown up, across and down (far, pale one; two near ones), and a peak beside them
     if (new URLSearchParams(location.search).has('crag')) [[0.95, 1.5, 0.22, 0.6, 0], [0.1, 0.75, 0.3, 0.8, 1], [0.85, 1.35, 0.42, 0.85, 2]].forEach(([x0, x1, yt, yb, ph], i) =>
       Pt.st.done.push({ stroke: Array.from({ length: 160 }, (_, k) => { const t = k / 159, e = Math.min(1, Math.min(t, 1 - t) / 0.17), u = e * e * (3 - 2 * e); return [(x0 + (x1 - x0) * (0.06 * (3 * t * t - 2 * t * t * t) + 0.94 * t)) * H, (yb - (yb - yt) * u * (0.9 + 0.1 * Math.sin(t * 13 + ph))) * H, 0.8]; }), t0: D.T, seed: 9401 + i }));
+    // ?near=1 (with r7): the near tier of stroke Địa: earth banks (long level strokes, one flown right to left) and rocks (short strokes)
+    if (new URLSearchParams(location.search).has('near')) { const ln = (kind, x0, x1, y, a, seed) => Pt.st.done.push({ kind, stroke: Array.from({ length: 60 }, (_, i) => { const t = i / 59; return [(x0 + (x1 - x0) * t) * H, (y - a * Math.sin(3.1416 * t)) * H, 0.6]; }), t0: D.T, seed });
+      ln('bank', 0.02, 0.85, 0.86, 0.02, 9501); ln('bank', 1.75, 1.05, 0.93, 0.03, 9502); ln('bank', 0.75, 1.25, 0.66, 0.008, 9503);
+      ln('rock', 0.9, 1.08, 0.97, 0.09, 9511); ln('rock', 1.12, 1.2, 0.975, 0.03, 9512); ln('rock', 0.3, 0.36, 0.83, 0.16, 9513); ln('rock', 1.45, 1.75, 0.78, 0.04, 9514); ln('rock', 0.55, 0.7, 0.99, 0.05, 9515); }
     if (new URLSearchParams(location.search).has('river')) Pt.st.done.push({ kind: 'river', stroke: Array.from({ length: 140 }, (_, i) => { const t = i / 139; return [(0.72 + 0.3 * Math.sin(t * 7.2) * (0.25 + 0.75 * t)) * H, (0.5 + 0.46 * t) * H, 0.8]; }), t0: D.T, seed: 9001 });
     // ?lake=1 (with r7): a loop flown round, left a little open, low on the paper before the big mountain.
     // lake=2: only a little over half the loop flown (a wide gap). lake=3: flown past its own start (an overlap)
@@ -155,7 +159,7 @@
       out.guess = { river: g('water', mk(140, (t) => [0.72 + 0.3 * Math.sin(t * 7.2) * (0.25 + 0.75 * t), 0.5 + 0.46 * t])), riverLevel: g('water', mk(80, (t) => [0.2 + 1.2 * t, 0.7 + 0.03 * Math.sin(t * 9)])), riverU: g('water', loop(3.3)),
         lake: g('water', loop(5.9)), lakePast: g('water', loop(7.1)), lakeGap: g('water', loop(3.8)), lakeSmall: g('water', mk(60, (t) => [0.5 + 0.08 * Math.cos(t * 6.1), 0.8 + 0.05 * Math.sin(t * 6.1)])),
         tree: g('wood', mk(60, (t) => [0.5 + 0.05 * t * t, 0.9 - 0.3 * t])), treeLean: g('wood', mk(60, (t) => [0.5 + 0.25 * t, 0.9 - 0.3 * t])), treeDown: g('wood', mk(60, (t) => [0.5, 0.5 + 0.3 * t])),
-        grass: g('wood', mk(80, (t) => [0.05 + 0.7 * t, 0.955 + 0.012 * Math.sin(t * 9)])), grassSlope: g('wood', mk(80, (t) => [0.05 + 0.7 * t, 0.9 - 0.2 * t])), earth: g('earth', loop(5.9)) }; }
+        grass: g('wood', mk(80, (t) => [0.05 + 0.7 * t, 0.955 + 0.012 * Math.sin(t * 9)])), grassSlope: g('wood', mk(80, (t) => [0.05 + 0.7 * t, 0.9 - 0.2 * t])), earth: g('earth', loop(5.9)), peak: g('earth', mk(120, (t) => [0.3 + 0.7 * t, 0.6 - 0.3 * Math.sin(3.1416 * t)])), hill: g('earth', mk(120, (t) => [0.05 + 0.85 * t, 0.5 - 0.07 * Math.sin(3.1416 * t)])), bank: g('earth', mk(80, (t) => [0.1 + 0.8 * t, 0.85 - 0.02 * Math.sin(3.1416 * t)])), bankSlope: g('earth', mk(80, (t) => [0.1 + 0.8 * t, 0.85 - 0.04 * t])), rock: g('earth', mk(40, (t) => [0.5 + 0.15 * t, 0.9 - 0.08 * Math.sin(3.1416 * t)])), rockTall: g('earth', mk(40, (t) => [0.5 + 0.05 * t, 0.9 - 0.2 * Math.sin(3.1416 * t)])) }; }
     out.paint = { ...Pt.info(), flown: pr, bakeMs };
     post('bot-paint.jpg', snap());
     { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);

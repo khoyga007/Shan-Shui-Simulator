@@ -32,8 +32,8 @@
   // Three strokes, not five (Yang 11-19): Địa (earth: mountains, later rocks and banks), Thuỷ (water: river, lake), Mộc
   // (wood: trees, grass). The element is chosen; what the stroke becomes within it is read from how it was flown (guess).
   // A fourth, Thiên (sky: sun flown clockwise, moon counter-clockwise, clouds, birds), is to come.
-  const KINDS = [['earth', 'Địa', 'núi'], ['water', 'Thuỷ', 'sông, hồ'], ['wood', 'Mộc', 'cây, cỏ']];
-  const SUBS = { earth: ['mountain'], water: ['river', 'lake'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', river: 'sông', lake: 'hồ', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
+  const KINDS = [['earth', 'Địa', 'núi, bờ đất, đá'], ['water', 'Thuỷ', 'sông, hồ'], ['wood', 'Mộc', 'cây, cỏ']];
+  const SUBS = { earth: ['mountain', 'bank', 'rock'], water: ['river', 'lake'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', bank: 'bờ đất', rock: 'mỏm đá', river: 'sông', lake: 'hồ', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
   // water: a loop that comes back to its start (its last quarter passing near its first; flown past the start counts) is
   // a lake, else a river. wood: a stroke that stands is a tree (the stroke its trunk), one that lies is grass (its ground);
   // the slope is the one `tree` uses for a branch seen close, which is now reached by turning a lying stroke into a tree
@@ -41,7 +41,11 @@
     const n = q.length, a = q[0], b = q[n - 1];
     if (el === 'water') { const k = Math.max(1, n >> 2); let g = 1e9; for (let i = 0; i < k; i++) for (let j = n - k; j < n; j++) g = Math.min(g, Math.hypot(q[i][0] - q[j][0], q[i][1] - q[j][1])); return L > 0.3 * D.H && g < Math.max(SNAP * D.H, 0.15 * L) ? 'lake' : 'river'; }
     if (el === 'wood') return Math.abs(b[1] - a[1]) > 0.58 * Math.abs(b[0] - a[0]) ? 'tree' : 'grass';
-    return 'mountain';
+    // earth (Yang 11-19, the near tier): a short stroke is a rock (it stands where the stroke was flown, as wide as it), a
+    // long one flown nearly level is an earth bank; all else a mountain (a low gentle arc stays a washed hill)
+    let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of q) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
+    if (xb - xa < 0.3 * D.H && L < 0.55 * D.H) return 'rock';
+    return yb - ya < 0.07 * (xb - xa) ? 'bank' : 'mountain';
   }
   // guessed wrong: the key of the element again turns the last stroke into the next thing of that element
   function turn() { const d = st.done[st.done.length - 1], subs = d && SUBS[d.el]; if (!subs || subs.length < 2 || d.el !== st.kind) return false; d.kind = subs[(subs.indexOf(d.kind) + 1) % subs.length]; d.m = null; bakeKey = ''; say(ELN[d.el] + ': đổi nét cuối thành ' + SUBN[d.kind]); return true; }
@@ -1146,6 +1150,30 @@
     return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
+  // Near land (Yang 11-19: stroke Địa painted far mountains only; his reference paintings: earth banks, rocky outcrops).
+  // One whole painted piece (sheets AE: rocks, Gemini's and three of Muse's; AF: earth banks, Muse's), standing on a
+  // dead-level foot, set where the stroke was flown and as wide as it. A rock: the piece whose shape is nearest the
+  // stroke's (wide and low, tall and narrow), its foot at the stroke's lowest point. A bank: its crest at the stroke's
+  // highest point, its thick end where the stroke began. It hides what stands behind it: everything under its outline.
+  const sil = (q) => { if (q.sil) return q.sil; const cv = document.createElement('canvas'); cv.width = q.w; cv.height = q.h; const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(q.im, 0, 0);
+    try { const im = x.getImageData(0, 0, q.w, q.h), px = im.data; for (let i = 0; i < q.w; i++) { let on = false; for (let j = 0; j < q.h; j++) { const k = (j * q.w + i) * 4 + 3; if (px[k] > 48) on = true; if (on) px[k] = 255; else px[k] = 0; } } x.putImageData(im, 0, 0); } catch { /* the ink itself hides */ }
+    return (q.sil = cv); };
+  const MUSEROCK = [1, 6];   // of Muse's rocks (evenly striped, loaf-shaped): the pillar and the row of three (its sliver is one black bar)
+  function mass(d) {
+    const tB = performance.now(), H = D.H, R = dice(d.seed), q0 = d.stroke, bank = d.kind === 'bank';
+    let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of q0) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
+    const kit = bank ? kitOf('_bk') : (STROKES.gemini_rk || []).filter((q) => q.im).concat((STROKES.muse_rk || []).filter((q, i) => q.im && MUSEROCK.includes(i)));
+    if (!kit.length) return null;
+    const w = Math.max(xb - xa, 0.05 * H), rise = Math.max(yb - ya, 0.02 * H), ar = Math.log(w / (bank ? 2.2 * rise : rise));
+    const by = kit.slice().sort((a, b) => Math.abs(Math.log(a.w / a.h) - ar) - Math.abs(Math.log(b.w / b.h) - ar)), q = by[Math.floor(R() * Math.min(3, by.length))];
+    let h = w * q.h / q.w; if (bank) h = clamp(h, 0.03 * H, 0.2 * H); else if (yb - ya > 0.03 * H) h *= clamp((yb - ya) / h, 0.75, 1.3);
+    const foot = bank ? ya + h : yb, flip = bank ? q0[q0.length - 1][0] < q0[0][0] : R() < 0.5, near = clamp((foot / H - 0.2) / 0.7, 0, 1);
+    const ox = Math.floor(xa) - 2, oy = Math.floor(foot - h) - 2, cw = Math.ceil((w + 4) * dpr), chh = Math.ceil((h + 4) * dpr), mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; return cv; };
+    const cv = mk(), body = mk(), put = (cx, im, a) => { const g = cx.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); g.globalAlpha = a; g.translate(xa + w / 2, foot); if (flip) g.scale(-1, 1); g.imageSmoothingQuality = 'high'; g.drawImage(im, -w / 2, -h, w, h); };
+    put(cv, q.im, 1); if (!bank) put(cv, q.im, 0.35); put(body, sil(q), 1);
+    return { river: true, solid: true, live: null, flow: null, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: foot, yTop: foot - h, tone: 0.5 + 0.5 * near, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+  }
+
   const SNAP = 0.05;   // how near its start a lake's stroke must end for the two to be drawn together, in screen heights
   const RIM = 0.006;  // how far before a near ridge the mountain behind it begins to pale, in screen heights
   const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
@@ -1181,11 +1209,11 @@
   }
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, tree, grass }[d.kind] || mountain)(d) || false;
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, tree, grass, bank: mass, rock: mass }[d.kind] || mountain)(d) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
-      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && !o.m.river && o.m.yBase <= d.m.yBase && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, d.m.tone);
+      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && o.m.yBase <= d.m.yBase && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, d.m.tone);
         if (d.m.mist) { const [mx, my, q] = d.m.mxy; b.globalCompositeOperation = 'destination-out'; b.globalAlpha = mistA(d); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high'; b.drawImage(d.m.mist, Math.round(mx * dpr), Math.round(my * dpr), d.m.mist.width * q * dpr, d.m.mist.height * q * dpr); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; } } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     // moving water: each river's layer of current, redrawn for this instant, cut away where anything nearer stands
@@ -1242,10 +1270,10 @@
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
 Phím D: tắt rồng, vẽ thẳng bằng chuột
-Phím 1: nét Địa (núi)
+Phím 1: nét Địa. Nét vòm: núi. Nét dài gần phẳng: bờ đất. Nét ngắn: mỏm đá
 Phím 2: nét Thuỷ. Bay một đường: sông. Bay một vòng về chỗ cũ: hồ
 Phím 3: nét Mộc. Nét dựng đứng: cây (nét = thân, gốc ở dưới). Nét nằm ngang: cỏ (nét = dải đất)
-Game đoán sai: bấm lại phím đó để đổi nét cuối (sông/hồ, cây/cỏ; cây nằm ngang = cành)
+Game đoán sai: bấm lại phím đó để đổi nét cuối (núi/bờ đất/đá, sông/hồ, cây/cỏ; cây nằm ngang = cành)
 Vẽ cao trên giấy: xa, nhạt, sông hẹp
 Vẽ thấp: gần, đậm, sông rộng</div>`;
   panel.insertBefore(pbox, panel.firstChild);
