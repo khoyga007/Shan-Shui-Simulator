@@ -712,9 +712,16 @@
         for (let i = 1; i <= m; i++) { a += bend / m * (0.5 + i / m) + (R() - 0.5) * 0.05 + (i === ek ? et : 0); x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
         limb(Q, u0);
         for (let j = 0, jn = 1 + Math.floor(R() * (len > 0.1 * H ? 4 : 2)); j < jn; j++) { const f = 0.3 + 0.7 * (j + R()) / jn, q = Q[Math.round(f * m)]; spots.push([q[0], q[1], a, f]); }
-        if (depth < 2 && len > 0.07 * H && R() < 0.6) { const k = Math.round(m * (0.25 + 0.4 * R())); twig(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.5 * R()), len * (0.4 + 0.3 * R()), Math.min(0.95, u0 + 0.07), depth + 1); } };
-      for (let k = 0; k < nT; k++) { const t = 0.1 + 0.85 * (k + 0.15 + 0.7 * R()) / nT, [x, y, a] = pt(t), sd = R() < 0.75 ? up : -up;
-        twig(x, y, a + sd * (0.35 + 0.75 * R()), clamp(L * (0.1 + 0.2 * R()) * (1 - 0.4 * t), 0.05 * H, 0.3 * H), clamp(0.72 + 0.16 * t + 0.06 * R(), 0, 0.93), 1); }
+        // an old side branch (depth 0) always carries young shoots, two to four, to either side; a shoot forks now and then
+        for (let j = 0, nf = depth === 0 ? 2 + Math.floor(R() * 3) : depth < 2 && len > 0.07 * H && R() < 0.6 ? 1 : 0; j < nf; j++) { const k = clamp(Math.round(m * (depth === 0 ? 0.2 + 0.7 * (j + R()) / nf : 0.25 + 0.4 * R())), 1, m - 1);
+          twig(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + (R() < 0.5 ? -1 : 1) * (0.35 + 0.6 * R()), len * (depth === 0 ? 0.3 + 0.35 * R() : 0.4 + 0.3 * R()), depth === 0 ? clamp(u0 + (1 - u0) * (0.45 + 0.3 * k / m) + 0.05 * R(), 0, 0.94) : Math.min(0.95, u0 + 0.07), depth + 1); } };
+      // Not every one a thin young shoot (Yang 11-19): one in three is an old side branch, thick where it leaves the
+      // main one (nearly as thick as the main branch is there) and tapering, longer, bearing shoots of its own.
+      // At least one such on every branch, in its inner half
+      const oldK = Math.floor(R() * Math.max(1, nT / 2));
+      for (let k = 0; k < nT; k++) { const t = 0.1 + 0.85 * (k + 0.15 + 0.7 * R()) / nT, [x, y, a] = pt(t), sd = R() < 0.75 ? up : -up, old = k === oldK || (t < 0.8 && R() < 0.28);
+        if (old) twig(x, y, a + sd * (0.35 + 0.55 * R()), clamp(L * (0.22 + 0.2 * R()) * (1 - 0.35 * t), 0.1 * H, 0.42 * H), clamp(t + 0.12 + 0.2 * R(), 0.2, 0.75), 0);
+        else twig(x, y, a + sd * (0.35 + 0.75 * R()), clamp(L * (0.1 + 0.2 * R()) * (1 - 0.4 * t), 0.05 * H, 0.3 * H), clamp(0.72 + 0.16 * t + 0.06 * R(), 0, 0.93), 1); }
       for (let k = 0, kn2 = Math.round(L / (0.16 * H)); k < kn2; k++) { const [x, y, a] = pt(0.2 + 0.75 * R()); spots.push([x, y, a, 0.4]); }   // and a few on the old wood itself
       // blossoms and buds, sparse and uneven: buds toward the ends of the twigs (the youngest wood), open flowers
       // further in; a bud stands on its calyx, away from the twig; a flower faces any way. Two or three bunch together now and then
