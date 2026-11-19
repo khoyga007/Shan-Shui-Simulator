@@ -208,7 +208,7 @@
       // line and darkening it, and is lost only a little further down. (Hidden from the ridge on, the far ridge ended
       // at the near one as if cut with a knife: two pieces of paper, Yang 11-18)
       const bl = Math.min(0.4, 0.045 * H * (0.5 + 0.9 * N(x / (0.08 * H) + 130, 2)) / Math.max(1, dd));
-      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(bl * 0.45, `rgba(0,0,0,${(hm * 0.3).toFixed(3)})`); gd.addColorStop(bl, `rgba(0,0,0,${hm})`); gd.addColorStop(0.45, `rgba(0,0,0,${hm})`); gd.addColorStop(1, `rgba(0,0,0,${(hm * (E ? sm((envD(x) - 0.35) / 0.5) : 1)).toFixed(3)})`);
+      gd = gb.createLinearGradient(0, T, 0, DY(t + dd)); const hm = (Math.pow(sm(e), 2.5) * (E ? Math.pow(envD(x), 1.5) : 1)).toFixed(3); gd.addColorStop(0, `rgba(0,0,0,${hm})`); gd.addColorStop(0.45, `rgba(0,0,0,${hm})`); gd.addColorStop(1, `rgba(0,0,0,${(hm * (E ? sm((envD(x) - 0.35) / 0.5) : 1)).toFixed(3)})`);
       // hides as much as its own ink covers: held full while the ink thinned at a stroke's end, it left a white upright gap beside a dark band (r007)
       // over its middle it hides all the way down: under its foot lies mist, not the mountain behind. (Stopped where its
       // own ink ends, the mountain behind came back along a line the shape of this ridge; faded out there, it showed
@@ -292,8 +292,15 @@
       for (let r = 4; r < rowsN - 4; r += Math.max(1, Math.round((0.012 + 0.03 * R()) * H / BIN))) { if (xs[r] === null) continue; const an = 0.5 + 0.8 * R(), lean = 1.2;
         mark(xs[r] + side * 0.004 * H, yTop + r * BIN, side > 0 ? an : 3.1416 - an, CL * (0.25 + 0.5 * R()) * sm(r / rowsN / 0.3 + 0.2), H * 0.006 * (0.6 + 0.8 * R()), (0.25 + 0.3 * R()) * cliff * S.cun / 0.6, side > 0 ? lean : 3.1416 - lean); }
       g.globalCompositeOperation = 'source-over'; }
+    // -- where this mountain stands before another: the far one is gone from this ridge on, and already pales a little
+    //    before it reaches the ridge, leaving a thin rim of lighter paper along it. That is how it is painted: ink does
+    //    not cover ink, so the far range is stopped short of the near one and lost in mist there. (Let run on under the
+    //    ridge for a stretch, a6c361f, the far ridge stuck through into the near body as a dark wedge: Yang 11-19, the
+    //    game must not ask the player to paint that well. Cut off sharp at the ridge it was two pieces of paper, 11-18)
+    { const [halo, gh] = mk(); raw(gh); gh.filter = `blur(${(RIM * H * dpr).toFixed(1)}px)`; gh.drawImage(body, 0, 0); gh.filter = 'none';
+      raw(gb); gb.globalCompositeOperation = 'destination-over'; gb.drawImage(halo, 0, 0); gb.drawImage(halo, 0, 0); gb.globalCompositeOperation = 'source-over'; home(gb); }
     // -- the ridge line: a ribbon along the path, a little more of it on the mountain's side
-    const near = (i) => { let b = 1e9; for (const k of crests) b = Math.min(b, Math.abs(cum[k] - cum[i])); return b; };
+    const near =(i) => { let b = 1e9; for (const k of crests) b = Math.min(b, Math.abs(cum[k] - cum[i])); return b; };
     const wAt = [], dryAt = [], prAt = [];
     for (let i = 0; i < n; i++) {
       const s = cum[i], slow = 1 - clamp(P[i][2] / 1.5, 0, 1), sh = shAt(col(P[i][0])), press = 0.5 * slow + 0.4 * N(s / (0.09 * H) + 70, 2) + 0.7 * Math.exp(-Math.pow(near(i) / (0.018 * H), 2)) + 0.2 * Math.max(0, sh);
@@ -410,6 +417,7 @@
     return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }
 
+  const RIM = 0.008;   // how far before a near ridge the mountain behind it begins to pale, in screen heights
   const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
