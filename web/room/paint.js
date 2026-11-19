@@ -113,12 +113,17 @@
   // A stroke flown low and gentle is no peak: a rounded hill laid in with wet wash (Yang 11-19, reference paintings: one
   // kind of mountain was not enough). hill 0..1 from the stroke's shape: its rise against its run. Such a hill gets no
   // summit drawn up into a point, next to no texture strokes, and a ridge line that is wet, pale and soft.
-  const hillS = (h) => Object.assign({}, S, { peak: S.peak * (1 - h), cun: S.cun * (1 - 0.92 * h), dry: S.dry * (1 - 0.8 * h) });
+  const hillS = (h, rk = 0) => Object.assign({}, S, { peak: S.peak * (1 - h) * (1 - rk), cun: S.cun * (1 - 0.92 * h), dry: S.dry * (1 - 0.8 * h) });
   function mountain(d) {
     const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 4), n = P.length;
     if (n < 8) return null;
     let hill = 0; { let sy = 0, sx = 0; for (let i = 1; i < n; i++) { sy += Math.abs(P[i][1] - P[i - 1][1]); sx += Math.abs(P[i][0] - P[i - 1][0]); } hill = 1 - sm((sy / Math.max(1, sx) - 0.3) / 0.2); }   // how steep its slopes are on the whole, up and down alike: by rise against run, a long range of peaks flown in one stroke counted as flat and lost its summits
-    const S = hillS(hill);
+    // A stroke flown up steeply, level across, and steeply down again is a flat-topped crag (the karst walls of Yang's
+    // reference paintings): rock 0..1 = steep on the whole, and a good part of its length lying along its top. No summit is
+    // drawn up out of it; its face is hung with long drags of a half-dry brush (sheet W, _cf), dark at the top, running dry downward.
+    let rock = 0; { let ya = 1e9, yb = -1e9, sy = 0, sx = 0, fl = 0; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } for (let i = 1; i < n; i++) { sy += Math.abs(P[i][1] - P[i - 1][1]); sx += Math.abs(P[i][0] - P[i - 1][0]); if (P[i][1] < ya + 0.22 * (yb - ya)) fl++; }
+      rock = (1 - hill) * sm((fl / n - 0.32) / 0.13) * sm((sy / Math.max(1, sx) - 0.55) / 0.3); }
+    const S = hillS(hill, rock);
     // -- peaks: every crest of the path (a top, standing at least a little above both its sides) is drawn up into a point;
     //    the saddles between are cut a little deeper. A tent laid on a round top gives the break of a real summit
     const win = Math.max(4, Math.round(0.1 * H / STEP)), tr = Math.max(4, Math.round(0.055 * H / STEP)), crests = [];
@@ -296,6 +301,10 @@
       for (let q = 0; q < cnt; q++) { const side = q === 0 ? (R() < 0.5 ? 1 : -1) * 0.25 : (q % 2 ? 1 : -1), i2 = clamp(k + way * Math.sign(side) * Math.round((q === 0 ? 0 : R()) * 0.03 * H / STEP), 0, n - 1);
         mark(P[i2][0], P[i2][1] + 0.003 * H, 1.5708 - side * (0.35 + 0.5 * R()), Math.min(0.2 * H, dc * (0.3 + 0.45 * R())), H * 0.0048 * (0.6 + 0.8 * R()), 0.6, 1.5708 - Math.sign(side) * (0.1 + 0.5 * R())); }
     }
+    { const kitCF = (STROKES.muse_cf || []).filter((q) => q.im).slice(-6);   // the sheet's upper four (crag-top edges) came out as blocks: left out
+      if (rock > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.01 + 0.028 * R())) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], len = Math.min(0.6 * H, depth[k] * (0.5 + 0.7 * R())), wd = clamp(len * q.h / q.w * (1.4 + 2 * R()), 0.012 * H, 0.07 * H);
+          g.setTransform(0, dpr, -dpr, 0, dpr * (x - ox), dpr * (ts[k] - 0.006 * H - oy)); g.globalAlpha = rock * (0.3 + 0.55 * R()); g.drawImage(q.im, 0, -wd / 2, len, wd); }
+        g.globalAlpha = 1; home(g); } }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
     // it an odd number of times), so the hollow of a C stays paper instead of filling to a plumb wall (r006)
