@@ -49,7 +49,10 @@
     // or in or before a lake) is near land: short, a rock; else an earth bank. No water on the paper yet: a mountain.
     // (Before, by shape alone: a low arc could be a far hill or a near bank, and the guess was often wrong.)
     if (!nearSide(q, xb - xa < 0.45 * D.H)) return 'mountain';
-    return (xb - xa < 0.3 * D.H && L < 0.55 * D.H) || (xb - xa < 0.45 * D.H && yb - ya > 0.6 * (xb - xa)) /* a tall arch is long by its height, not by its run: a standing rock, no bank */ ? 'rock' : 'bank';
+    // Rock or bank, by one measure only (Yang 11-19: the same arch flown twice came out a rock, then a bank: "phải thống nhất luật nét". It had gone by the stroke's
+    // LENGTH as well as its run, and a second arch a little taller or shakier was longer, so it tipped over into a bank). By the box alone now: a bank is long and low,
+    // a run of 30% of a screen and more, lower than half its run. Anything else, small or standing, is a rock.
+    return xb - xa >= 0.3 * D.H && yb - ya < 0.5 * (xb - xa) ? 'bank' : 'rock';
   }
   const meanY = (d) => (d.my === undefined ? (d.my = d.stroke.reduce((a, p) => a + p[1], 0) / d.stroke.length) : d.my);
   function nearSide(q, narrow) {
@@ -1646,5 +1649,5 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
   try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
   window.__paint = { S, st, step, render, reset, undo, freeW, guess, ripAt: (p) => { BOTRIP = p; }, plant, wavMs: () => st.done.map((d) => (d.m && d.m.wavMs) || 0), ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
-    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
+    info: () => ({ kinds: st.done.map((d) => d.kind || 'mountain'), paths: st.done.map((d) => { const q = d.stroke, n = Math.max(1, Math.ceil(q.length / 24)); return q.filter((p, i) => i % n === 0 || i === q.length - 1).map((p) => [Math.round(p[0]), Math.round(p[1])]); }) /* what each stroke became and where it ran, thinned: a report could not say why a stroke was guessed as it was (Yang 11-19, rock or bank) */, strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
 })();
