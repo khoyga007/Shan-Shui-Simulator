@@ -1317,6 +1317,10 @@
   // A mountain most of which was flown above a waterline stands beyond that water, though its ends dip below the line (by
   // its foot alone it stood before the water, unmirrored, and painted over it).
   const zk = (d) => { if (d.m.solid) return st.done.reduce((z, o) => (o.m && o.m.wat && d.m.yBase > o.m.yTop && d.m.yBase <= o.m.yBase && d.m.cx > o.m.ox && d.m.cx < o.m.ox + o.m.wat.width / dpr ? Math.max(z, o.m.yBase + 0.5) : z), d.m.yBase);
+    // A tree or grass rooted on a bank or a rock stands on it, before it (Yang 11-19: "sao cây luôn tự snap ra đằng sau đất thế?
+    // mất cả gốc rồi": by its root alone it lay behind the land, whose foot is lower on the paper, and the land's body wiped its trunk out)
+    if (d.kind === 'tree' || d.kind === 'grass') { if (!d.root) d.root = d.stroke.reduce((r, p) => (p[1] > r[1] ? p : r), d.stroke[0]); let z = d.m.yBase;
+      for (const o of st.done) { const m = o.m; if (!m || !m.solid) continue; const k = Math.floor((d.root[0] - m.bx0) / BIN); if (k >= 0 && k < m.ts.length && d.root[1] > m.ts[k] - 0.04 * D.H && d.root[1] < m.yBase + 0.02 * D.H) z = Math.max(z, zk(o) + 0.6); } return z; }
     let z = d.m.yBase; if (!d.m.river) for (const o of st.done) if (o.m && o.m.sea && z > o.m.yBase && meanY(d) < o.m.yBase) z = o.m.yBase - 0.5 + 0.4 * clamp((d.m.yBase - o.m.yBase) / D.H, 0, 1); return z; };
   // Near land begun or ended close to a side of the paper runs off that side (Yang 11-19: "nét đất mà bắt đầu từ sát cạnh
   // thì nó tự snap"): flown by hand the stroke starts a little inside the edge, and the bank ended there in a faded stump with
