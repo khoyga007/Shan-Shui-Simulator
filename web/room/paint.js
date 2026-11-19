@@ -306,10 +306,18 @@
       // thinner, paler and shorter, are laid down every slope as its texture strokes (hemp-fibre cun): from the ridge and from
       // a way below it, running down and outward with the fall of the slope. A hill of wash keeps next to none.
       const tx = Math.max(rock, 0.75 * (1 - hill) * Math.min(1.4, S.cun / 0.6));
-      if (tx > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.008 + 0.022 * R()) / (0.5 + 0.5 * tx)) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], lo = 1 - rock, r1 = R(), r2 = R(), r3 = R(),
-            len = Math.min(0.6 * H, depth[k] * (0.5 + 0.7 * r1) * (1 - 0.5 * lo)), wd = clamp(len * q.h / q.w * (1.4 + 2 * r2), 0.008 * H, (0.07 - 0.035 * lo) * H),
-            sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), y = ts[k] - 0.006 * H + lo * depth[k] * 0.5 * r3 * r3;
-          g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = tx * (0.3 + 0.55 * R()) * (1 - 0.6 * lo); g.drawImage(q.im, 0, -wd / 2, len, wd); }
+      // On a crag they were a barcode ("đường kẻ sọc trông sai sai", Yang 11-19): every drag plumb, from the very top, evenly spaced,
+      // and a 1600 px sample squeezed into a short streak, its dry hairs ruled lines. Now: gathered into fissures with bare faces of
+      // rock between (noise along the crag), each stretch of wall leaning its own way, a good half beginning lower down the
+      // face, lengths from short to long, and wider, so the dry hairs of the sample are no longer ruled hairlines.
+      if (tx > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.008 + 0.022 * R()) / (0.5 + 0.5 * tx)) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], lo = 1 - rock, r1 = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R();
+          if (r5 > lo + rock * (0.22 + 0.78 * sm((N(x / (0.075 * H) + 311, 2) - 0.4) / 0.16))) continue;
+          const swc = q.w * (1 - 0.35 * rock * r4),   // the dark, solid end and most of the dry run: cut shorter than that, a streak was a black bar
+             len = Math.min(0.6 * H, depth[k] * (lo * (0.5 + 0.7 * r1) * 0.5 + rock * (0.3 + 0.75 * r1))), wd = clamp(len * q.h / swc * (1.4 + 2 * r2 + 2.5 * rock * r2), 0.008 * H, (0.035 + 0.055 * rock) * H),
+            sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5)) + rock * ((N(x / (0.2 * H) + 97, 1) - 0.5) * 0.5 + 0.14 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), fl = R() < 0.5 ? 1 : -1,
+            y = ts[k] - 0.006 * H + depth[k] * (lo * 0.5 * r3 * r3 + rock * (r3 < 0.45 ? 0 : 0.65 * (r3 - 0.45) / 0.55));
+          g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); const low = rock * (r3 < 0.45 ? 0 : 1);   // begun down the face, away from the dark of the top: pale and narrow, or its solid end stood on the wall as a black slab
+          g.globalAlpha = tx * (0.25 + 0.6 * R()) * (1 - 0.6 * lo) * (1 - 0.55 * low); g.drawImage(q.im, 0, 0, swc, q.h, 0, -wd * (0.5 - 0.22 * low), len, wd * (1 - 0.44 * low)); }
         g.globalAlpha = 1; home(g); }
       // Sheet X, the cun proper (Yang's gen 11-19), mixed in with the drags: hemp-fibre lines (_xh, pale, many, down the slope),
       // axe-cut chops (_xa, few, dark, slanting with the slope, high on the flank), folded-belt strokes (_xf, on a crag's
