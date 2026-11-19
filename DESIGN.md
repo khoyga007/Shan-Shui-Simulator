@@ -170,3 +170,5 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Roots (11-19, Yang): grown by code from brush strokes, like branches; no pasted foot piece. paint.js `tree`: after the trunk, 2-5 root limbs = thin end of the trunk's own stroke along a path leaving the foot, alternating sides, out and down then toward level; thick starts hide the trunk's blunt cut. Bamboo = fan of short dry whiskers. Own dice (seed ^ 0x3c19), tree above unchanged. Sheet AJ (whole tree feet) parked: v1 came out Western pen drawing, v2 prompt unused.
 
 - Rock vs earth marks (11-19): near rock = sheet AG marks (black axe-cuts, chops, dry scrapes, blunt dots), near bank = sheet AH marks (grey hemp bundles along the slope, soft folds, rice dots, grass tufts on the upper line). Marks laid over the stroke-built body, never whole shapes. Moving water marks = sheet AI single wavering lines.
+
+- Near earth dark (11-19, Yang): bank = one dark wash over the body, heaviest under the upper line, thinning to a pale strip along the foot; few marks on top (hemp bundles cut to 1-5). Grey + many thin lines read weak.
