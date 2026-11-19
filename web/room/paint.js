@@ -29,7 +29,7 @@
 
   // ---- state --------------------------------------------------------------------------------------------------------
   const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9, kind: 'mountain' };   // kind: what the next stroke becomes (keys 1, 2)
-  const KINDS = [['mountain', 'núi'], ['river', 'sông']];
+  const KINDS = [['mountain', 'núi'], ['river', 'sông'], ['lake', 'hồ']];
   const say = (s) => { st.msg = s; st.msgT = D.T; };
   function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; sync(); }
   function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
@@ -518,6 +518,63 @@
     return { river: true, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: y1, yTop: y0, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
+  // One stroke -> one lake (Yang 11-19, key 3). The stroke is the shore: flown round, its ends joined if left open. Still
+  // water is bare paper, as the river's. What tells it from a river:
+  //   shape   seen from the side a lake lies flat: a round loop is pressed down to about 0.42 of its breadth (SQ)
+  //   shores  the near shore (the lower side of the loop, land in front of the water) dark and full; the far shore thin
+  //           and pale, and gone in stretches (mist). Own sheet I: dark strokes for the near shore, pale for the far
+  //   water   level dashes (sheet J), pointed at both ends, never turned: larger and darker toward the near shore, few
+  //           and faint toward the far one
+  function lake(d) {
+    const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P0 = calm(d.stroke, STEP, 6);
+    if (P0.length < 12) return null;
+    { const a = P0[P0.length - 1], b = P0[0], k = Math.floor(Math.hypot(b[0] - a[0], b[1] - a[1]) / STEP); for (let i = 1; i < k; i++) P0.push([a[0] + (b[0] - a[0]) * i / k, a[1] + (b[1] - a[1]) * i / k]); }
+    const n = P0.length, wrap = (A, i) => A[((i % n) + n) % n];
+    let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P0) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
+    const cy = (ya + yb) / 2, SQ = clamp(0.42 * (xb - xa) / Math.max(1, yb - ya), 0.5, 1);
+    const P = P0.map((_, i) => { let x = 0, y = 0; for (let j = -5; j <= 5; j++) { const q = wrap(P0, i + j); x += q[0]; y += q[1]; } return [x / 11, cy + (y / 11 - cy) * SQ]; });   // the join rounded off with the rest
+    ya = cy - (cy - ya) * SQ; yb = cy + (yb - cy) * SQ;
+    let area = 0; for (let i = 0; i < n; i++) { const a = P[i], b = wrap(P, i + 1); area += a[0] * b[1] - b[0] * a[1]; }
+    const or = area > 0 ? 1 : -1, cum = [0]; for (let i = 1; i <= n; i++) { const a = P[i - 1], b = wrap(P, i); cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+    const Lp = cum[n], tan = P.map((_, i) => { const a = wrap(P, i - 3), b = wrap(P, i + 3), l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }),
+       out = tan.map((t) => [or * t[1], -or * t[0]]), nearY = (y) => clamp((y / H - 0.2) / 0.7, 0, 1), wN = (i) => 0.5 + 0.5 * out[i][1];   // out: toward the land. wN: 1 on the near shore, 0 on the far one
+    const pad = Math.round(0.08 * H), ox = Math.floor(xa) - pad, oy = Math.floor(ya) - pad, cw = Math.ceil((xb - xa + 2 * pad + 2) * dpr), chh = Math.ceil((yb - ya + 2 * pad + 2) * dpr);
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
+    const [cv, g] = mk(), [body, gb] = mk(), [wat, gw] = mk(), [shr, gk] = mk(), [dsh, gc] = mk();
+    const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
+    gw.fillStyle = '#000'; gw.beginPath(); gw.moveTo(P[0][0], P[0][1]); for (let i = 1; i < n; i++) gw.lineTo(P[i][0], P[i][1]); gw.closePath(); gw.fill();
+    raw(gb); gb.filter = `blur(${(0.016 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 0.6; gb.drawImage(wat, 0, 0); gb.filter = `blur(${(0.003 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 1; gb.drawImage(wat, 0, 0); gb.filter = 'none'; home(gb);
+    const tones = (y, k) => { const gd = g.createLinearGradient(0, 0, 0, chh); for (let i = 0; i <= 8; i++) gd.addColorStop(i / 8, `rgba(0,0,0,${(k * (0.45 + 0.55 * nearY(oy + i / 8 * chh / dpr))).toFixed(3)})`); return gd; };
+    const fade = (x, k) => { raw(x); x.globalCompositeOperation = 'destination-in'; x.fillStyle = tones(0, k); x.fillRect(0, 0, cw, chh); x.globalCompositeOperation = 'source-over'; home(x); };
+    // -- the shores: slices of a real stroke laid opaque, its waterline on the loop, the rest on the land; a stretch
+    //    begins and ends thin (as the river's banks)
+    const own = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
+    const kitI = own('_i'), base = kitI.length ? kitI : own('_f').length ? own('_f') : (STROKES[S.tex] || []).filter((q) => q.im), dark = base.filter((q) => q.tone >= 0.2), pale = base.filter((q) => q.tone < 0.2);
+    const shore = (kit, part, thick, ph) => { if (!kit.length) return;
+      const q = kit[Math.floor(R() * kit.length) % kit.length], ds = 2, per = 0.7 * H, off = R() * 2; let j = 0;
+      for (let a = 0; a < Lp; a += ds) { while (j < n - 1 && cum[j + 1] < a) j++;
+        const al = part(j) * sm((N(cum[j] / (0.18 * H) + ph, 2) + 0.28 * wN(j) - 0.5) / 0.12); if (al < 0.05) continue;
+        const f = clamp((a - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), 0, 1), b = wrap(P, j + 1), px = P[j][0] + (b[0] - P[j][0]) * f, py = P[j][1] + (b[1] - P[j][1]) * f;
+        const th = thick * al * H * (0.012 + 0.02 * nearY(py)) * (0.7 + 0.6 * N(a / (0.05 * H) + ph + 60, 2)); let v = (a / per + off) % 2; if (v > 1) v = 2 - v;
+        gk.setTransform(dpr * tan[j][0], dpr * tan[j][1], dpr * out[j][0], dpr * out[j][1], dpr * (px - ox), dpr * (py - oy));
+        gk.drawImage(q.im, clamp(v * (q.w - 2), 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / per * q.w), q.h, 0, -0.03 * th, ds + 0.8, th); }
+      home(gk); };
+    shore(dark.length ? dark : base, (i) => sm((wN(i) - 0.3) / 0.25), 1, 300);
+    shore(pale.length ? pale : base, (i) => sm((0.7 - wN(i)) / 0.25), pale.length ? 0.75 : 0.4, 400);
+    fade(gk, pale.length ? 0.85 : 0.6); raw(g); g.drawImage(shr, 0, 0); home(g);
+    // -- still water: level dashes scattered over the lake, kept clear of the shores
+    const inside = (x, y) => { let c2 = false; for (let i = 0, j = n - 1; i < n; j = i++) { const a = P[i], b = P[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c2 = !c2; } return c2; };
+    const kitJ = own('_j'), tries = Math.round(Math.abs(area) / 2 / (0.0022 * H * H));
+    for (let k = 0; k < tries; k++) { const x = xa + R() * (xb - xa), y = ya + R() * (yb - ya), fy = (y - ya) / Math.max(1, yb - ya), r1 = R(), r2 = R(), len = H * (0.02 + 0.07 * fy) * (0.6 + 0.8 * r1);
+      if (r2 > 0.25 + 0.75 * fy || !inside(x - len * 0.7, y) || !inside(x + len * 0.7, y) || !inside(x, y - 0.012 * H) || !inside(x, y + 0.012 * H)) continue;
+      if (kitJ.length) { const q = kitJ[Math.floor(R() * kitJ.length) % kitJ.length], hh = Math.min(len * q.h / q.w, H * (0.0025 + 0.003 * fy)); gc.drawImage(q.im, x - len / 2, y - hh / 2, len, hh); }
+      else { gc.strokeStyle = '#000'; gc.lineWidth = H * 0.0014; gc.beginPath(); gc.moveTo(x - len / 2, y); gc.lineTo(x + len / 2, y); gc.stroke(); } }
+    { raw(gc); gc.globalCompositeOperation = 'source-in'; gc.fillStyle = `rgb(${INK})`; gc.fillRect(0, 0, cw, chh); gc.globalCompositeOperation = 'source-over'; home(gc); }
+    fade(gc, 0.6); raw(g); g.drawImage(dsh, 0, 0);
+    g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
+    return { river: true, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+  }
+
   const RIM = 0.006;   // how far before a near ridge the mountain behind it begins to pale, in screen heights
   const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
@@ -526,7 +583,7 @@
   const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = (d.kind === 'river' ? river(d) : mountain(d)) || false;
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = (d.kind === 'river' ? river(d) : d.kind === 'lake' ? lake(d) : mountain(d)) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
@@ -566,8 +623,8 @@
     <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button>
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
-Thả chuột: nét thành núi hoặc sông
-Phím 1: nét núi. Phím 2: nét sông
+Thả chuột: nét thành núi, sông hoặc hồ
+Phím 1: nét núi. Phím 2: nét sông. Phím 3: hồ (bay một vòng)
 Vẽ cao trên giấy: xa, nhạt, sông hẹp
 Vẽ thấp: gần, đậm, sông rộng</div>`;
   panel.insertBefore(pbox, panel.firstChild);

@@ -9,6 +9,8 @@ alpha, plus strokes.json {key: [{f, w, h, tone}]}.
   <Source> F.png  8 long level river banks, waterline on top                 key <source>_f
   <Source> G.png  10 hair-thin level lines of current                        key <source>_g
   <Source> H.png  riverside rocks and short ripples, scattered               keys <source>_k (rocks), <source>_r (ripples)
+  <Source> I.png  long level lake shores, waterline on top, dark then pale   key <source>_i
+  <Source> J.png  rows of level dashes of still water                        key <source>_j
 Level strokes and bands are straightened: every column is slid up so the upper edge is level (they arc a little; bent
 along a ridge, the upper edge is the ridge line). usage: python tools/build_inklines.py"""
 import json, os
@@ -57,7 +59,7 @@ def level(key, ink, see, edge, keep, ext='png', grow=(5, 41), gain=0):
         save(key, k, b, ext)
 
 
-def loose(key, ink, thr=0.3, crop=0.15, long='_b', comp='_d', gain=0):
+def loose(key, ink, thr=0.3, crop=0.15, long='_b', comp='_d', gain=0, minh=25):
     """short strokes and dot clusters, scattered: told apart by shape (a stroke is long and low)"""
     u = ink.shape[1] / 2048
     mask = ndi.binary_dilation(ink > thr, structure=np.ones((int(17 * u) | 1, int(23 * u) | 1)))
@@ -65,7 +67,7 @@ def loose(key, ink, thr=0.3, crop=0.15, long='_b', comp='_d', gain=0):
     ka = kd = 0
     for i, s in enumerate(ndi.find_objects(lab)):
         hh, ww = s[0].stop - s[0].start, s[1].stop - s[1].start
-        if ww < 40 * u or hh < 25 * u: continue
+        if ww < 40 * u or hh < minh * u: continue
         a = np.where(lab[s] == i + 1, ink[s], 0)
         rows = np.nonzero(a.max(axis=1) > crop)[0]; cols = np.nonzero(a.max(axis=0) > crop)[0]
         if not len(rows) or not len(cols): continue
@@ -147,6 +149,8 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'f': level(src + '_f', ink, 0.3, 0.35, 0.12, grow=(27, 41))            # river banks: upper edge = the waterline
     elif kind == 'g': level(src + '_g', ink, 0.12, 0.12, 0.05, grow=(5, 121), gain=0.9)   # lines of current, hair-thin and pale
     elif kind == 'h': loose(src, ink, thr=0.1, crop=0.05, long='_r', comp='_k', gain=0.9)   # ripples (long, low) and riverside rocks
+    elif kind == 'i': level(src + '_i', ink, 0.1, 0.12, 0.05, grow=(15, 41))               # lake shores: dark near ones, pale far ones (told apart by tone)
+    elif kind == 'j': loose(src, ink, thr=0.1, crop=0.05, long='_j', comp='_jx', gain=0.9, minh=0)   # still water: single level dashes, pointed at both ends
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
