@@ -298,7 +298,11 @@
     //    ridge for a stretch, a6c361f, the far ridge stuck through into the near body as a dark wedge: Yang 11-19, the
     //    game must not ask the player to paint that well. Cut off sharp at the ridge it was two pieces of paper, 11-18)
     { const [halo, gh] = mk(); raw(gh); gh.filter = `blur(${(RIM * H * dpr).toFixed(1)}px)`; gh.drawImage(body, 0, 0); gh.filter = 'none';
-      raw(gb); gb.globalCompositeOperation = 'destination-over'; gb.drawImage(halo, 0, 0); gb.drawImage(halo, 0, 0); gb.globalCompositeOperation = 'source-over'; home(gb); }
+      // the rim comes and goes along the ridge: over about half its length there is next to none (the near ridge, darker,
+      // parts the two by itself). Even and full all along, it stood around every near mountain as a drawn outline (Yang 11-19)
+      { const gd = gh.createLinearGradient(0, 0, cw, 0), ns = Math.max(2, Math.ceil(cw / dpr / (0.04 * H))); for (let i = 0; i <= ns; i++) { const x = ox + i / ns * cw / dpr; gd.addColorStop(i / ns, `rgba(0,0,0,${(0.12 + 0.88 * sm((N(x / (0.22 * H) + 900, 2) - 0.5) / 0.22)).toFixed(3)})`); }
+        gh.globalCompositeOperation = 'destination-in'; gh.fillStyle = gd; gh.fillRect(0, 0, cw, chh); gh.globalCompositeOperation = 'source-over'; }
+      raw(gb); gb.globalCompositeOperation = 'destination-over'; gb.drawImage(halo, 0, 0); gb.globalCompositeOperation = 'source-over'; home(gb); }
     // -- the ridge line: a ribbon along the path, a little more of it on the mountain's side
     const near =(i) => { let b = 1e9; for (const k of crests) b = Math.min(b, Math.abs(cum[k] - cum[i])); return b; };
     const wAt = [], dryAt = [], prAt = [];
@@ -417,7 +421,7 @@
     return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }
 
-  const RIM = 0.008;   // how far before a near ridge the mountain behind it begins to pale, in screen heights
+  const RIM = 0.006;   // how far before a near ridge the mountain behind it begins to pale, in screen heights
   const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
