@@ -28,7 +28,8 @@
   const INK = '18,18,24';
 
   // ---- state --------------------------------------------------------------------------------------------------------
-  const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9 };
+  const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9, kind: 'mountain' };   // kind: what the next stroke becomes (keys 1, 2)
+  const KINDS = [['mountain', 'núi'], ['river', 'sông']];
   const say = (s) => { st.msg = s; st.msgT = D.T; };
   function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; sync(); }
   function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
@@ -37,7 +38,7 @@
     if (!st.pen) return; st.pen = false;
     const q = st.stroke; st.stroke = []; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
     if (L < 0.06 * D.H) return;   // a tap, not a stroke
-    st.done.push({ stroke: q, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); sync();
+    st.done.push({ stroke: q, kind: st.kind, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); sync();
   }
   function step(dt) {
     if (!st.pen) return;
@@ -421,6 +422,76 @@
     return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }
 
+  // One stroke -> one river (Yang 11-19, key 2). As it is painted on paper: water is no ink at all, it is the paper left
+  // bare; only the banks are drawn, in broken lines, heavier on the outside of a bend, with a little wash on the land
+  // and a few thin lines of current. The stroke is the middle of the stream.
+  //   width   narrow high on the paper (far), broad low on it (near). A reach running across the view is seen
+  //           foreshortened: its banks lie close above each other (FORE); a reach coming down the paper shows its breadth
+  //   body    the water itself: bare paper cut out of whatever stands behind (a mountain's body, its mist), soft at the rim
+  // Sorted with the mountains by its lowest point: it runs in front of every mountain that ends above that.
+  function river(d) {
+    const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 6), n = P.length;
+    if (n < 8) return null;
+    const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const L = cum[n - 1], FORE = 0.38, frame = (Q) => Q.map((_, i) => { const a = Q[Math.max(0, i - 3)], b = Q[Math.min(Q.length - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
+    const tan = frame(P), nearY = (y) => clamp((y / H - 0.2) / 0.7, 0, 1), up = P[0][1] <= P[n - 1][1], far = (i) => (up ? cum[i] : L - cum[i]), nr = (i) => L - far(i), env = (i) => sm(far(i) / (0.07 * H)) * sm(nr(i) / (0.16 * H));   // up: drawn from its far end down. The far end narrows to nothing; the near end keeps its breadth and is lost in the paper
+    // which way the stream bends at a point: > 0 toward the right-hand bank (B), < 0 toward the left (A)
+    const bend = (i) => { const a = tan[Math.max(0, i - 8)], b = tan[Math.min(n - 1, i + 8)]; return a[0] * b[1] - a[1] * b[0]; };
+    const hw = P.map((p, i) => H * (0.005 + 0.06 * Math.pow(nearY(p[1]), 1.5)) * (0.75 + 0.5 * N(cum[i] / (0.3 * H) + 3, 2)) * (0.15 + 0.85 * sm(far(i) / (0.14 * H))));
+    // the two banks: not parallel, each with its own unevenness
+    const bank = (sg, ph) => P.map((p, i) => { const w = hw[i] * (0.85 + 0.3 * N(cum[i] / (0.07 * H) + ph, 2)) + H * 0.004 * (N(cum[i] / (0.025 * H) + ph + 20, 2) - 0.5); return [p[0] - sg * tan[i][1] * w, p[1] + sg * tan[i][0] * w * FORE]; });
+    const A = bank(-1, 100), B = bank(1, 200);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const Q of [A, B]) for (const p of Q) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+    const pad = Math.round(0.08 * H), ox = Math.floor(x0) - pad, oy = Math.floor(y0) - pad, cw = Math.ceil((x1 - x0 + 2 * pad + 2) * dpr), chh = Math.ceil((y1 - y0 + 2 * pad + 2) * dpr);
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
+    const [cv, g] = mk(), [body, gb] = mk(), [wat, gw] = mk(), [wsh, gs] = mk(), [bnk, gk] = mk();
+    const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
+    const water = (x) => { x.beginPath(); x.moveTo(A[0][0], A[0][1]); for (let i = 1; i < n; i++) x.lineTo(A[i][0], A[i][1]); for (let i = n - 1; i >= 0; i--) x.lineTo(B[i][0], B[i][1]); x.closePath(); };
+    // -- the water: bare paper. Cut out soft: a hard-edged white band through a mountain is a strip of tape
+    gw.fillStyle = '#000'; water(gw); gw.fill();
+    raw(gb); gb.filter = `blur(${(0.016 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 0.6; gb.drawImage(wat, 0, 0); gb.filter = `blur(${(0.003 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 1; gb.drawImage(wat, 0, 0); gb.filter = 'none'; home(gb);
+    // -- the banks. Where each is drawn at all: in stretches, by noise, and more on the outside of a bend, where the
+    //    stream cuts into the land (never even along the whole river: that reads as an outline)
+    const gate = (sg, ph) => (i) => N(cum[i] / (0.16 * H) + ph, 2) + clamp(-sg * bend(i) * 0.9, -0.12, 0.28);
+    const kit = (STROKES[S.tex] || []).filter((q) => q.im);
+    for (const [E, sg, ph] of [[A, -1, 300], [B, 1, 400]]) {
+      const ga = gate(sg, ph), gz = gate(sg, ph + 37), et = frame(E), ec = [0]; for (let i = 1; i < n; i++) ec.push(ec[i - 1] + Math.hypot(E[i][0] - E[i - 1][0], E[i][1] - E[i - 1][1]));
+      // a little wash on the land along the bank, where the bank is dark
+      gs.lineCap = 'round'; gs.strokeStyle = '#000';
+      for (let i = 1; i < n; i++) { if (gz(i) < 0.56) continue; gs.lineWidth = (0.012 * H + 0.7 * hw[i]) * env(i); gs.beginPath(); gs.moveTo(E[i - 1][0], E[i - 1][1]); gs.lineTo(E[i][0], E[i][1]); gs.stroke(); }
+      const tone = (i) => env(i) * (0.4 + 0.6 * nearY(E[i][1]));   // far reaches pale
+      if (kit.length) {   // the bank line: a real stroke in thin slices, its dark edge on the water, the rest on the land
+        const q = kit[Math.floor(R() * kit.length) % kit.length], ds = 2, per = 0.6 * H, off = R() * 2; let j = 0;
+        for (let a = 0; a < ec[n - 1]; a += ds) {
+          while (j < n - 2 && ec[j + 1] < a) j++;
+          const al = sm((ga(j) - 0.42) / 0.12) * env(j); if (al < 0.05) continue;   // a stretch of bank begins and ends thin, the brush set down and lifted
+          const f = clamp((a - ec[j]) / Math.max(1e-6, ec[j + 1] - ec[j]), 0, 1), px = E[j][0] + (E[j + 1][0] - E[j][0]) * f, py = E[j][1] + (E[j + 1][1] - E[j][1]) * f, tx = et[j][0], ty = et[j][1];
+          const th = al * H * (0.006 + 0.013 * nearY(py)) * (0.7 + 0.6 * N(a / (0.05 * H) + ph + 60, 2)); let v = (a / per + off) % 2; if (v > 1) v = 2 - v;
+          gk.setTransform(dpr * tx, dpr * ty, -sg * dpr * ty, sg * dpr * tx, dpr * (px - ox), dpr * (py - oy));   // laid opaque: slices overlap a little, and at part alpha every overlap showed as a dark hair, the bank as a comb
+          gk.drawImage(q.im, clamp(v * (q.w - 2), 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / per * q.w), q.h, 0, -0.12 * th, ds + 0.8, th);
+        }
+        home(gk);
+      } else { g.strokeStyle = `rgb(${INK})`; g.lineCap = 'round';
+        for (let i = 1; i < n; i++) { const al = sm((ga(i) - 0.42) / 0.12) * tone(i); if (al < 0.02) continue; g.globalAlpha = al * 0.8; g.lineWidth = H * (0.0015 + 0.003 * nearY(E[i][1])) * (0.6 + 0.8 * N(cum[i] / (0.03 * H) + ph, 2)); g.beginPath(); g.moveTo(E[i - 1][0], E[i - 1][1]); g.lineTo(E[i][0], E[i][1]); g.stroke(); }
+        g.globalAlpha = 1; }
+    }
+    { raw(gk); const gd = gk.createLinearGradient(0, 0, 0, chh); for (let k = 0; k <= 8; k++) gd.addColorStop(k / 8, `rgba(0,0,0,${(0.78 * (0.4 + 0.6 * nearY(oy + k / 8 * chh / dpr))).toFixed(3)})`);   // far reaches pale
+      gk.globalCompositeOperation = 'destination-in'; gk.fillStyle = gd; gk.fillRect(0, 0, cw, chh); raw(g); g.drawImage(bnk, 0, 0); home(g); }
+    gs.globalCompositeOperation = 'destination-out'; gs.fillStyle = '#000'; water(gs); gs.fill(); gs.globalCompositeOperation = 'source-over';
+    { const [w2, g2] = mk(); raw(g2); g2.filter = `blur(${(0.009 * H * dpr).toFixed(1)}px)`; g2.drawImage(wsh, 0, 0); g2.filter = 'none'; g2.globalCompositeOperation = 'source-in'; g2.fillStyle = `rgb(${INK})`; g2.fillRect(0, 0, cw, chh);
+      raw(g); g.globalAlpha = 0.22; g.globalCompositeOperation = 'destination-over'; g.drawImage(w2, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g); }
+    // -- the current: a few thin lines along the stream, short, each keeping to its own place between the banks
+    g.strokeStyle = `rgb(${INK})`; g.lineCap = 'round';
+    for (let k = 0, cnt = Math.round(L / (0.07 * H)); k < cnt; k++) {   // near the banks, the middle of the stream left bare (long and down the middle they were the lane lines of a road)
+      const i0 = Math.floor(R() * (n - 4)), len = Math.round(H * (0.03 + 0.07 * R()) / STEP), u0 = (R() < 0.5 ? -1 : 1) * (0.4 + 0.35 * R()), ph = R() * 90, a0 = 0.1 + 0.16 * R(), w0 = 0.0011 + 0.0012 * R();
+      g.beginPath(); let m = 0;
+      for (let i = i0; i < Math.min(n, i0 + len); i++, m++) { const u = clamp(u0 + 0.3 * (N(cum[i] / (0.06 * H) + ph, 2) - 0.5), -0.8, 0.8), w = hw[i] * u, x = P[i][0] - tan[i][1] * w, y = P[i][1] + tan[i][0] * w * FORE; if (m) g.lineTo(x, y); else g.moveTo(x, y); }
+      const im = Math.min(n - 1, i0 + (len >> 1)); g.globalAlpha = a0 * env(im) * (0.4 + 0.6 * nearY(P[im][1])) * sm(hw[im] / (0.012 * H)); g.lineWidth = H * w0 * (0.6 + 0.8 * nearY(P[im][1])); g.stroke();   // none in a far reach too narrow to hold one
+    }
+    g.globalAlpha = 0.11; raw(g); g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
+    return { river: true, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: y1, yTop: y0, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+  }
+
   const RIM = 0.006;   // how far before a near ridge the mountain behind it begins to pale, in screen heights
   const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
@@ -429,7 +500,7 @@
   const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = mountain(d) || false;
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = (d.kind === 'river' ? river(d) : mountain(d)) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
@@ -437,7 +508,11 @@
         if (d.m.mist) { const [mx, my, q] = d.m.mxy; b.globalCompositeOperation = 'destination-out'; b.globalAlpha = mistA(d); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high'; b.drawImage(d.m.mist, Math.round(mx * dpr), Math.round(my * dpr), d.m.mist.width * q * dpr, d.m.mist.height * q * dpr); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; } } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
-      const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m, nb = m.ts.length;
+      const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m;
+      if (m.river) {   // a river comes up all at once: the water clears, the banks darken
+        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e); c.restore();
+        strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1))); continue; }
+      const nb = m.ts.length;
       c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.moveTo(m.bx0 - 0.05 * H, m.ts[0] - 0.12 * H);
       for (let k = 0; k < nb; k += 4) c.lineTo(m.bx0 + k * BIN, m.ts[k] - 0.12 * H); c.lineTo(m.bx0 + nb * BIN + 0.05 * H, m.ts[nb - 1] - 0.12 * H);
       for (let k = nb - 1; k >= 0; k -= 4) c.lineTo(m.bx0 + k * BIN + (k > nb - 5 ? 0.05 * H : 0), m.ts[k] + 0.02 * H + e * m.depth[k]); c.lineTo(m.bx0 - 0.05 * H, m.ts[0] + 0.02 * H + e * m.depth[0]); c.closePath();
@@ -465,9 +540,10 @@
     <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button>
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
-Thả chuột: nét thành núi
-Vẽ cao trên giấy: núi xa, nhạt
-Vẽ thấp: núi gần, đậm</div>`;
+Thả chuột: nét thành núi hoặc sông
+Phím 1: nét núi. Phím 2: nét sông
+Vẽ cao trên giấy: xa, nhạt, sông hẹp
+Vẽ thấp: gần, đậm, sông rộng</div>`;
   panel.insertBefore(pbox, panel.firstChild);
   const $ = (id) => document.getElementById(id);
   const redo = (reseed) => { for (const d of st.done) { d.m = null; if (reseed) d.seed = (Math.random() * 2147483647) | 0; } bakeKey = ''; };
@@ -477,7 +553,7 @@ Vẽ thấp: núi gần, đậm</div>`;
   for (const [k] of SL) $('p_' + k).addEventListener('input', (e) => { S[k] = +e.target.value; save(); redo(false); sync(); });
   function sync() {
     if (!$('p_stat')) return;
-    $('p_stat').textContent = st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét';
+    $('p_stat').textContent = `Nét đang chọn: ${KINDS.map(([id, name], i) => (id === st.kind ? `[${i + 1} ${name}]` : `${i + 1} ${name}`)).join('  ')}\n` + (st.done.length ? `Đã vẽ ${st.done.length} nét` : 'Giấy trắng. Giữ chuột trái và bay một nét');
     $('p_tex').textContent = `Nét bút: ${S.tex} (B)`;
     for (const [k] of SL) { $('p_' + k).value = S[k]; $('p_' + k + 'v').textContent = S[k].toFixed(2); }
   }
@@ -485,6 +561,7 @@ Vẽ thấp: núi gần, đậm</div>`;
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true); else if (k === 'b') nextTex();
+    else if (KINDS[+k - 1] && !st.pen) { st.kind = KINDS[+k - 1][0]; say('Nét: ' + KINDS[+k - 1][1]); sync(); }
   });
 
   window.__paint = { S, st, step, render, reset, undo, freeW, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),

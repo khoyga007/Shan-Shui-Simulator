@@ -126,8 +126,10 @@
     fly((t) => [fw * (0.62 + 0.3 * t), H * (0.9 - 0.75 * Math.sin(t * 3.1416))], 2.0);   // a tall steep peak flown fast, as Yang drew in r005 (steep sides broke the ribbon)
     fly((t) => [fw * (0.9 + 0.03 * Math.sin(t * 5)), H * (0.75 - 0.4 * t)], 1.2);   // a nearly upright stroke
     }
+    // ?river=1 (with r7): a river coming down the paper in widening bends, across the body of the near mountain
+    if (new URLSearchParams(location.search).has('river')) Pt.st.done.push({ kind: 'river', stroke: Array.from({ length: 140 }, (_, i) => { const t = i / 139; return [(0.72 + 0.3 * Math.sin(t * 7.2) * (0.25 + 0.75 * t)) * H, (0.5 + 0.46 * t) * H, 0.8]; }), t0: D.T, seed: 9001 });
     Rm.S.cap = cap0;
-    const snap = () => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
+    const snap =() => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
       x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };
     for (let k = 0; k < 320; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 319 && k !== 30, noSnap: true }); if (k === 30) { Rm.G.draw(0); post('bot-paint-mid.jpg', snap()); } }   // the last stroke's ink runs down (1.6 s)
     const t0 = performance.now(); Rm.G.draw(0); const bakeMs = +(performance.now() - t0).toFixed(1);
