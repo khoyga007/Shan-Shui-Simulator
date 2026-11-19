@@ -150,3 +150,11 @@ G, current lines (cut by level()):
 
 H, loose pieces (cut by loose(): long low = ripple strokes, compact = rocks):
 `A brush practice sheet, landscape 16:9. About twenty-four small separate ink pieces scattered evenly. Half are riverside rocks in shan shui style: angular outline in a dark dry stroke, top left white, a little grey wash at the base, single rocks and groups of two or three, different sizes. Half are short water ripples: two to four thin shallow arcs lying side by side like a small flat wave or the wake around a stone, hair-thin, grey.` + tail
+
+## Lake sheets (11-19) -> web/assets/inklines/"<Source> I|J.png", Muse first. Same shared tail as the river sheets.
+
+I, lake shore (cut by level(), upper edge = waterline):
+`A brush practice sheet, landscape 16:9. Eight long horizontal brush strokes stacked top to bottom, each spanning almost the full width, evenly spaced. Each stroke is the shore of a still lake as painted in shan shui: its UPPER edge is a calm, almost perfectly level dark line (the waterline), drawn slowly with a wet brush; BELOW it a low flat strip of shore: soft dry-brush drag lying level, a few short level dashes, thinning out to nothing within a short distance. Quiet and flat, no flicks pointing down, no pebbles, no dots, no rocks. The weight varies along each stroke: dark and full in places, pale and almost vanishing in others, with one or two gaps. The first four strokes are heavy and dark (a near shore), the last four thin and pale grey (a far shore lost in mist).` + tail
+
+J, still water (cut by level()):
+`A brush practice sheet, landscape 16:9. Twelve rows stacked top to bottom, evenly spaced, each row spanning almost the full width. Each row is the surface of still water drawn with the very tip of a fine brush: one perfectly level hairline, as thin as a single hair, broken into four to seven dashes of different lengths with small gaps between them; every dash begins and ends in a fine point. Pale grey ink, some dashes a little darker. Perfectly level, no waves, no wavering, no curls, no dots, no double lines.` + tail
