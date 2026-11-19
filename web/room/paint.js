@@ -402,10 +402,15 @@
           a *= 1 - e * (1 - sm((y - t - 0.012 * H) / (0.03 * H)));   // away from the ends the ridge line itself stays, and what stands above it
           a *= vm[j];
           if (a > 0.004) px[(j * mw + i) * 4 + 3] = Math.round(a * 255); } }
-      mist = document.createElement('canvas'); mist.width = mw; mist.height = mh; mist.getContext('2d').putImageData(im, 0, 0); mxy = [mx, my, MQ]; }
+      // the real sheets bring crisp edges and paper grain with them: read at one value per 4 px and drawn enlarged, a bank
+      // of mist stood on the mountain as a cut-out with a speckled inside (Yang 11-19: "chưa được mềm và mịn"). The mask
+      // is blurred once, over about 6 px of paper: the shapes of the real wash stay, their edges melt
+      const sharp = document.createElement('canvas'); sharp.width = mw; sharp.height = mh; sharp.getContext('2d').putImageData(im, 0, 0);
+      mist = document.createElement('canvas'); mist.width = mw; mist.height = mh; { const x = mist.getContext('2d'); if (tb) x.filter = `blur(${(MSOFT * H / MQ).toFixed(2)}px)`; x.drawImage(sharp, 0, 0); } mxy = [mx, my, MQ]; }
     return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }
 
+  const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
   const bake = document.createElement('canvas'); let bakeKey = '';
