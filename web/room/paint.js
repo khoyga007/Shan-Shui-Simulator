@@ -28,8 +28,8 @@
   const INK = '18,18,24';
 
   // ---- state --------------------------------------------------------------------------------------------------------
-  const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9, kind: 'mountain' };   // kind: what the next stroke becomes (keys 1, 2)
-  const KINDS = [['mountain', 'núi'], ['river', 'sông'], ['lake', 'hồ']];
+  const st = { pen: false, stroke: [], done: [], msg: '', msgT: -9, kind: 'mountain' };   // kind: what the next stroke becomes (keys 1 to 5)
+  const KINDS = [['mountain', 'núi'], ['river', 'sông'], ['lake', 'hồ'], ['tree', 'cây'], ['grass', 'cỏ']];
   const say = (s) => { st.msg = s; st.msgT = D.T; };
   function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; sync(); }
   function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
@@ -662,6 +662,74 @@
     return { river: true, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
+  // One stroke -> one tree (Yang 11-19, key 4). The stroke is the trunk: its lower end the root, its upper end the top,
+  // bent as it was flown; the code grows the branches and hangs the foliage. Own sheets: M (_t trunks lying level, root
+  // at the left, 'c' = the row of the middle line; _y branches, base left, 'by' / 'ty' = base and tip rows), N (_n pine
+  // needle fans, _p pine boughs, flat underneath; _q clusters of leaf dots).
+  //   kind    a pine (level branches, a bough lying on each, fans at the tips) or a broadleaf tree (branches reaching
+  //           up, clusters of leaf dots at their ends): one or the other, by the stroke's seed (X draws it the other way)
+  //   size    everything follows the length of the stroke: a long one is a tall tree, a short one a bush
+  // Ink over ink: a tree hides nothing behind it. No drawn-by-code version: always Muse's sheets, whatever the brush.
+  const kitOf = (suf) => (STROKES['muse' + suf] || []).filter((q) => q.im);
+  function tree(d) {
+    const tB = performance.now(), H = D.H, R = dice(d.seed), P = calm(d.stroke, STEP, 5), n = P.length;
+    if (n < 6) return null; if (P[0][1] < P[n - 1][1]) P.reverse();
+    const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const L = cum[n - 1], kitT = kitOf('_t'), kitY = kitOf('_y'), kitN = kitOf('_n'), kitP = kitOf('_p'), kitQ = kitOf('_q'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    if (!kitT.length) return null;
+    const pine = (d.seed & 1) === 0, tan = P.map((_, i) => { const a = P[Math.max(0, i - 3)], b = P[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
+    let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
+    const pad = Math.round(clamp(0.65 * L, 0.06 * H, 0.38 * H)), ox = Math.floor(xa) - pad, oy = Math.floor(ya) - pad, cw = Math.ceil((xb - xa + 2 * pad + 2) * dpr), chh = Math.ceil((yb - ya + pad + 0.03 * H + 2) * dpr);
+    const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'), home = () => g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); home();
+    // -- the trunk: a real one in thin slices along the stroke, thick at the root and running out to a point
+    { const q = pick(kitT), th = clamp(1.6 * L * q.h / q.w, 0.006 * H, 0.075 * H), ds = 2, fl = R() < 0.5 ? -1 : 1; let j = 0;
+      for (let a = 0; a < L; a += ds) { while (j < n - 2 && cum[j + 1] < a) j++; const f = clamp((a - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), 0, 1), px = P[j][0] + (P[j + 1][0] - P[j][0]) * f, py = P[j][1] + (P[j + 1][1] - P[j][1]) * f, tx = tan[j][0], ty = tan[j][1];
+        g.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (px - ox), dpr * (py - oy)); g.drawImage(q.im, clamp(a / L * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / L * q.w), q.h, 0, -q.c * th, ds + 0.8, th); }
+      home(); }
+    // -- branches: from a third of the way up to the top, to one side and the other, shorter toward the top. A pine's
+    //    lie about level, a broadleaf tree's reach up. A pine carries few boughs, each standing clear of the next
+    const hang = [], nb = clamp(Math.round(L / ((pine ? 0.08 : 0.06) * H)), 1, pine ? 5 : 7); let sg = R() < 0.5 ? -1 : 1;
+    for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.75 : 0.36 + 0.58 * (k + 0.6 * R()) / nb, p = P[clamp(Math.round(t * (n - 1)), 0, n - 1)], len = clamp(L * (0.44 - 0.27 * t) * (0.7 + 0.6 * R()), 0.02 * H, 0.2 * H), rise = pine ? -0.12 + 0.42 * R() : 0.4 + 0.6 * R();
+      if (R() < 0.8) sg = -sg;
+      if (kitY.length) { const q = pick(kitY), hh = len * q.h / q.w; g.save(); g.translate(p[0], p[1]); g.scale(sg, 1); g.rotate(-rise - Math.atan2((q.ty - q.by) * q.h, q.w)); g.drawImage(q.im, 0, -q.by * hh, len, hh); g.restore(); }
+      hang.push({ x: p[0], y: p[1], ux: sg * Math.cos(rise), uy: -Math.sin(rise), len, sg, rise }); }
+    const top = P[n - 1], crown = clamp(0.3 * L, 0.03 * H, 0.17 * H);
+    // -- foliage. turn(): a piece, the middle of its foot at (x, y)
+    const turn = (q, x, y, w, ang, flip, a) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = a; g.drawImage(q.im, -w / 2, -h, w, h); g.restore(); g.globalAlpha = 1; };
+    if (pine) {
+      for (const b of hang) { if (kitN.length && R() < 0.45) turn(pick(kitN), b.x + b.ux * b.len * 0.95, b.y + b.uy * b.len * 0.95, b.len * (0.45 + 0.3 * R()), b.sg * (0.5 + 0.5 * R()), R() < 0.5, 0.85);
+        if (kitP.length) { const w = b.len * (0.7 + 0.35 * R()), f = 0.6 + 0.2 * R(), q = pick(kitP); turn(q, b.x + b.ux * b.len * f, b.y + b.uy * b.len * f + 0.1 * w * q.h / q.w, w, -b.sg * 0.5 * b.rise, b.sg < 0, 0.9 + 0.1 * R()); } }
+      if (kitP.length) { const q = pick(kitP), w = crown * (1.1 + 0.4 * R()); turn(q, top[0], top[1] + 0.3 * w * q.h / q.w, w, (R() - 0.5) * 0.3, R() < 0.5, 1); }
+    } else if (kitQ.length) { const puff = (x, y, w) => { const q = pick(kitQ), h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate((R() - 0.5) * 0.9); g.scale(R() < 0.5 ? -1 : 1, R() < 0.5 ? -1 : 1); g.globalAlpha = 0.7 + 0.3 * R(); g.drawImage(q.im, -w / 2, -h / 2, w, h); g.restore(); g.globalAlpha = 1; };
+      for (const b of hang) { puff(b.x + b.ux * b.len * 0.9, b.y + b.uy * b.len * 0.9, b.len * (1.0 + 0.6 * R())); if (R() < 0.6) puff(b.x + b.ux * b.len * 0.5, b.y + b.uy * b.len * 0.5 - 0.15 * b.len, b.len * (0.7 + 0.5 * R())); }
+      for (let k = 0, kn = 2 + Math.floor(R() * 2); k < kn; k++) puff(top[0] + (R() - 0.5) * crown * 1.2, top[1] + (R() - 0.2) * crown * 0.8, crown * (1.5 + 0.7 * R())); }
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1), peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+  }
+  const NOBODY = document.createElement('canvas'); NOBODY.width = NOBODY.height = 1;   // what a tree or grass hides of the things behind it: nothing
+
+  // One stroke -> grass (Yang 11-19, key 5). The stroke is a stretch of ground: tufts stand along it, upright whichever
+  // way it runs, in groups with bare ground between (never an even row). Sheet O: _u single tufts, _v low patches with
+  // their dashes of ground, _z small plants (a few). Small and pale high on the paper, larger and dark low on it.
+  function grass(d) {
+    const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 4), n = P.length;
+    if (n < 4) return null;
+    const kitU = kitOf('_u'), kitV = kitOf('_v'), kitZ = kitOf('_z'), nearY = (y) => clamp((y / H - 0.2) / 0.7, 0, 1);
+    if (!kitU.length) return null;
+    const cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
+    const pad = Math.round(0.1 * H), ox = Math.floor(xa) - pad, oy = Math.floor(ya) - pad, cw = Math.ceil((xb - xa + 2 * pad + 2) * dpr), chh = Math.ceil((yb - ya + 2 * pad + 2) * dpr);
+    const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr);
+    const set = []; let i = 0;
+    for (let s = R() * 0.02 * H; s < cum[n - 1]; s += H * (0.018 + 0.045 * R())) { while (i < n - 1 && cum[i] < s) i++;
+      const r = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R(); if (N(s / (0.16 * H) + 5, 2) < 0.4 && cum[n - 1] > 0.2 * H) continue;   // a short stroke is one group: no bare stretch in it
+      const kit = r < 0.6 || !kitV.length ? kitU : r < 0.9 || !kitZ.length ? kitV : kitZ, y = P[i][1] + (r2 - 0.5) * 0.008 * H;
+      set.push({ q: kit[Math.floor(r5 * kit.length) % kit.length], x: P[i][0], y, w: H * (0.016 + 0.036 * nearY(y)) * (0.6 + 0.8 * r3) * (kit === kitV ? 1.6 : 1), fl: r4 < 0.5, a: (0.45 + 0.55 * nearY(y)) * (0.7 + 0.3 * r4) }); }
+    set.sort((p, q) => p.y - q.y);
+    for (const t of set) { g.globalAlpha = t.a; stand(g, t.q, t.x, t.y, t.w, t.fl); } g.globalAlpha = 1;
+    return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+  }
+
   const SNAP = 0.05;   // how near its start a lake's stroke must end for the two to be drawn together, in screen heights
   const RIM = 0.006;  // how far before a near ridge the mountain behind it begins to pale, in screen heights
   const MSOFT = 0.006;   // how far the edge of the mist is melted, in screen heights
@@ -671,7 +739,7 @@
   const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = (d.kind === 'river' ? river(d) : d.kind === 'lake' ? lake(d) : mountain(d)) || false;
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, tree, grass }[d.kind] || mountain)(d) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
@@ -687,7 +755,7 @@
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m;
       if (m.river) {   // a river comes up all at once: the water clears, the banks darken
-        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e); c.restore(); if (m.flow) flowOf(d, e, -1);
+        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e * m.tone); c.restore(); if (m.flow) flowOf(d, e, -1);
         strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1))); continue; }
       const nb = m.ts.length;
       c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.moveTo(m.bx0 - 0.05 * H, m.ts[0] - 0.12 * H);
@@ -721,8 +789,9 @@
     <button id="p_undo">Bỏ nét cuối (Z)</button><button id="p_clear">Xóa tranh (C)</button><button id="p_again">Vẽ lại kiểu khác (X)</button><button id="p_tex"></button>
     ${SL.map(([k, name]) => `<label><span class="row"><span>${name}</span><b id="p_${k}v"></b></span><input type="range" id="p_${k}" min="0" max="1" step="0.05"></label>`).join('')}
     <div class="keys">Giữ chuột trái: hạ bút, rồng bay tới đâu vẽ tới đó
-Thả chuột: nét thành núi, sông hoặc hồ
+Thả chuột: nét thành núi, sông, hồ, cây hoặc cỏ
 Phím 1: nét núi. Phím 2: nét sông. Phím 3: hồ (bay một vòng)
+Phím 4: cây (nét = thân, gốc ở dưới). Phím 5: cỏ (nét = dải đất)
 Vẽ cao trên giấy: xa, nhạt, sông hẹp
 Vẽ thấp: gần, đậm, sông rộng</div>`;
   panel.insertBefore(pbox, panel.firstChild);

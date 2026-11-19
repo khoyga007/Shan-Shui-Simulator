@@ -13,6 +13,10 @@ alpha, plus strokes.json {key: [{f, w, h, tone}]}.
   <Source> J.png  rows of level dashes of still water                        key <source>_j
   <Source> K.png  clumps of reeds, and a row of low shore rocks              keys <source>_w (reeds), <source>_s (rocks)
   <Source> L.png  a row of leaping fish, a row of splash rings                keys <source>_x (fish), <source>_o (rings)
+  <Source> M.png  6 long level tree trunks (root left, tip right), under them    keys <source>_t (trunks, 'c' = the row of the
+                  two rows of short branches (base left, tip up and right)       trunk's middle), <source>_y (branches, 'by' 'ty' = base / tip row)
+  <Source> N.png  rows of foliage: pine needle fans, pine boughs, leaf dots     keys <source>_n, <source>_p, <source>_q
+  <Source> O.png  rows of grass: tufts, low patches, small plants               keys <source>_u, <source>_v, <source>_z
 Level strokes and bands are straightened: every column is slid up so the upper edge is level (they arc a little; bent
 along a ridge, the upper edge is the ridge line). usage: python tools/build_inklines.py"""
 import json, os
@@ -117,6 +121,48 @@ def fish(key, ink, thr=0.1):
             cols = np.nonzero(q.max(axis=0) > thr)[0]; save(key + suf, k, q[:, cols[0]:cols[-1] + 1]); k += 1
 
 
+def trunks(key, ink, thr=0.12):
+    """sheet M: long trunks lying level, root at the left; straightened by their middle line (the ink's centre of weight
+    per column, smoothed), which is laid on the stroke. Under them short branches, each cut whole: 'by' / 'ty' = the
+    row of its base (left end) and of its tip (right end), as parts of its height"""
+    u = ink.shape[1] / 2048; H, W = ink.shape; on = ink > thr
+    for suf in ('_t', '_y'): man.pop(key + suf, None)
+    lab, n = ndi.label(ndi.binary_dilation(on, structure=np.ones((int(5 * u) | 1, int(41 * u) | 1))))
+    k = 0
+    for i, s in sorted(enumerate(ndi.find_objects(lab)), key=lambda t: t[1][0].start):
+        if s[1].stop - s[1].start < 0.4 * W: continue
+        a = np.where(lab[s] == i + 1, ink[s], 0); h, w = a.shape; ys = np.arange(h)[:, None]
+        m = a.sum(axis=0); ok = m > 0.5; xs = np.arange(w); cen = np.interp(xs, xs[ok], ((a * ys).sum(axis=0)[ok] / m[ok]))
+        cen = ndi.gaussian_filter1d(ndi.median_filter(cen, size=int(121 * u) | 1, mode='nearest'), 30 * u, mode='nearest')
+        padv = int(np.ceil(cen.max() - cen.min())) + 1; b = np.zeros((h + 2 * padv, w), np.float32); c0 = padv + int(round(cen.mean()))
+        for x in range(w): sh = c0 - int(round(cen[x])); b[sh:sh + h, x] = a[:, x]
+        rows = np.nonzero(b.max(axis=1) > thr)[0]; cols = np.nonzero(b.max(axis=0) > thr)[0]
+        b = b[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]; save(key + '_t', k, b); man[key + '_t'][-1]['c'] = round((c0 - rows[0]) / b.shape[0], 3); k += 1
+    lab, n = ndi.label(ndi.binary_dilation(on, structure=np.ones((int(9 * u) | 1, int(15 * u) | 1))))
+    k = 0
+    for i, s in sorted(enumerate(ndi.find_objects(lab)), key=lambda t: (t[1][0].start // int(120 * u), t[1][1].start)):
+        ww = s[1].stop - s[1].start
+        if ww < 100 * u or ww > 0.4 * W or (s[0].start + s[0].stop) / 2 < 0.6 * H: continue
+        a = np.where(lab[s] == i + 1, ink[s], 0); rows = np.nonzero(a.max(axis=1) > thr)[0]; cols = np.nonzero(a.max(axis=0) > thr)[0]
+        a = a[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]; h, w = a.shape; e = max(2, w // 10); ys = np.arange(h)[:, None]
+        cy = lambda q: float((q * ys).sum() / max(1e-6, q.sum()) / h)
+        save(key + '_y', k, a); man[key + '_y'][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
+
+
+def rowsheet(key, ink, sufs, thr=0.1, gap=9):
+    """a sheet of rows of separate pieces (N: foliage, O: grass), one kind a row: rows found as bands of ink, pieces as
+    runs of columns in a band (gap: what still joins two columns into one piece)"""
+    u = ink.shape[1] / 2048; on = ink > thr
+    bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(25 * u) | 1))) if b - a > 40 * u]
+    for (a, b), suf in zip(bands, sufs):
+        man.pop(key + suf, None); k = 0
+        for ca, cb in runs(ndi.binary_dilation(on[a:b].any(axis=0), structure=np.ones(int(gap * u) | 1))):
+            if cb - ca < 40 * u: continue
+            q = ink[a:b, ca:cb]; rows = np.nonzero(q.max(axis=1) > thr)[0]; cols = np.nonzero(q.max(axis=0) > thr)[0]
+            save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1
+    print(' rows', len(bands), 'of', len(sufs))
+
+
 # -- mist (sheets D and E): not ink to lay down but a mask. A flat grey wash that mist has eaten into: grey = the ink
 #    of the mountain stays, white = mist. Saved as the others (grey in alpha, 1 = ink stays), read as numbers by paint.js
 SKIP = {'muse_m': {0, 1}, 'muse_e': 'all'}   # Muse's came out as Western watercolour blooms (crinkled cauliflower rims), not mist
@@ -195,6 +241,9 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'j': loose(src, ink, thr=0.1, crop=0.05, long='_j', comp='_jx', gain=0.9, minh=0)   # still water: single level dashes, pointed at both ends
     elif kind == 'k': tufts(src, ink)
     elif kind == 'l': fish(src, ink)
+    elif kind == 'm': trunks(src, ink)
+    elif kind == 'n': rowsheet(src, ink, ('_n', '_p', '_q'), gap=5)      # pine needle fans (they stand close), pine boughs, clusters of leaf dots
+    elif kind == 'o': rowsheet(src, ink, ('_u', '_v', '_z'), gap=15)     # grass tufts, low patches of grass, small plants: the bottom of a piece = the ground
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
