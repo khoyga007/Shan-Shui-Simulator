@@ -679,12 +679,12 @@
     if (!kitT.length) return null;
     const pine = (d.seed & 1) === 0, tan = P.map((_, i) => { const a = P[Math.max(0, i - 3)], b = P[Math.min(n - 1, i + 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
     let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of P) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
-    const pad = Math.round(clamp(0.65 * L, 0.06 * H, 0.38 * H)), ox = Math.floor(xa) - pad, oy = Math.floor(ya) - pad, cw = Math.ceil((xb - xa + 2 * pad + 2) * dpr), chh = Math.ceil((yb - ya + pad + 0.03 * H + 2) * dpr);
+    const pad = Math.round(clamp(0.8 * L, 0.1 * H, 0.42 * H)), ox = Math.floor(xa) - pad, oy = Math.floor(ya) - pad, cw = Math.ceil((xb - xa + 2 * pad + 2) * dpr), chh = Math.ceil((yb - ya + 2 * pad + 2) * dpr);   // room on every side, under the root too: a trunk flown level or bent over hangs its foliage below its own root (r010: cut off along a ruled line)
     const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'), home = () => g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); home();
     // -- the trunk: a real one in thin slices along the stroke, thick at the root and running out to a point
     { const q = pick(kitT), th = clamp(1.6 * L * q.h / q.w, 0.006 * H, 0.075 * H), ds = 2, fl = R() < 0.5 ? -1 : 1; let j = 0;
       for (let a = 0; a < L; a += ds) { while (j < n - 2 && cum[j + 1] < a) j++; const f = clamp((a - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]), 0, 1), px = P[j][0] + (P[j + 1][0] - P[j][0]) * f, py = P[j][1] + (P[j + 1][1] - P[j][1]) * f, tx = tan[j][0], ty = tan[j][1];
-        g.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (px - ox), dpr * (py - oy)); g.drawImage(q.im, clamp(a / L * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / L * q.w), q.h, 0, -q.c * th, ds + 0.8, th); }
+        g.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, dpr * (px - ox), dpr * (py - oy)); g.drawImage(q.im, clamp(a / L * q.w, 0, q.w - 2), 0, Math.max(1, (ds + 0.3) / L * q.w), q.h, 0, -q.c * th, ds + 0.3, th); }   // barely overlapping: a trunk's grey wash showed every overlap as a dark hair, the bark as a comb (r010)
       home(); }
     // -- branches: from a third of the way up to the top, to one side and the other, shorter toward the top. A pine's
     //    lie about level, a broadleaf tree's reach up. A pine carries few boughs, each standing clear of the next
@@ -697,10 +697,11 @@
     // -- foliage. turn(): a piece, the middle of its foot at (x, y)
     const turn = (q, x, y, w, ang, flip, a) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = a; g.drawImage(q.im, -w / 2, -h, w, h); g.restore(); g.globalAlpha = 1; };
     if (pine) {
-      for (const b of hang) { if (kitN.length && R() < 0.45) turn(pick(kitN), b.x + b.ux * b.len * 0.95, b.y + b.uy * b.len * 0.95, b.len * (0.45 + 0.3 * R()), b.sg * (0.5 + 0.5 * R()), R() < 0.5, 0.85);
+      for (const b of hang) { if (kitN.length && R() < 0.45) turn(pick(kitN), b.x + b.ux * b.len * 0.95, b.y + b.uy * b.len * 0.95, Math.min(0.075 * H, b.len * (0.45 + 0.3 * R())), b.sg * (0.5 + 0.5 * R()), R() < 0.5, 0.85);
         if (kitP.length) { const w = b.len * (0.7 + 0.35 * R()), f = 0.6 + 0.2 * R(), q = pick(kitP); turn(q, b.x + b.ux * b.len * f, b.y + b.uy * b.len * f + 0.1 * w * q.h / q.w, w, -b.sg * 0.5 * b.rise, b.sg < 0, 0.9 + 0.1 * R()); } }
       if (kitP.length) { const q = pick(kitP), w = crown * (1.1 + 0.4 * R()); turn(q, top[0], top[1] + 0.3 * w * q.h / q.w, w, (R() - 0.5) * 0.3, R() < 0.5, 1); }
-    } else if (kitQ.length) { const puff = (x, y, w) => { const q = pick(kitQ), h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate((R() - 0.5) * 0.9); g.scale(R() < 0.5 ? -1 : 1, R() < 0.5 ? -1 : 1); g.globalAlpha = 0.7 + 0.3 * R(); g.drawImage(q.im, -w / 2, -h / 2, w, h); g.restore(); g.globalAlpha = 1; };
+    } else if (kitQ.length) { const puff = (x, y, w) => { w = Math.min(w, 0.15 * H); const q = pick(kitQ), h = w * q.h / q.w;   // no larger: blown up on a tall tree the dabs were blots, flung far from the tree (r010)
+        g.save(); g.translate(x, y); g.rotate((R() - 0.5) * 0.9); g.scale(R() < 0.5 ? -1 : 1, R() < 0.5 ? -1 : 1); g.globalAlpha = 0.7 + 0.3 * R(); g.drawImage(q.im, -w / 2, -h / 2, w, h); g.restore(); g.globalAlpha = 1; };
       for (const b of hang) { puff(b.x + b.ux * b.len * 0.9, b.y + b.uy * b.len * 0.9, b.len * (1.0 + 0.6 * R())); if (R() < 0.6) puff(b.x + b.ux * b.len * 0.5, b.y + b.uy * b.len * 0.5 - 0.15 * b.len, b.len * (0.7 + 0.5 * R())); }
       for (let k = 0, kn = 2 + Math.floor(R() * 2); k < kn; k++) puff(top[0] + (R() - 0.5) * crown * 1.2, top[1] + (R() - 0.2) * crown * 0.8, crown * (1.5 + 0.7 * R())); }
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
