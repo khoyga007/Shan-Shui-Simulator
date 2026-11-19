@@ -446,6 +446,23 @@
         if (r < 0.55) { g.beginPath(); g.ellipse(x, y - sz * 0.5, sz * (0.22 + 0.2 * Rv()), sz * (0.6 + 0.5 * Rv()), (Rv() - 0.5) * 0.7, 0, 6.2832); g.fill(); }
         else if (r < 0.85 || !kM.length) { g.beginPath(); g.ellipse(x, y - sz * 0.3, sz * (0.3 + 0.25 * Rv()), sz * (0.28 + 0.2 * Rv()), Rv() * 3, 0, 6.2832); g.fill(); }
         else { const q = kM[Math.floor(Rv() * kM.length) % kM.length], w = sz * (2.2 + 1.5 * Rv()), h = w * q.h / q.w; g.drawImage(q.im, x - w / 2, y - h * 0.8, w, h); } }
+      // -- and down from the ridge the forest itself (Yang 11-19, a painting of wooded peaks in cloud: "bức 1", and "của họ đậm hơn"):
+      //    the mountain is not outlined and textured so much as grown over, its dark the dark of trees. Thousands of small dabs
+      //    crowded from the top down, thickest under the ridge, breaking up into stands and then into single trees before the
+      //    mist; mostly upright grains (conifers stand), some round. A near mountain (low on the paper) wears them larger,
+      //    blacker and further down, a far one small and few: the depth of the painting is in that difference.
+      { const near = clamp((yBase / H - 0.3) / 0.5, 0, 1), fa = (1 - 0.7 * hill) * (1 - 0.4 * rock), Rf = dice(d.seed ^ 0x51f3), reach = 0.5 + 0.35 * near, s0 = H * (0.0045 + 0.004 * near);
+        let area = 0; for (let k = 0; k < nb; k++) area += depth[k] * BIN; const cnt = Math.min(16000, Math.round(fa * (0.55 + 0.75 * near) * area * reach / (s0 * s0) * 1.1));
+        // Clean ovals alone were a leopard's coat (bot still). Three layers now: a soft dark ground where the wood is thick (the
+        // wet ink the trees stand in), over it real brush dabs (sheet X's moss clusters, small, upright), and only then the grains.
+        const at = (pw) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depth[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t,
+            patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.3 - 0.32 * t) / 0.14), hi = 0.35 + 0.65 * sm((yBase - top[k]) / span / 0.5); return Rf() > patch * hi * (1 - 0.75 * t) ? null : [x, y, t]; };
+        for (let q = 0; q < cnt / 14; q++) { const a = at(1.6); if (!a) continue; const [x, y, t] = a, r = H * (0.012 + 0.016 * Rf()), gd = g.createRadialGradient(x, y, 0, x, y, r); gd.addColorStop(0, `rgba(${INK},${(0.16 * (0.5 + 0.5 * near) * (1 - 0.6 * t)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
+        g.fillStyle = `rgb(${INK})`;
+        if (kM.length) for (let q = 0; q < cnt / 5; q++) { const a = at(1.35); if (!a) continue; const [x, y, t] = a, m = kM[Math.floor(Rf() * kM.length) % kM.length], w = s0 * (2.2 + 2.6 * Rf()) * (1 - 0.3 * t), h = w * m.h / m.w * (1 + 0.5 * Rf()); g.globalAlpha = (0.3 + 0.5 * Rf()) * (0.6 + 0.4 * near) * (1 - 0.5 * t); g.drawImage(m.im, x - w / 2, y - h / 2, w, h); }
+        for (let q = 0; q < cnt / 2.5; q++) { const a = at(1.35); if (!a) continue; const [x, y, t] = a, sz = s0 * (0.4 + 0.8 * Rf() * Rf()) * (1 - 0.3 * t); g.globalAlpha = (0.3 + 0.5 * Rf()) * (0.6 + 0.4 * near) * (1 - 0.5 * t); g.beginPath();
+          if (Rf() < 0.7) g.ellipse(x, y, sz * (0.3 + 0.25 * Rf()), sz * (0.75 + 0.6 * Rf()), (Rf() - 0.5) * 0.5, 0, 6.2832); else g.ellipse(x, y, sz * (0.45 + 0.3 * Rf()), sz * (0.4 + 0.25 * Rf()), Rf() * 3, 0, 6.2832);
+          g.fill(); } }
       g.globalAlpha = 1; }
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
