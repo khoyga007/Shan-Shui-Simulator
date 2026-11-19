@@ -76,7 +76,7 @@
   function inkOn(m, k) { if (!m.inkB) { m.inkB = new Uint8Array(m.ts.length); try { const c = m.cv, im = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, H = D.H; for (let j = 0; j < m.ts.length; j++) { const px = Math.round((m.bx0 + (j + 0.5) * BIN - m.ox) * dpr); let a = 0; for (const dy of [0.008, 0.016, 0.026]) { const py = Math.round((m.ts[j] + dy * H - m.oy) * dpr); if (px >= 0 && px < c.width && py >= 0 && py < c.height) a = Math.max(a, im[4 * (py * c.width + px) + 3]); } m.inkB[j] = a > 70 ? 1 : 0; } } catch (e) { m.inkB.fill(1); } } return m.inkB[k]; }
   function ground(x, y) { const H = D.H; let best = null;
     for (const o of st.done) { const m = o.m; if (!m || !m.ts || m.river) continue; const k = Math.floor((x - m.bx0) / BIN); if (k < 0 || k >= m.ts.length) continue; const t = m.ts[k];
-      if (m.solid) { if (inkOn(m, k) && y > t - 0.05 * H && y < m.yBase + 0.02 * H) { const e = Math.abs(y - t); if (!best || !best.solid || e < best.e) best = { y: t, e, solid: true }; } }
+      if (m.solid) { if (inkOn(m, k) && y > t - 0.05 * H && y < m.yBase) { const e = Math.abs(y - t); if (!best || !best.solid || e < best.e) best = { y: t, e, solid: true }; } }
       else if (!best && y > t && y < m.yBase && !st.done.some((w) => w.m && w.m.wat && inWater(w.m, x, y))) best = { y, e: 0, solid: false }; }   // (a mountain's body runs on under the water before it: that is water, not land)
     return best; }
   function plant(q0, kind) { const H = D.H, q = q0.map((p) => p.slice());
@@ -1340,7 +1340,7 @@
     const set = []; let i = 0;
     for (let s = R() * 0.02 * H; s < cum[n - 1]; s += H * (0.018 + 0.045 * R())) { while (i < n - 1 && cum[i] < s) i++;
       const r = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R(); if (N(s / (0.16 * H) + 5, 2) < 0.4 && cum[n - 1] > 0.2 * H) continue;   // a short stroke is one group: no bare stretch in it
-      const kit = r < 0.6 || !kitV.length ? kitU : r < 0.9 || !kitZ.length ? kitV : kitZ, y = P[i][1] + (r2 - 0.5) * 0.008 * H;
+      const kit = r < 0.6 || !kitV.length ? kitU : r < 0.9 || !kitZ.length ? kitV : kitZ, y = P[i][1] + (r2 - 0.5) * 0.008 * H; if (!ground(P[i][0], y)) continue;   // every tuft is asked again when built, whatever way the stroke came in (Yang 11-19: "vẫn có vài ngọn cỏ mọc ngoài phạm vi của rìa đất")
       set.push({ q: kit[Math.floor(r5 * kit.length) % kit.length], x: P[i][0], y, w: H * (0.016 + 0.036 * nearY(y)) * (0.6 + 0.8 * r3) * (kit === kitV ? 1.6 : 1) * farK, fl: r4 < 0.5, a: (0.45 + 0.55 * nearY(y)) * (0.7 + 0.3 * r4) * (farK < 1 ? 0.6 : 1) }); }
     set.sort((p, q) => p.y - q.y);
     for (const t of set) { g.globalAlpha = t.a; stand(g, t.q, t.x, t.y, t.w, t.fl); } g.globalAlpha = 1;
