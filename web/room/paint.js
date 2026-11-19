@@ -1142,10 +1142,13 @@
         // Laid on a sheet of its own first, each slice wiping its place before it is drawn (Yang 11-19: "sao lại có cái vân ngang này?"): straight
         // onto the tree every overlap of two slices took the ink twice, and a grey stroke came out ribbed across like a washboard, worst on
         // bends, where the slices are widened to close the fan. Wiped first, an overlap holds one slice's ink only.
+        // a bamboo's stalk thins toward its tip (Yang 11-19: "ngọn của cành trúc đang quá to, nó phải nhỏ mỏng hơn để lúc vẽ cong rủ xuống mới giống"):
+        // the sheet's stalks are one width from end to end, a pole; drawn bowed over, a pole does not droop. Full width over the lower third, then down to a quarter
+        const tk = kind === 'bamboo' && q_ === qT ? th_ * (1 - 0.75 * sm((a / Lq - 0.3) / 0.7)) : th_;
         const cxs = dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - X), cys = dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - Y), rr = th_ * dpr + 6; bx0 = Math.min(bx0, cxs - rr); by0 = Math.min(by0, cys - rr); bx1 = Math.max(bx1, cxs + rr); by1 = Math.max(by1, cys + rr);
-        sx.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, cxs, cys); sx.clearRect(-ex / 2, -q_.c * th_, ds + 0.3 + ex, th_);
+        sx.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, cxs, cys); sx.clearRect(-ex / 2, -q_.c * tk, ds + 0.3 + ex, tk);
         sx.globalCompositeOperation = 'lighter';   // added, not laid over: along the wiped edge a pixel keeps part of the old slice and gets the rest from the new one, and laid over, the two parts made less than one whole (a pale hair across the trunk at every slice)
-        sx.drawImage(q_.im, clamp((u0 + (1 - u0) * a / Lq) * q_.w, 0, q_.w - 2), 0, Math.max(1, (ds + 0.3) / Lq * (1 - u0) * q_.w), q_.h, -ex / 2, -q_.c * th_, ds + 0.3 + ex, th_); sx.globalCompositeOperation = 'source-over'; }
+        sx.drawImage(q_.im, clamp((u0 + (1 - u0) * a / Lq) * q_.w, 0, q_.w - 2), 0, Math.max(1, (ds + 0.3) / Lq * (1 - u0) * q_.w), q_.h, -ex / 2, -q_.c * tk, ds + 0.3 + ex, tk); sx.globalCompositeOperation = 'source-over'; }
       sx.setTransform(1, 0, 0, 1, 0, 0);
       if (bx1 > bx0) { bx0 = Math.max(0, Math.floor(bx0)); by0 = Math.max(0, Math.floor(by0)); const bw = Math.min(sc.width, Math.ceil(bx1)) - bx0, bh = Math.min(sc.height, Math.ceil(by1)) - by0;
         if (bw > 0 && bh > 0) { G.save(); G.setTransform(1, 0, 0, 1, 0, 0); G.drawImage(sc, bx0, by0, bw, bh, bx0, by0, bw, bh); G.restore(); sx.clearRect(bx0, by0, bw, bh); } }
