@@ -597,6 +597,8 @@
                 if (kZB.length && as > 0.45 && as < 1.6 && r3 < chZ * (1 - 0.7 * sm((t - 0.25) / 0.3)) /* (was 0.6 everywhere: long woods slanting with the ridge, one under the other down both flanks of a peak, are arch under arch, the same on every peak. Fewer, how many is the mountain's own, and hardly any below its upper third) */) { lay.push([y, x, t, pk(kZB), 4, r1, Rf(), sl > 0]); continue; }
                 if (kZA.length && as < 0.4 && y > Math.max(top[ka], top[kb]) + 0.18 * wz && r3 < 0.55) { lay.push([y, x, t, pk(kZA), 3, r1, Rf()]); continue; } } }
             lay.push([y, x, t, pale ? pk(kYP) : kZC.length && Rf() < 0.07 ? pk(kZC) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
+          // (with the slanting woods mostly gone from the lower two thirds, the body there showed pale and blotched: Yang 11-19, "tăng mật độ rừng nửa dưới". The plain patches make it up there: half as many again, dark ones, below the upper third)
+          for (let q = 0; q < tries * 0.55; q++) { const r1 = Rf(), a = atY(1.0, w0 * (0.7 + 0.8 * r1)); if (!a || a[2] < 0.3 || a[2] > 0.92) continue; lay.push([a[1], a[0], a[2], pk(kYF), 0, r1, 0.5 + 0.5 * Rf()]); }
           if (kYT.length) for (let q = 0; q < tries * 0.5; q++) { const a = atY(0.8, 0); if (!a) continue; const [x, y, t] = a; if (t < 0.93) continue;   /* single trees only at the very foot, where the wood meets the mist */ lay.push([y, x, t, pk(kYT), 2, Rf(), Rf()]); }
           // (Yang 11-19, r012, a red ring on the flank of a near mountain: "sao lại có lằn ranh này?" On a slope no piece may sit right
           // under the ridge (its downhill end would hang out over it), so a strip there stayed bare: the smooth band of the ridge
