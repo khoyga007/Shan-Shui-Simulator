@@ -186,3 +186,5 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - AK sweeps `_kw`, `_kg`: ends torn in the cutter (`soft=`, each pixel row fades from its own place over ~16% of the width). Blunt ends had stood as upright slits in the bank. Bot: slits gone, bank a little paler.
 
 - Trunk tight bends (11-19, Yang: hook near root fanned into white slits / folded like a snapped stick): trunk path eased where turn radius < ~1.1x est. thickness (local smoothing, root+top fixed), before branches/roots are derived; slice widening on bends raised (cap 1.5 -> 4 px). Bot `&kink=1` (4 kinked trunks), still reports/trunk-bend.jpg: no slits/folds; only pine grove seen.
+
+- Trunk cross-ribs (11-19, Yang: "sao lại có cái vân ngang này?"): overlapping slices took ink twice (worse after bend-widening cap 4). limbRaw now lays a limb on a scratch canvas: each slice clearRect its place, then drawn with `lighter` (source-over after the wipe left a PALE hair at every slice: partial clear + partial draw < whole; tried, worse), then the limb goes onto the tree in one piece. Bot kink=1 zoom reports/trunk-ribs.jpg: ribs gone.
