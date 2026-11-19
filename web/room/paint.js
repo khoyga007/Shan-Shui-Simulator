@@ -132,7 +132,7 @@
         for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5);
         i += m; }
       for (let q = 0; q < 2; q++) of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);   // a step, not a plumb drop: flown straight down, the ridge stroke stood on end there as a black block (bot still: battlements)
-      for (let j = 0; j < n; j++) P[j][1] += H * rock * sm((ya + 0.3 * hgt - P[j][1]) / (0.14 * hgt)) * of[j]; }
+      for (let j = 0; j < n; j++) P[j][1] += 0.4 * H * rock * sm((ya + 0.3 * hgt - P[j][1]) / (0.14 * hgt)) * of[j]; }   // 0.4: only uneven now. What bristles on the tops in the paintings is no broken rock: it is the trees and scrub growing there, seen from afar (Yang 11-19), dotted on below
     // -- peaks: every crest of the path (a top, standing at least a little above both its sides) is drawn up into a point;
     //    the saddles between are cut a little deeper. A tent laid on a round top gives the break of a real summit
     const win = Math.max(4, Math.round(0.1 * H / STEP)), tr = Math.max(4, Math.round(0.055 * H / STEP)), crests = [];
@@ -432,6 +432,21 @@
     gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1;
     raw(g); g.filter = `blur(${(0.0045 * H * dpr).toFixed(1)}px)`; g.globalAlpha = 0.3 + 0.25 * hill; g.drawImage(rib, 0, 0); if (hill > 0.5) g.filter = `blur(${(0.0016 * H * dpr * hill).toFixed(1)}px)`; else g.filter = 'none'; g.globalAlpha = 0.93 - 0.5 * hill; g.drawImage(rib, 0, 0); g.filter = 'none';   // a soft halo first: wet ink creeping off the line
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
+    // -- what grows on the ridge, seen from afar: the bristling edge of the mountains in Yang's reference paintings is trees and
+    //    scrub, not rock. Dotted on over the finished line, standing up out of it: short upright dabs (trunks no longer than a
+    //    grain of rice), clusters of moss dots and of leaf dots sitting on them. In stands with bare stretches between, thick on
+    //    the tops, thinning down the shoulders; a crag wears the most, a peak less, a hill of wash a few.
+    { const kM = (STROKES.muse_xm || []).filter((q) => q.im), amt = (0.5 + 0.5 * rock) * (1 - 0.55 * hill), Rv = dice(d.seed ^ 0x77e1), span = Math.max(1, yBase - yTop);
+      g.strokeStyle = g.fillStyle = `rgb(${INK})`; g.lineCap = 'round';
+      // First try (bot still): few, large, far apart, clusters of leaf dots as tall as a tree: bubbles and matchsticks. A stand is
+      // many small dabs crowding each other, each one press of the brush tip: upright grains, round dots, a small moss cluster.
+      for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.0016 + 0.0034 * Rv())) { const k = col(x), hi = 0.3 + 0.7 * sm((yBase - top[k]) / span / 0.6), stand = sm((N(x / (0.05 * H) + 500, 2) - 0.4) / 0.14);
+        if (depth[k] < 0.05 * H || Rv() > amt * hi * (0.04 + 0.96 * stand)) continue;
+        const r = Rv(), sz = H * (0.0035 + 0.006 * Rv() * Rv()) * (0.75 + 0.5 * stand), y = top[k] + 0.002 * H - sz * 1.2 * Rv() * stand; g.globalAlpha = 0.55 + 0.4 * Rv();
+        if (r < 0.55) { g.beginPath(); g.ellipse(x, y - sz * 0.5, sz * (0.22 + 0.2 * Rv()), sz * (0.6 + 0.5 * Rv()), (Rv() - 0.5) * 0.7, 0, 6.2832); g.fill(); }
+        else if (r < 0.85 || !kM.length) { g.beginPath(); g.ellipse(x, y - sz * 0.3, sz * (0.3 + 0.25 * Rv()), sz * (0.28 + 0.2 * Rv()), Rv() * 3, 0, 6.2832); g.fill(); }
+        else { const q = kM[Math.floor(Rv() * kM.length) % kM.length], w = sz * (2.2 + 1.5 * Rv()), h = w * q.h / q.w; g.drawImage(q.im, x - w / 2, y - h * 0.8, w, h); } }
+      g.globalAlpha = 1; }
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
     // -- mist (Yang 11-18: a mask of bare paper laid over the body, so the mountain stands out of mist as in a painting
