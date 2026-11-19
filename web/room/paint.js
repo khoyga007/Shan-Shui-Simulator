@@ -509,6 +509,15 @@
                 if (kZA.length && as < 0.4 && y > Math.max(top[ka], top[kb]) + 0.18 * wz && r3 < 0.55) { lay.push([y, x, t, pk(kZA), 3, r1, Rf()]); continue; } } }
             lay.push([y, x, t, pale ? pk(kYP) : kZC.length && Rf() < 0.07 ? pk(kZC) : pk(kYF), pale ? 1 : 0, r1, Rf()]); }
           if (kYT.length) for (let q = 0; q < tries * 0.5; q++) { const a = atY(0.8, 0); if (!a) continue; const [x, y, t] = a; if (t < 0.93) continue;   /* single trees only at the very foot, where the wood meets the mist */ lay.push([y, x, t, pk(kYT), 2, Rf(), Rf()]); }
+          // (Yang 11-19, r012, a red ring on the flank of a near mountain: "sao lại có lằn ranh này?" On a slope no piece may sit right
+          // under the ridge (its downhill end would hang out over it), so a strip there stayed bare: the smooth band of the ridge
+          // stroke and a wedge of pale body under it, their edge against the wood a line running down the mountain. Now small
+          // patches in two rows along that strip, clipped to what lies under the ridge line so nothing hangs out; the wood below
+          // is laid over their feet. (source-atop did nothing here: ink over ink with the alpha kept is no change.)
+          { g.save(); g.beginPath(); g.moveTo(bx0 - 0.1 * H, yBase + 0.4 * H); g.lineTo(bx0 - 0.1 * H, top[0]); for (let k = 0; k < nb; k++) g.lineTo(bx0 + k * BIN, top[k] + 0.002 * H); g.lineTo(bx1 + 0.1 * H, top[nb - 1]); g.lineTo(bx1 + 0.1 * H, yBase + 0.4 * H); g.closePath(); g.clip();
+            for (let row = 0; row < 2; row++) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H;) { const w = w0 * (0.6 + 0.5 * Rf()), k = col(x), y = top[k] + w * (0.12 + 0.4 * row + 0.4 * Rf()), r2 = Rf(), al = (0.55 + 0.4 * Rf()) * (0.65 + 0.35 * near);
+              if (depthFull[k] > (0.05 + 0.04 * row) * H && y < yBase + 0.07 * H && r2 < grow(k, y)) put(pk(kYF), x, y, w, 0.5, al, 0); x += w * 0.3; }
+            g.restore(); g.globalAlpha = 1; }
           lay.sort((p, q) => p[0] - q[0]);
           for (const [y, x, t, m, kind, r1, r2, mir] of lay) {
             if (kind >= 3) put(m, x, y, w0 * (1.5 + 1.1 * r1) * (1 - 0.25 * t), kind === 3 ? 0.5 : 0.5, (0.55 + 0.4 * r2) * (0.65 + 0.35 * near) * (1 - 0.12 * t), 0, kind === 4 ? mir : undefined);
