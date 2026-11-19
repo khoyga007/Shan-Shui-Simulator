@@ -169,7 +169,7 @@ def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6, core=False):
         save(Y_, k, a); man[Y_][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
 
 
-def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None, join=25, heads=()):
+def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None, join=25, heads=(), soft=()):
     """a sheet of rows of separate pieces (N: foliage, O: grass), one kind a row: rows found as bands of ink, pieces as
     runs of columns in a band (gap: what still joins two columns into one piece).
     blob (a width for every row): pieces found instead as islands of ink, grown by that much to hold an island of
@@ -196,7 +196,13 @@ def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None, join=
                 t0 = ndi.median_filter(t0, size=int(81 * u) | 1, mode='nearest'); q = q * np.clip((t0[None, :] + (skirt[j] + 0.12) * hq - np.arange(hq)[:, None]) / (0.12 * hq), 0, 1)
                 rows = np.nonzero(q.max(axis=1) > thr)[0]
             cols = np.nonzero(q.max(axis=0) > thr)[0]
-            save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1
+            q = q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]
+            if j in soft:   # sheet AK, broad sweeps: each begins and ends blunt, and laid in rows on a bank those ends stood as upright slits in the dark. Both ends thinned out, each row of the piece from a place of its own, so the end is torn and not ruled
+                hq, wq = q.shape; f = max(4, int(0.16 * wq)); rg = np.random.default_rng(k + 7 * j); xs = np.arange(wq, dtype=np.float32)[None, :]
+                for sd in (0, 1):
+                    o = ndi.gaussian_filter1d(rg.random(hq).astype(np.float32), max(1.0, 0.04 * hq), mode='nearest'); o = (o - o.min()) / max(1e-6, float(o.max() - o.min())) * f
+                    q = q * np.clip(((xs if sd == 0 else wq - 1 - xs) - o[:, None]) / f, 0, 1) ** 1.3
+            save(key + suf, k, q); k += 1
     print(' rows', len(bands), 'of', len(sufs))
 
 
@@ -344,7 +350,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'ag': rowsheet(src, ink, ('_gc', '_ga', '_gs', '_gd', '_gm'), blob=(31, 5, 5, 15, 19))   # marks of hard rock: angular contour strokes (one has a gap), large axe-cuts, small axe-cuts, dry scrapes, clusters of blunt dots
     elif kind == 'ah': rowsheet(src, ink, ('_ec', '_eh', '_es', '_ed', '_eg'), thr=0.06, blob=(5, 15, 13, 25, 9))   # marks of soft earth: swelling contour strokes, hemp-fibre bundles, curling bundles, rice dots in level rows, grass tufts
     elif kind == 'ai': rowsheet(src, ink, ('_il', '_is', '_ig', '_in', '_if'), thr=0.05, blob=(5, 21, 31, 9, 25), join=65)   # still water: long single lines, short ones, loose groups of two to four, net-pattern patches, fish-scale patches
-    elif kind == 'ak': rowsheet(src, ink, ('_kw', '_kg', '_kd', '_km', '_kl'), thr=0.05, blob=(23, 15, 21, 21, 9), heads=(0,))   # dark near ground: broad sweeps of thick ink (solid top, lower edge breaking into dry streaks and flecks), grey wet washes (darker rim below), dry broken bands, clusters of wet moss dots, short level dabs
+    elif kind == 'ak': rowsheet(src, ink, ('_kw', '_kg', '_kd', '_km', '_kl'), thr=0.05, blob=(23, 15, 21, 21, 9), heads=(0,), soft=(0, 1))   # dark near ground: broad sweeps of thick ink (solid top, lower edge breaking into dry streaks and flecks), grey wet washes (darker rim below), dry broken bands, clusters of wet moss dots, short level dabs
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

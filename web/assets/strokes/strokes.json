@@ -5138,31 +5138,31 @@
    "f": "muse_kw-1.png",
    "w": 455,
    "h": 155,
-   "tone": 0.531
+   "tone": 0.39
   },
   {
    "f": "muse_kw-2.png",
    "w": 408,
    "h": 150,
-   "tone": 0.449
+   "tone": 0.299
   },
   {
    "f": "muse_kw-3.png",
    "w": 399,
    "h": 166,
-   "tone": 0.344
+   "tone": 0.248
   },
   {
    "f": "muse_kw-4.png",
    "w": 315,
    "h": 153,
-   "tone": 0.291
+   "tone": 0.168
   },
   {
    "f": "muse_kw-5.png",
    "w": 265,
    "h": 132,
-   "tone": 0.249
+   "tone": 0.166
   }
  ],
  "muse_kg": [
@@ -5170,31 +5170,31 @@
    "f": "muse_kg-1.png",
    "w": 350,
    "h": 92,
-   "tone": 0.374
+   "tone": 0.271
   },
   {
    "f": "muse_kg-2.png",
    "w": 374,
    "h": 89,
-   "tone": 0.342
+   "tone": 0.265
   },
   {
    "f": "muse_kg-3.png",
    "w": 260,
    "h": 86,
-   "tone": 0.4
+   "tone": 0.31
   },
   {
    "f": "muse_kg-4.png",
    "w": 370,
    "h": 88,
-   "tone": 0.323
+   "tone": 0.246
   },
   {
    "f": "muse_kg-5.png",
    "w": 289,
    "h": 88,
-   "tone": 0.324
+   "tone": 0.22
   }
  ],
  "muse_kd": [
