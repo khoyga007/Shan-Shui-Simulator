@@ -689,10 +689,19 @@
     // -- branches: from a third of the way up to the top, to one side and the other, shorter toward the top. A pine's
     //    lie about level, a broadleaf tree's reach up. A pine carries few boughs, each standing clear of the next
     const hang = [], nb = clamp(Math.round(L / ((pine ? 0.08 : 0.06) * H)), 1, pine ? 5 : 7); let sg = R() < 0.5 ? -1 : 1;
-    for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.75 : 0.36 + 0.58 * (k + 0.6 * R()) / nb, p = P[clamp(Math.round(t * (n - 1)), 0, n - 1)], len = clamp(L * (0.44 - 0.27 * t) * (0.7 + 0.6 * R()), 0.02 * H, 0.2 * H), rise = pine ? -0.12 + 0.42 * R() : 0.4 + 0.6 * R();
-      if (R() < 0.8) sg = -sg;
-      if (kitY.length) { const q = pick(kitY), hh = len * q.h / q.w; g.save(); g.translate(p[0], p[1]); g.scale(sg, 1); g.rotate(-rise - Math.atan2((q.ty - q.by) * q.h, q.w)); g.drawImage(q.im, 0, -q.by * hh, len, hh); g.restore(); }
-      hang.push({ x: p[0], y: p[1], ux: sg * Math.cos(rise), uy: -Math.sin(rise), len, sg, rise }); }
+    // Where and which way: set by the trunk, not by the paper. A branch leaves the trunk at an angle to it (a pine's
+    // nearly square, a broadleaf's leaning toward the top; now and then one leans back), to one side or the other,
+    // and never downward: on a trunk flown level or bent over, both sides' branches come out of its upper side.
+    // Unevenly spaced and of uneven length. (First version: left and right by turns at one fixed rise, evenly spaced.
+    // On a level trunk that gave a row of crossed pairs, XXXX: Yang 11-19, "mọc có pattern quá")
+    const ts = Array.from({ length: nb }, () => R()).sort((p, q) => p - q);
+    for (let k = 0; k < nb; k++) { const t = nb === 1 ? 0.75 : 0.3 + 0.66 * (0.55 * ts[k] + 0.45 * (k + 0.5) / nb), i = clamp(Math.round(t * (n - 1)), 0, n - 1), p = P[i], len = clamp(L * (0.44 - 0.27 * t) * (0.45 + 0.95 * R()), 0.02 * H, 0.2 * H);
+      let phi = pine ? 1.15 + 0.6 * R() : R() < 0.22 ? 1.75 + 0.45 * R() : 0.45 + 0.95 * R(); if (R() < 0.7) sg = -sg;
+      const dir = (s2) => { const c0 = Math.cos(phi), s0 = Math.sin(phi) * s2; return [tan[i][0] * c0 - tan[i][1] * s0, tan[i][1] * c0 + tan[i][0] * s0]; };
+      let u = dir(sg); if (u[1] > 0.1) { const v = dir(-sg); if (v[1] < u[1]) u = v; } if (u[1] > 0.1) { phi = 0.5; u = dir(1); }   // neither side goes up (a trunk hanging down): along the trunk
+      const bs = u[0] < 0 ? -1 : 1, rise = Math.atan2(-u[1], Math.abs(u[0]));
+      if (kitY.length) { const q = pick(kitY), hh = len * q.h / q.w; g.save(); g.translate(p[0], p[1]); g.scale(bs, 1); g.rotate(-rise - Math.atan2((q.ty - q.by) * q.h, q.w)); g.drawImage(q.im, 0, -q.by * hh, len, hh); g.restore(); }
+      hang.push({ x: p[0], y: p[1], ux: u[0], uy: u[1], len, sg: bs, rise }); }
     const top = P[n - 1], crown = clamp(0.3 * L, 0.03 * H, 0.17 * H);
     // -- foliage. turn(): a piece, the middle of its foot at (x, y)
     const turn = (q, x, y, w, ang, flip, a) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = a; g.drawImage(q.im, -w / 2, -h, w, h); g.restore(); g.globalAlpha = 1; };
