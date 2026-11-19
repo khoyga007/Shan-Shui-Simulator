@@ -744,11 +744,13 @@
         // merely under its highest point, which took a rock in the water beside a sloping bank for one on it and left its
         // foot a bare cut, Yang r014)
         onLand = st.done.some((o) => { if (o === d || !o.m || !o.m.solid) return false; const k = Math.floor((cx - o.m.bx0) / BIN); return k >= 0 && k < o.m.ts.length && foot > o.m.ts[k] + 0.004 * H && foot < o.m.yBase + 0.012 * H; }),
-        // The ground the viewer stands on (Yang 11-19: "gò đất đó là kiểu gò đất người nhìn đang đứng mà... đúng ra phải đen hoàn toàn và không
-        // cần đến sương để che"): a bank whose foot is at the bottom of the paper has no water before it and no far side to veil. It runs off
-        // the paper dark: its foot is put below the edge, so the pale strip, the thinning and the mist all fall outside the picture
-        edge = land === 'bank' && !onLand && H - foot < 0.07 * H; if (edge) foot = H + 0.06 * H;
-      const fy = Math.round((foot - oy) * dpr), cw2 = cv.width, ch2 = cv.height, hl = Math.max(0.02 * H, foot - ya), ground = edge || onLand || H - foot < 0.07 * H, fdG = edge ? 0 : Math.round(clamp(0.3 * hl, 0.035 * H, 0.11 * H) * dpr);
+        // The ground the viewer stands on (Yang 11-19: "gò đất đó là kiểu gò đất người nhìn đang đứng mà"): a bank whose foot is at the bottom of
+        // the paper has no water before it and no far side to veil, so no mist (mist says "far"). Tried black to the paper's edge first: a
+        // modern silhouette, not how ground is painted in ink. As painted: dark under its upper line, the strokes fewer and drier downward,
+        // the foot left open, bare paper to the edge. So: built as any bank, then broken up from the middle down by dry scrapes taken out
+        // of it, more of them the lower, before the last thinning to nothing
+        edge = land === 'bank' && !onLand && H - foot < 0.07 * H; ;
+      const fy = Math.round((foot - oy) * dpr), cw2 = cv.width, ch2 = cv.height, hl = Math.max(0.02 * H, foot - ya), ground = edge || onLand || H - foot < 0.07 * H, fdG = Math.round(clamp(0.3 * hl, 0.035 * H, 0.11 * H) * dpr);
       // Marks of its own kind (Yang 11-19: rock and earth were built from the same kits, differing only in amounts: "hao hao nhau,
       // khó phân biệt"). Sheets AG and AH, Muse's and Gemini's both: brush MARKS laid over the built body, never a whole shape.
       //   rock   black, dry, angular: large axe-cuts slanting down its face, small chops, dry scrapes low down, blunt dots on its edge
@@ -772,9 +774,9 @@
             // wash underneath only so no paper shows between them; over it rows of wet earth strokes (AH _ec, and sheet AK's broad dark washes _kw
             // when it is there), many, overlapping, lying along the slope, heavy under the upper line and fewer and paler downward; in the
             // lower part dry scrapes (AG _gd, AK _kd), so the dark breaks up into the pale strip instead of fading smoothly.
-            { const gd = xm.createLinearGradient(0, (ya - oy) * dpr, 0, fy); gd.addColorStop(0, `rgba(${INK},0.38)`); gd.addColorStop(0.6, `rgba(${INK},${edge ? 0.38 : 0.28})`); gd.addColorStop(0.86, `rgba(${INK},${edge ? 0.38 : 0.1})`); gd.addColorStop(1, `rgba(${INK},${edge ? 0.38 : 0})`); xm.fillStyle = gd; xm.fillRect(0, 0, cw2, fy); }
-            { const kW = K('_kw').length ? K('_kw').concat(STROKES.muse_ec || []).filter((q) => q.im) : K('_ec'), kDr = K('_kd').concat(K('_gd')), kGy = K('_kg'), kMo = K('_km'), kLv = K('_kl'), nr = clamp(Math.round(hl / (0.012 * H)), 3, edge ? 16 : 9), sdm = () => (Rk() < 0.5 ? -1 : 1);
-              if (kW.length) for (let r = 0; r < nr; r++) { const fr = (r + 0.5) / nr; each(clamp(Math.round(w / ((kGy.length ? 0.13 : 0.07) * H) * (edge ? 1 : 1 - 0.5 * fr)), kGy.length ? 2 : 4, kGy.length ? 22 : 40), (x, top, dep) => mark(xm, pk(kGy.length && !edge && fr > 0.55 && Rk() < 0.7 ? kGy : kW), x, top + dep * clamp(fr + (Rk() - 0.5) / nr, 0.02, 0.98), clamp((0.1 + 0.14 * Rk()) * H, 0.04 * H, 0.7 * w), slopeAt(x) * (1 - fr) + (Rk() - 0.5) * 0.12, (edge ? 1 : 1 - 0.78 * fr * fr) * (0.6 + 0.4 * Rk()), sdm(), 0.5, 0.5)); }
+            { const gd = xm.createLinearGradient(0, (ya - oy) * dpr, 0, fy); gd.addColorStop(0, `rgba(${INK},0.38)`); gd.addColorStop(0.6, `rgba(${INK},0.28)`); gd.addColorStop(0.86, `rgba(${INK},0.1)`); gd.addColorStop(1, `rgba(${INK},0)`); xm.fillStyle = gd; xm.fillRect(0, 0, cw2, fy); }
+            { const kW = K('_kw').length ? K('_kw').concat(STROKES.muse_ec || []).filter((q) => q.im) : K('_ec'), kDr = K('_kd').concat(K('_gd')), kGy = K('_kg'), kMo = K('_km'), kLv = K('_kl'), nr = clamp(Math.round(hl / (0.012 * H)), 3, 9), sdm = () => (Rk() < 0.5 ? -1 : 1);
+              if (kW.length) for (let r = 0; r < nr; r++) { const fr = (r + 0.5) / nr; each(clamp(Math.round(w / ((kGy.length ? 0.13 : 0.07) * H) * (1 - 0.5 * fr)), kGy.length ? 2 : 4, kGy.length ? 22 : 40), (x, top, dep) => mark(xm, pk(kGy.length && fr > 0.55 && Rk() < 0.7 ? kGy : kW), x, top + dep * clamp(fr + (Rk() - 0.5) / nr, 0.02, 0.98), clamp((0.1 + 0.14 * Rk()) * H, 0.04 * H, 0.7 * w), slopeAt(x) * (1 - fr) + (Rk() - 0.5) * 0.12, (1 - 0.78 * fr * fr) * (0.6 + 0.4 * Rk()), sdm(), 0.5, 0.5)); }
               if (kDr.length) each(clamp(Math.round(w / (0.1 * H)), 2, 16), (x, top, dep) => mark(xm, pk(kDr), x, top + dep * (0.5 + 0.4 * Rk()), clamp((0.08 + 0.1 * Rk()) * H, 0.04 * H, 0.6 * w), (Rk() - 0.5) * 0.1, 0.45 + 0.35 * Rk(), sdm(), 0.5, 0.5));
               // sheet AK's small marks: level dabs strewn through the upper half, a few clusters of wet moss dots under the upper line
               if (kLv.length) each(clamp(Math.round(w / (0.09 * H)), 2, 24), (x, top, dep) => mark(xm, pk(kLv), x, top + dep * (0.08 + 0.5 * Rk()), (0.025 + 0.03 * Rk()) * H, slopeAt(x) + (Rk() - 0.5) * 0.1, 0.6 + 0.4 * Rk(), sdm(), 0.5, 0.5));
@@ -782,7 +784,7 @@
             if (kC.length) each(Math.round(w / (0.3 * H)) + 1, (x, top, dep) => mark(xm, pk(kC), x, top + dep * (0.3 + 0.4 * Rk()), clamp((0.12 + 0.18 * Rk()) * H, 0.04 * H, 0.6 * w), slopeAt(x) + (Rk() - 0.5) * 0.15, 0.3 + 0.2 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.5));
             if (kH.length) each(clamp(Math.round(w / (0.3 * H)), 1, 5), (x, top, dep) => { const fx = Rk() < 0.5 ? -1 : 1; mark(xm, pk(kH), x, top + dep * (0.2 + 0.5 * Rk()), clamp((0.1 + 0.16 * Rk()) * H, 0.04 * H, 0.6 * w), slopeAt(x) + fx * 0.28 + (Rk() - 0.5) * 0.2, 1, fx, 0.5, 0.5); });
             if (kR.length) each(Math.round(w / (0.22 * H)) + 1, (x, top, dep) => mark(xm, pk(kR), x, top + dep * (0.1 + 0.3 * Rk()), (0.04 + 0.04 * Rk()) * H, slopeAt(x), 0.55 + 0.25 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.5));
-            xm.setTransform(1, 0, 0, 1, 0, 0); xm.globalCompositeOperation = 'destination-in'; xm.drawImage(body, 0, 0); gc.save(); gc.setTransform(1, 0, 0, 1, 0, 0); gc.globalAlpha = 1; gc.drawImage(tm, 0, 0); if (edge) { gc.drawImage(tm, 0, 0); gc.drawImage(tm, 0, 0); }   /* the viewer's ground: laid three times over, the marks' grain stays, the grey between them closes to black */ gc.restore();
+            xm.setTransform(1, 0, 0, 1, 0, 0); xm.globalCompositeOperation = 'destination-in'; xm.drawImage(body, 0, 0); gc.save(); gc.setTransform(1, 0, 0, 1, 0, 0); gc.globalAlpha = 1; gc.drawImage(tm, 0, 0); gc.restore();
             // Stones and a rough upper line (Yang 11-19: "đất đang hơi phẳng quá, đất thì phải có vài viên sỏi đá trồi lên, phải sần sùi, lởm
             // chởm 1 tý"). All of it rock marks of sheet AG laid over the finished body, none masked by it, so they break its outline:
             //   rim     small chops (_gs) every which way along the upper line, standing half out of it
@@ -805,7 +807,12 @@
         for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1;
           for (const [xe, sg, te] of [[bx0, 1, ts[0]], [bx0 + nb * BIN, -1, ts[nb - 1]]]) { const gd = x.createLinearGradient(xe, 0, xe + sg * fw, 0); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gd; x.fillRect(Math.min(xe - sg * 0.3 * H, xe + sg * fw), te + 0.008 * H, fw + 0.3 * H, H); }
           x.restore(); } }
-      for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; if (ground && fdG) { const gd = x.createLinearGradient(0, fy - fdG, 0, fy); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(0.55, 'rgba(0,0,0,0.45)'); gd.addColorStop(1, 'rgba(0,0,0,1)'); x.fillStyle = gd; x.fillRect(0, fy - fdG, cw2, fdG); }
+      if (edge) { const kDr = ['_kd', '_gd'].flatMap((sf) => (STROKES['muse' + sf] || []).concat(STROKES['gemini' + sf] || [])).filter((q) => q.im && q.w > 60), Re = dice(d.seed ^ 0x2f77), x = cv.getContext('2d');
+        if (kDr.length) { x.save(); x.globalCompositeOperation = 'destination-out';
+          for (let i = 0, ne = Math.round((bx1 - bx0) / (0.02 * H)); i < ne; i++) { const q = kDr[Math.floor(Re() * kDr.length) % kDr.length], px = bx0 + Re() * (bx1 - bx0), k = clamp(Math.floor((px - bx0) / BIN), 0, ts.length - 1), dep = foot - ts[k], r = Re(), fr = 0.3 + 0.7 * Math.sqrt(r), mw = (0.08 + 0.14 * Re()) * H, mh = mw * q.h / q.w;
+            x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); x.translate(px, ts[k] + dep * fr); x.rotate((Re() - 0.5) * 0.16); x.scale(Re() < 0.5 ? -1 : 1, 1); x.globalAlpha = clamp(0.25 + 1.1 * (fr - 0.3), 0, 1) * (0.6 + 0.4 * Re()); x.drawImage(q.im, -mw / 2, -mh / 2, mw, mh); }
+          x.restore(); } }
+      for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; if (ground) { const gd = x.createLinearGradient(0, fy - fdG, 0, fy); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(0.55, 'rgba(0,0,0,0.45)'); gd.addColorStop(1, 'rgba(0,0,0,1)'); x.fillStyle = gd; x.fillRect(0, fy - fdG, cw2, fdG); }
         x.fillStyle = '#000'; x.fillRect(0, fy, cw2, ch2); x.restore(); }
       const t = document.createElement('canvas'); t.width = cw2; t.height = ch2; const x = t.getContext('2d'), gx = cv.getContext('2d'), kf = aux('_f');
       if (kf.length && !ground) { const q = kf[Math.floor(R() * kf.length) % kf.length], hF = Math.min(0.014 * H, (bx1 - bx0) * q.h / q.w) * dpr; x.globalAlpha = 0.75; x.drawImage(q.im, (bx0 - ox) * dpr, fy - hF * 0.9, (bx1 - bx0) * dpr, hF);
