@@ -1143,8 +1143,8 @@
         // onto the tree every overlap of two slices took the ink twice, and a grey stroke came out ribbed across like a washboard, worst on
         // bends, where the slices are widened to close the fan. Wiped first, an overlap holds one slice's ink only.
         // a bamboo's stalk thins toward its tip (Yang 11-19: "ngọn của cành trúc đang quá to, nó phải nhỏ mỏng hơn để lúc vẽ cong rủ xuống mới giống"):
-        // the sheet's stalks are one width from end to end, a pole; drawn bowed over, a pole does not droop. Full width over the lower third, then down to a quarter
-        const tk = kind === 'bamboo' && q_ === qT ? th_ * (1 - 0.75 * sm((a / Lq - 0.3) / 0.7)) : th_;
+        // the sheet's stalks are one width from end to end, a pole; drawn bowed over, a pole does not droop. Full width over the lower sixth, then down to a tenth
+        const tk = kind === 'bamboo' && q_ === qT ? Math.max(th_ * (1 - 0.9 * Math.pow(clamp((a / Lq - 0.15) / 0.85, 0, 1), 0.85)), 0.0016 * H) : th_;   // (stronger, 11-19: from the lower sixth on, evenly, down to a tenth)
         const cxs = dpr * (Q[j][0] + (Q[j + 1][0] - Q[j][0]) * f - X), cys = dpr * (Q[j][1] + (Q[j + 1][1] - Q[j][1]) * f - Y), rr = th_ * dpr + 6; bx0 = Math.min(bx0, cxs - rr); by0 = Math.min(by0, cys - rr); bx1 = Math.max(bx1, cxs + rr); by1 = Math.max(by1, cys + rr);
         sx.setTransform(dpr * tx, dpr * ty, -fl * dpr * ty, fl * dpr * tx, cxs, cys); sx.clearRect(-ex / 2, -q_.c * tk, ds + 0.3 + ex, tk);
         sx.globalCompositeOperation = 'lighter';   // added, not laid over: along the wiped edge a pixel keeps part of the old slice and gets the rest from the new one, and laid over, the two parts made less than one whole (a pale hair across the trunk at every slice)
