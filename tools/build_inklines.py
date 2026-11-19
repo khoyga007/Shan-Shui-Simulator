@@ -351,6 +351,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'ah': rowsheet(src, ink, ('_ec', '_eh', '_es', '_ed', '_eg'), thr=0.06, blob=(5, 15, 13, 25, 9))   # marks of soft earth: swelling contour strokes, hemp-fibre bundles, curling bundles, rice dots in level rows, grass tufts
     elif kind == 'ai': rowsheet(src, ink, ('_il', '_is', '_ig', '_in', '_if'), thr=0.05, blob=(5, 21, 31, 9, 25), join=65)   # still water: long single lines, short ones, loose groups of two to four, net-pattern patches, fish-scale patches
     elif kind == 'ak': rowsheet(src, ink, ('_kw', '_kg', '_kd', '_km', '_kl'), thr=0.05, blob=(23, 15, 21, 21, 9), heads=(0,), soft=(0, 1))   # dark near ground: broad sweeps of thick ink (solid top, lower edge breaking into dry streaks and flecks), grey wet washes (darker rim below), dry broken bands, clusters of wet moss dots, short level dabs
+    elif kind == 'al': rowsheet(src, ink, ('_la', '_lx', '_ls', '_lk'), thr=0.05, blob=(9, 9, 31, 15), join=7)   # bold marks to lie over a mountain's wood: split-brush strokes (a band of dry streaks from one solid head), large chops, dry scuffs (grain, no edge: used as erasers), pressed knots of wet ink
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

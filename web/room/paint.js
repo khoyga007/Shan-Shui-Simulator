@@ -626,23 +626,30 @@
           //   ridge   here and there on the line an axe-cut chop set on it, its head a hair above the line, and clusters of moss dots:
           //           ink gathered in knots, the line no longer one even curve)
           if (!land) { const Rt = dice(d.seed ^ 0x77a1), kXH = (STROKES.muse_xh || []).filter((q) => q.im), kXA = (STROKES.muse_xa || []).filter((q) => q.im), kXM = (STROKES.muse_xm || []).filter((q) => q.im), pr = (kit) => kit[Math.floor(Rt() * kit.length) % kit.length],
+              // sheet AL (Muse and Gemini, 11-19): marks made to lie OVER the wood. Left out: Muse's split-brush strokes 4 to 6 (even teeth of a comb, a smooth fade), its knots 1 to 4 (watercolour blooms, pale centre, cauliflower rim)
+              kL = (sf, bad) => ['muse', 'gemini'].flatMap((src) => (STROKES[src + sf] || []).filter((q) => q.im && !(bad && bad.test(q.f)))), kLA = kL('_la', /muse_la-[456]\./), kLX = kL('_lx'), kLS = kL('_ls'), kLK = kL('_lk', /muse_lk-[1-4]\./),
               slA = (k) => clamp((top[Math.min(nb - 1, k + 6)] - top[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), out = (f) => { g.globalCompositeOperation = 'destination-out'; f(); g.globalCompositeOperation = 'source-over'; };
             g.save(); g.beginPath(); g.moveTo(bx0 - 0.1 * H, yBase + 0.4 * H); g.lineTo(bx0 - 0.1 * H, top[0]); for (let k = 0; k < nb; k++) g.lineTo(bx0 + k * BIN, top[k] + 0.006 * H); g.lineTo(bx1 + 0.1 * H, top[nb - 1]); g.lineTo(bx1 + 0.1 * H, yBase + 0.4 * H); g.closePath(); g.clip();
             for (let q = 0, nq = Math.round((bx1 - bx0) / (0.03 * H)); q < nq; q++) { const x = bx0 + (bx1 - bx0) * Rt(), k = col(x), dp = depthFull[k], t = 0.14 + 0.7 * Rt(), r1 = Rt(), r2 = Rt(), mir = Rt() < 0.5; if (dp < 0.06 * H) continue;
               const y = top[k] + dp * reachY * t, f = N(x / (0.22 * H) + y / (0.16 * H) + chO + 2100, 2), w = w0 * (1.6 + 1.2 * r1);
               /* (taking ink OUT for a lit mass was tried twice and dropped: with forest patches it came out as pale bubbles, with bands of wash as straight grey bars. The parting is by laying dark only: the lit mass is what is left alone) */
-              if (f < 0.42) put(pr(kYF), x, y, w, 0.55, 0.5 + 0.3 * r2, 0, mir); }
+              if (f < 0.42) put(pr(kYF), x, y, w, 0.55, 0.5 + 0.3 * r2, 0, mir);
+              else if (f > 0.6 && kLS.length && r1 < 0.6) out(() => put(pr(kLS), x, y, 1.2 * w, 0.5, 0.16 + 0.16 * r2, r2 - 0.5 || 0.01, mir)); }   /* faint: at half strength and more it punched white holes through to the paper, snow on the flank */   // the lit mass, with sheet AL's dry scuffs: grain and no edge, so neither bubbles nor bars
             g.restore(); g.globalAlpha = 1;
-            if (kXA.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.012 + 0.03 * Rt())) { const k = col(x), dp = depthFull[k], r1 = Rt(), r2 = Rt(), r3 = Rt(), r4 = Rt(); if (dp < 0.04 * H || N(x / (0.12 * H) + chO + 3300, 2) < 0.45) continue;
+            if (kLA.length || kXA.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.012 + 0.03 * Rt())) { const k = col(x), dp = depthFull[k], r1 = Rt(), r2 = Rt(), r3 = Rt(), r4 = Rt(); if (dp < 0.04 * H || N(x / (0.12 * H) + chO + 3300, 2) < 0.45) continue;
               // (first laid plumb down the fall line, long: ruled hairs hanging off the hill into the mist, rain. They lie along the form: the slope's own angle and a little steeper, toward its downhill side, short, ending well inside the wood)
               const sl = slA(k), sg = Math.abs(sl) > 0.08 ? (sl < 0 ? -1 : 1) : chSide, rc = Math.max(reachY, 0.6) /* a hill of wash wears little wood, its reach is short: the strokes are the bare flank's texture too and go by the body, not by the wood */, y = top[k] + 0.01 * H + dp * rc * 0.45 * r1, an0 = Math.min(1.05, Math.atan(Math.abs(sl)) + 0.3 + 0.35 * r3), len = Math.min((top[k] + dp * rc * 0.75 - y) / Math.sin(an0), H * (0.045 + 0.08 * r2)), an = sg > 0 ? an0 : Math.PI - an0; if (len < 0.015 * H) continue;
               // (sheet X's hemp-fibre lines, hair-thin and pale, did not read over the wood at all, dark or doubled. A dry drag of the brush does: the piece of a real stroke the flank's own texture strokes are made of, broad)
               // (nor did a dry drag: a faint hair, and two of them crossing stood as an X on a far hill. An axe-cut chop reads: broad, dark, its head up the slope)
-              if (kXA.length) stamp(pr(kXA), x, y, an, 0.55 * len, (0.45 + 0.4 * r4) * (0.6 + 0.4 * near)); }   // dark only: taken out pale they were ruled bars
+              // (sheet AL: a split-brush stroke, a band of dry streaks from one solid head, turned to fall with the slope: Muse's fall to the right as painted, Gemini's to the left, each mirrored for the other side; or a large chop)
+              const wl = Math.max(len, 0.03 * H), al = (0.65 + 0.35 * Rt()) * (0.65 + 0.35 * near);
+              if (kLA.length && r4 < 0.65) { const q = pr(kLA), mus = /^muse/.test(q.f); put(q, x, y + 0.3 * wl * q.h / q.w, 1.1 * wl, 0.5, al, sg * clamp(an0 - (mus ? 0.95 : 0.42), -0.5, 0.5) || 0.01, mus ? sg < 0 : sg > 0); }
+              else if (kLX.length) put(pr(kLX), x, y, 0.6 * wl, 0.5, al, (Rt() - 0.5) * 0.5 || 0.01, Rt() < 0.5);
+              else if (kXA.length) stamp(pr(kXA), x, y, an, 0.55 * len, (0.45 + 0.4 * r4) * (0.6 + 0.4 * near)); }
             if (kXA.length) for (let x = bx0 + 0.03 * H; x < bx1 - 0.03 * H; x += H * (0.02 + 0.05 * Rt())) { const k = col(x), r1 = Rt(), r2 = Rt(); if (depthFull[k] < 0.05 * H || N(x / (0.09 * H) + chO + 4400, 2) < 0.55) continue;
               const sl = slA(k), sg = sl < 0 ? -1 : 1; stamp(pr(kXA), x, top[k] - 0.002 * H, Math.atan2(Math.abs(sl) + 0.35 + 0.3 * r1, sg), H * (0.03 + 0.04 * r2) * (0.7 + 0.5 * near), 0.85 + 0.15 * Rt()); }
-            if (kXM.length) for (let x = bx0 + 0.03 * H; x < bx1 - 0.03 * H; x += H * (0.03 + 0.06 * Rt())) { const k = col(x), r1 = Rt(); if (depthFull[k] < 0.05 * H || N(x / (0.09 * H) + chO + 5500, 2) < 0.5) continue;
-              stamp(pr(kXM), x, top[k] + 0.003 * H, 6.283 * r1, H * (0.012 + 0.014 * Rt()), 0.8); }
+            if (kLK.length || kXM.length) for (let x = bx0 + 0.03 * H; x < bx1 - 0.03 * H; x += H * (0.03 + 0.06 * Rt())) { const k = col(x), r1 = Rt(); if (depthFull[k] < 0.05 * H || N(x / (0.09 * H) + chO + 5500, 2) < 0.5) continue;
+              if (kLK.length) put(pr(kLK), x, top[k] + 0.002 * H, H * (0.01 + 0.012 * Rt()) * (0.7 + 0.5 * near), 0.5, 0.9, 6.283 * r1 || 0.01, r1 < 0.5); else stamp(pr(kXM), x, top[k] + 0.003 * H, 6.283 * r1, H * (0.012 + 0.014 * Rt()), 0.8); }
             g.globalAlpha = 1; home(g); }
           g.globalAlpha = 1; }
         else {
