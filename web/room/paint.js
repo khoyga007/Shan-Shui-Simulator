@@ -1435,7 +1435,10 @@
     // mất cả gốc rồi": by its root alone it lay behind the land, whose foot is lower on the paper, and the land's body wiped its trunk out)
     if (d.kind === 'tree' || d.kind === 'grass') { if (!d.root) d.root = d.stroke.reduce((r, p) => (p[1] > r[1] ? p : r), d.stroke[0]); let z = d.m.yBase;
       for (const o of st.done) { const m = o.m; if (!m || !m.solid) continue; const k = Math.floor((d.root[0] - m.bx0) / BIN); if (k >= 0 && k < m.ts.length && d.root[1] > m.ts[k] - 0.04 * D.H && d.root[1] < m.yBase + 0.02 * D.H) z = Math.max(z, zk(o) + 0.6); } return z; }
-    let z = d.m.yBase; if (!d.m.river) for (const o of st.done) if (o.m && o.m.sea && z > o.m.yBase && meanY(d) < o.m.yBase) z = o.m.yBase - 0.5 + 0.4 * clamp((d.m.yBase - o.m.yBase) / D.H, 0, 1); return z; };
+    // Mountains whose feet lie at about one height (all those standing on a waterline do) have no order by their feet: a pale washed hill came to lie before a dark
+    // peak (r018, Yang: "depth đang bị vô lý"). Near is dark, far is pale: among such the darker stands in front. darkOf: the mean ink of its picture, once.
+    let z = d.m.yBase; if (!d.m.river) { const dk = darkOf(d.m); z += 0.03 * D.H * (dk - 0.5); for (const o of st.done) if (o.m && o.m.sea && d.m.yBase > o.m.yBase - 0.04 * D.H && meanY(d) < o.m.yBase) z = o.m.yBase - 0.5 + 0.1 * clamp((d.m.yBase - o.m.yBase) / D.H, -0.04, 1) + 0.3 * dk; } return z; };
+  function darkOf(m) { if (m.dark === undefined) { m.dark = 0.5; try { const t = document.createElement('canvas'); t.width = t.height = 32; const x = t.getContext('2d'); x.drawImage(m.cv, 0, 0, 32, 32); const im = x.getImageData(0, 0, 32, 32).data; let a = 0, n = 0; for (let i = 3; i < im.length; i += 4) if (im[i] > 12) { a += im[i]; n++; } if (n) m.dark = clamp(a / n / 255 * (m.tone || 1), 0, 1); } catch (e) {} } return m.dark; }
   // Near land begun or ended close to a side of the paper runs off that side (Yang 11-19: "nét đất mà bắt đầu từ sát cạnh
   // thì nó tự snap"): flown by hand the stroke starts a little inside the edge, and the bank ended there in a faded stump with
   // bare paper beside it. The end is carried on, level, to beyond the edge. Once a stroke. The right side: the paper's, under the panel.
