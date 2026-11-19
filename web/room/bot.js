@@ -152,6 +152,13 @@
       tr(0.22, 0.95, 0.5, 0.3, 9200); tr(0.55, 0.93, 0.36, -0.25, 9201); tr(1.0, 0.6, 0.14, 0.1, 9202); tr(1.12, 0.6, 0.1, -0.1, 9203); tr(1.55, 0.96, 0.42, 0.15, 9203); tr(1.3, 0.94, 0.26, -0.3, 9204); tr(0.8, 0.95, 0.08, 0, 9205);
       const gr = (x0, x1, y, seed) => Pt.st.done.push({ kind: 'grass', stroke: Array.from({ length: 80 }, (_, i) => { const t = i / 79; return [(x0 + (x1 - x0) * t) * H, (y + 0.012 * Math.sin(t * 9)) * H, 0.6]; }), t0: D.T, seed });
       gr(0.05, 0.75, 0.955, 9300); gr(1.2, 1.7, 0.965, 9301); gr(0.9, 1.25, 0.61, 9302); }
+    // ?plant=1 (with r7, sea, near): wood only on land. A tree flown with its root in the air over the left bank and one with its root deep
+    // in the right bank's face (both set on the bank's top), grass flown a little above the left bank's top (laid on it, before the bank),
+    // and a tree and a tuft of grass over open water (refused)
+    if (new URLSearchParams(location.search).has('plant')) { Rm.G.draw(0); const mk = (n, f) => Array.from({ length: n }, (_, i) => { const p = f(i / (n - 1)); return [p[0] * H, p[1] * H, 0.6]; });
+      const put = (kind, q, seed) => { const pl = Pt.plant(q, kind); if (pl.kind) Pt.st.done.push({ kind: pl.kind, el: 'wood', stroke: pl.q, root: pl.root, t0: D.T, seed }); return pl.kind || 'refused'; };
+      out.plant = { treeAir: put('tree', mk(60, (t) => [0.3 + 0.05 * t, 0.8 - 0.4 * t]), 9200), treeDeep: put('tree', mk(60, (t) => [1.35 - 0.04 * t, 0.9 - 0.4 * t]), 9203), grass: put('grass', mk(80, (t) => [0.1 + 0.6 * t, 0.83 + 0.01 * Math.sin(t * 9)]), 9300),
+        treeWater: put('tree', mk(60, (t) => [1.33, 0.68 - 0.3 * t]), 9204), grassWater: put('grass', mk(60, (t) => [1.28 + 0.12 * t, 0.67]), 9301), branch: put('grass', mk(90, (t) => [0.03 + 1.05 * t, 0.2 + 0.03 * Math.sin(t * 3.4)]), 9101) }; }
     Rm.S.cap = cap0;
     const snap =() => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
       x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };

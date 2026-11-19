@@ -60,16 +60,37 @@
     return false;
   }
   // guessed wrong: the key of the element again turns the last stroke into the next thing of that element
-  function turn() { const d = st.done[st.done.length - 1], subs = d && SUBS[d.el]; if (!subs || subs.length < 2 || d.el !== st.kind) return false; d.kind = subs[(subs.indexOf(d.kind) + 1) % subs.length]; d.m = null; bakeKey = ''; say(ELN[d.el] + ': đổi nét cuối thành ' + SUBN[d.kind]); return true; }
+  function turn() { const d = st.done[st.done.length - 1], subs = d && SUBS[d.el]; if (!subs || subs.length < 2 || d.el !== st.kind) return false; const nk = subs[(subs.indexOf(d.kind) + 1) % subs.length]; if (d.el === 'wood') { const pl = plant(d.stroke, nk); if (pl.kind !== nk) { say(pl.kind ? 'Nét này không nằm trên đất nên không đổi thành ' + SUBN[nk] + ' được' : pl.msg); return true; } d.stroke = pl.q; d.root = pl.root; } d.kind = nk; d.m = null; bakeKey = ''; say(ELN[d.el] + ': đổi nét cuối thành ' + SUBN[d.kind]); return true; }
   const say = (s) => { st.msg = s; st.msgT = D.T; };
   function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; if (typeof throwGrove === 'function') throwGrove(); sync(); }
   function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
   function penDown() { if (st.pen) return; st.pen = true; st.stroke = []; }
+  // Wood grows on land only (Yang 11-19: "cây chỉ có thể vẽ ở trên đất, cỏ cũng vậy"). ground: the land under a point: a bank
+  // or a rock whose top is near it (from 10% of a screen above its top down to its foot; the nearest top wins), else the
+  // body of a mountain. plant: a tree's root (the lowest point of its stroke) is set on the top of that bank or rock, the
+  // whole stroke moved with it (flown by hand the root hung in the air or deep in the bank's face); on a mountain it stays
+  // where flown. Grass: its points off the land are dropped, the rest laid on the top. No land under it: nothing is drawn
+  // and the reason is said. But a long level stroke off the land is a branch seen close (it grows in from the paper's
+  // edge, not from the ground), as before by turning a lying stroke into a tree.
+  function ground(x, y) { const H = D.H; let best = null;
+    for (const o of st.done) { const m = o.m; if (!m || !m.ts || m.river) continue; const k = Math.floor((x - m.bx0) / BIN); if (k < 0 || k >= m.ts.length) continue; const t = m.ts[k];
+      if (m.solid) { if (y > t - 0.1 * H && y < m.yBase + 0.02 * H) { const e = Math.abs(y - t); if (!best || !best.solid || e < best.e) best = { y: t, e, solid: true }; } }
+      else if (!best && y > t && y < m.yBase && !st.done.some((w) => w.m && w.m.wat && inWater(w.m, x, y))) best = { y, e: 0, solid: false }; }   // (a mountain's body runs on under the water before it: that is water, not land)
+    return best; }
+  function plant(q0, kind) { const H = D.H, q = q0.map((p) => p.slice());
+    if (kind === 'tree') { const r = q.reduce((a, p) => (p[1] > a[1] ? p : a), q[0]), g = ground(r[0], r[1]); if (!g) return { msg: 'Cây chỉ mọc trên đất: vẽ nét Địa (phím 1) trước, rồi vẽ cây từ mặt đất lên' };
+      if (g.solid) { const dy = g.y + 0.006 * H - r[1]; for (const p of q) p[1] += dy; } return { kind, q, root: [r[0], r[1]] }; }
+    const on = q.map((p) => ground(p[0], p[1])), keep = q.filter((p, i) => on[i]);
+    if (keep.length < 0.5 * q.length || keep.length < 4) { const a = q[0], b = q[q.length - 1]; if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.3 * D.W) return { kind: 'tree', q, root: [a[0], a[1]], branch: true, msg: 'Mộc: cành (nét ngang dài, không nằm trên đất)' };
+      return { msg: 'Cỏ chỉ mọc trên đất: vẽ nét Địa (phím 1) trước, rồi vẽ cỏ dọc mặt đất' }; }
+    let i = 0; for (const p of q) { const g = on[i++]; if (g && g.solid) p[1] = g.y + 0.002 * H; } const kq = q.filter((p, j) => on[j]), mid = kq[kq.length >> 1]; return { kind, q: kq, root: [mid[0], mid[1]] }; }
   function penUp() {
     if (!st.pen) return; st.pen = false;
     const q = st.stroke; st.stroke = []; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
     if (L < 0.06 * D.H) return;   // a tap, not a stroke
-    const kind = guess(st.kind, q, L); st.done.push({ stroke: q, kind, el: st.kind, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); if (SUBS[st.kind].length > 1) say(ELN[st.kind] + ': ' + SUBN[kind] + ' (bấm ' + (KINDS.findIndex((k) => k[0] === st.kind) + 1) + ' lần nữa để đổi)'); sync();
+    let kind = guess(st.kind, q, L), root;
+    if (st.kind === 'wood') { const pl = plant(q, kind); if (!pl.kind) { say(pl.msg); return; } kind = pl.kind; root = pl.root; q.length = 0; q.push(...pl.q); if (pl.msg) { st.done.push({ stroke: q, kind, el: st.kind, root, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); say(pl.msg); sync(); return; } }
+    st.done.push({ stroke: q, kind, el: st.kind, root, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); if (SUBS[st.kind].length > 1) say(ELN[st.kind] + ': ' + SUBN[kind] + ' (bấm ' + (KINDS.findIndex((k) => k[0] === st.kind) + 1) + ' lần nữa để đổi)'); sync();
   }
   function step(dt) {
     if (!st.pen || Rm.st.mouse) return;   // dragon off: the mouse lays the points itself (mPt)
@@ -1430,6 +1451,6 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
 
   try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
-  window.__paint = { S, st, step, render, reset, undo, freeW, guess, ripAt: (p) => { BOTRIP = p; }, wavMs: () => st.done.map((d) => (d.m && d.m.wavMs) || 0), ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
+  window.__paint = { S, st, step, render, reset, undo, freeW, guess, ripAt: (p) => { BOTRIP = p; }, plant, wavMs: () => st.done.map((d) => (d.m && d.m.wavMs) || 0), ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
     info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
 })();
