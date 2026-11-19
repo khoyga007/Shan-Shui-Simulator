@@ -707,8 +707,11 @@
     //      bare     nothing on the lowest part of the trunk (shed in the shade of the crown)
     const tips = [], wrapA = (v) => Math.atan2(Math.sin(v), Math.cos(v));
     const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], sway = (R() - 0.5) * 0.7 / m, lvl = Math.cos(ang) < 0 ? Math.PI : 0, dsg = lvl ? -1 : 1, trop = pine ? 0 : 0.35 + 0.5 * R(); let a = ang;
+      // a pine branch is crooked by elbows: one to three sharp turns, down then up by turns, straight between them.
+      // (Small random turns all along were smoothed away by the pull to level and did not read at a small size)
+      const ne = 1 + (R() < 0.6) + (len > 0.1 * H && R() < 0.5), el = pine ? Array.from({ length: ne }, (_, j) => Math.max(1, Math.round(m * (0.12 + 0.6 * (j + 0.3 + 0.4 * R()) / ne)))) : []; let es = R() < 0.7 ? 1 : -1;
       for (let i = 1; i <= m; i++) { const f = i / m;
-        a += sway + (R() - 0.5) * 0.09 + (pine ? 3 * wrapA(lvl + dsg * (0.3 * Math.sin(3.1416 * Math.min(1, f / 0.75)) - 0.65 * sm((f - 0.7) / 0.3)) - a) / m + (R() < 2.5 / m ? (R() - 0.5) * 0.9 : 0) : trop * 2 * f * wrapA(-1.5708 - a) / m);   // a pine's: level, sagging in its middle under its own weight, lifting at the tip, and crooked (a sudden turn here and there)
+        a += sway + (R() - 0.5) * 0.09 + (pine ? 1.6 * wrapA(lvl + dsg * (0.3 * Math.sin(3.1416 * Math.min(1, f / 0.75)) - 0.65 * sm((f - 0.7) / 0.3)) - a) / m + (el.includes(i) ? dsg * (es = -es) * -(0.5 + 0.4 * R()) : 0) :trop * 2 * f * wrapA(-1.5708 - a) / m);   // a pine's: level, sagging in its middle under its own weight, lifting at the tip, and crooked (a sudden turn here and there)
         if (Math.sin(a) > 0.3) a += (Math.cos(a) > 0 ? -1 : 1) * 0.07;   // a branch does not droop far: turned back toward level
         x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
       limb(Q, u0); tips.push({ x, y, len, a, Q });
