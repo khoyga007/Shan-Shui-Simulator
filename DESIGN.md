@@ -174,3 +174,5 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Near earth dark (11-19, Yang): bank = one dark wash over the body, heaviest under the upper line, thinning to a pale strip along the foot; few marks on top (hemp bundles cut to 1-5). Grey + many thin lines read weak.
 
 - Bank dark = brush marks, not a fill (11-19, Yang): thin wash underneath, rows of wet earth strokes layered over it (heavy under the upper line, fewer and paler downward), dry scrapes in the lower part. Sheet AK (broad dark washes) asked for; code takes its _kw / _kd when cut.
+
+- Near land has mist at its foot (11-19, Yang): wisps of sheet AA along the foot of bank and rock, own plain build in the land block (not the mountain sea-of-mist), amount = mist slider.

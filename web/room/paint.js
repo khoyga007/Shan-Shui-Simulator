@@ -785,7 +785,17 @@
         const kj = aux('_j'); if (kj.length) { gx.save(); gx.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); const w = bx1 - bx0;
           for (let k2 = 0, nd = land === 'bank' ? 4 + Math.floor(3 * R()) : 2 + Math.floor(2 * R()); k2 < nd; k2++) { const j = kj[Math.floor(R() * kj.length) % kj.length], dw = clamp(w * (land === 'bank' ? 0.08 + 0.2 * R() : 0.3 + 0.5 * R()), 0.02 * H, 0.3 * H), dh = Math.min(dw * j.h / j.w, 0.006 * H);
             gx.globalAlpha = 0.3 + 0.35 * R(); gx.drawImage(j.im, bx0 + R() * Math.max(1, w - dw), foot + (k2 ? R() : 0.1) * rh - dh / 2, dw, dh); } gx.restore(); } }
-      return { cv, body, mist: null, mxy, ox, oy, bx0, ts, depth: depthFull.map((v, k2) => Math.min(v, foot + rh - ts[k2] + 0.02 * H)), yBase: foot, yTop, extL, extR, tone, solid: true, cx, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 }; }
+      // Mist along its foot, as a mountain has (Yang 11-19: "cái chân của nó mình cũng phủ sương lên như núi ấy"). The mountain's own mist
+      // is a sea that eats into the body and is tied to its ridge; near land gets a plain one: wisps of sheet AA laid along the foot, most
+      // of them low, a few rising a little way up the face. Laid as every mist is (taken out of what is painted before it: the body's
+      // lower part, its image in the water), so wood standing on it stays in front. Amount = the mist slider; none at 0.
+      let lm = null, lxy = mxy; { const kA = (STROKES.muse_aw || []).concat(STROKES.muse_ap || [], STROKES.muse_av || []).filter((q) => q.im), mAmt = hillS(0, 0).mist;
+        if (kA.length && mAmt > 0.02) { const Q2 = 2, x0 = bx0 - 0.15 * H, x1 = bx1 + 0.15 * H, band = clamp(0.5 * hl, 0.03 * H, 0.12 * H), y0 = foot - band - 0.06 * H, y1 = foot + 0.06 * H, Rf = dice(d.seed ^ 0x4e1b);
+          lm = document.createElement('canvas'); lm.width = Math.ceil((x1 - x0) / Q2); lm.height = Math.ceil((y1 - y0) / Q2); const xg = lm.getContext('2d');
+          for (let i = 0, nm = Math.round((bx1 - bx0) / (0.045 * H) * (0.5 + mAmt)); i < nm; i++) { const q = kA[Math.floor(Rf() * kA.length) % kA.length], mw2 = H * (0.14 + 0.3 * Rf()), mh2 = Math.min(mw2 * q.h / q.w, band * (0.5 + 0.7 * Rf())), r = Rf(), cx3 = bx0 + Rf() * (bx1 - bx0), cy3 = foot + 0.008 * H - band * 0.9 * r * r;
+            xg.save(); xg.translate((cx3 - x0) / Q2, (cy3 - y0) / Q2); xg.scale(Rf() < 0.5 ? -1 : 1, 1); xg.globalAlpha = Math.min(1, (0.3 + 0.4 * Rf()) * (1 - 0.5 * r) * (0.6 + 0.8 * mAmt) * clamp(0.2 / Math.max(0.02, q.tone), 0.6, 1.6)); xg.drawImage(q.im, -mw2 / 2 / Q2, -mh2 / 2 / Q2, mw2 / Q2, mh2 / Q2); xg.restore(); }
+          lxy = [x0, y0, Q2]; } }
+      return { cv, body, mist: lm, mxy: lxy, ox, oy, bx0, ts, depth: depthFull.map((v, k2) => Math.min(v, foot + rh - ts[k2] + 0.02 * H)), yBase: foot, yTop, extL, extR, tone, solid: true, cx, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 }; }
     return { cv, body, mist, mxy, ox, oy, bx0, ts, depth: depthFull, yBase, yTop, extL, extR, tone, peaks: crests.length, ms: Math.round(performance.now() - tB), mistMs: Math.round(performance.now() - tMist) };
   }
 
