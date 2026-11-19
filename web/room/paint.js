@@ -1066,15 +1066,22 @@
     //    The thick starts overlap the trunk's blunt cut and hide it. Bamboo: a fan of short dry whiskers under the cane.
     //    Dice of its own, so the tree above it is the tree it was.
     if (!zhe) { const Rr = dice(d.seed ^ 0x3c19), bam = kind === 'bamboo', kD = kitDry.length ? kitDry : kitAll, qR = bam ? kD[Math.floor(Rr() * kD.length) % kD.length] : qT, thR = bam ? Math.max(0.6 * th0, 0.004 * H) : th0,
-        ux = tan[0][0], uy = tan[0][1], nr = bam ? 4 + Math.floor(Rr() * 3) : 2 + Math.floor(Rr() * 2) + (th0 > 0.02 * H ? 1 : 0) + (th0 > 0.045 * H ? 1 : 0); let sd = Rr() < 0.5 ? -1 : 1;
-      for (let k = 0; k < nr; k++) { sd = -sd; const len = bam ? (0.012 + 0.016 * Rr()) * H : Math.max(0.014 * H, th0 * (1.0 + 1.5 * Rr()) * (k < 2 ? 1 : 0.7)), m = Math.max(6, Math.round(len / 3)), up = bam ? 0.05 : 0.12 + 0.3 * Rr(),
-          Q = [[P[0][0] + ux * up * th0 + (bam ? (k / (nr - 1) - 0.5) * 0.5 * th0 : sd * 0.14 * th0), P[0][1] + uy * up * th0]], aT = (sd > 0 ? 0 : Math.PI) + sd * (0.05 + 0.2 * Rr()), ek = Math.round(m * (0.3 + 0.4 * Rr())), et = (Rr() - 0.5) * 0.7;
-        let a = bam ? 1.5708 + (k / (nr - 1) - 0.5) * 1.7 + (Rr() - 0.5) * 0.3 : 1.5708 - sd * (0.35 + 0.6 * Rr()), x = Q[0][0], y = Q[0][1];
+        ux = tan[0][0], uy = tan[0][1], nr = bam ? 4 + Math.floor(Rr() * 3) : 3 + Math.floor(Rr() * 2) + (th0 > 0.02 * H ? 1 : 0) + (th0 > 0.045 * H ? 1 : 0); let sd = Rr() < 0.5 ? -1 : 1;
+      // (First: two or three, straight, one each side: a chicken's foot, Yang 11-19 "chỉnh tiếp".) More of them, unequal; each winds
+      // as it goes, lies over to level, and plunges at its end; one in two forks a rootlet off its lower side; now and then a
+      // short one comes straight toward the viewer
+      const root = (x, y, a, len, u0, s, depth) => { const m = Math.max(6, Math.round(len / 3)), Q = [[x, y]], aT = (s > 0 ? 0 : Math.PI) + s * (0.02 + 0.25 * Rr()), wA = 0.18 + 0.24 * Rr(), wf = 0.8 + 0.9 * Rr(), wp = 6.283 * Rr(), ek = Math.round(m * (0.25 + 0.45 * Rr())), et = (Rr() - 0.5) * 0.9, dip = 0.45 + 0.6 * Rr();
         for (let i = 1; i <= m; i++) { const f = i / m;
-          if (bam) a += (Rr() - 0.5) * 0.2 + (a < 1.5708 ? -0.25 : 0.25) / m;
-          else a += (f < 0.7 ? 2.6 * wrapR(aT - a) / m : sd * 1.5 / m) + (Rr() - 0.5) * 0.12 + (i === ek ? et : 0);
+          a += (f < 0.65 ? 3.2 * wrapR(aT - a) / m : s * dip / (0.35 * m)) + wA * 6.283 * wf / m * Math.cos(6.283 * wf * f + wp) + (Rr() - 0.5) * 0.14 + (i === ek ? et : 0);
           x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
-        if (bam) g.globalAlpha = 0.75; limb(Q, bam ? 0.72 + 0.15 * Rr() : 0.42 + 0.3 * Rr() + (k < 2 ? 0 : 0.1), g, ox, oy, qR, thR); g.globalAlpha = 1; } }
+        limb(Q, u0, g, ox, oy, qR, thR);
+        if (depth < 1 && len > 0.02 * H && Rr() < 0.55) { const k = Math.round(m * (0.3 + 0.3 * Rr())); root(Q[k][0], Q[k][1], Math.atan2(Q[k + 1][1] - Q[k][1], Q[k + 1][0] - Q[k][0]) + s * (0.45 + 0.5 * Rr()), len * (0.35 + 0.25 * Rr()), Math.min(0.9, u0 + 0.18 + 0.1 * Rr()), s, depth + 1); } };
+      for (let k = 0; k < nr; k++) { sd = Rr() < 0.8 ? -sd : sd; const up = bam ? 0.05 : 0.08 + 0.4 * Rr(), x0 = P[0][0] + ux * up * th0 + (bam ? (k / (nr - 1) - 0.5) * 0.5 * th0 : sd * 0.14 * th0), y0 = P[0][1] + uy * up * th0;
+        if (bam) { const len = (0.012 + 0.016 * Rr()) * H, m = 6, Q = [[x0, y0]]; let a = 1.5708 + (k / (nr - 1) - 0.5) * 1.7 + (Rr() - 0.5) * 0.3, x = x0, y = y0;
+          for (let i = 1; i <= m; i++) { a += (Rr() - 0.5) * 0.2 + (a < 1.5708 ? -0.25 : 0.25) / m; x += Math.cos(a) * len / m; y += Math.sin(a) * len / m; Q.push([x, y]); }
+          g.globalAlpha = 0.75; limb(Q, 0.72 + 0.15 * Rr(), g, ox, oy, qR, thR); g.globalAlpha = 1; continue; }
+        const front = k >= 2 && Rr() < 0.3, len = Math.max(0.02 * H, th0 * (front ? 0.7 + 0.5 * Rr() : 1.1 + 1.7 * Rr()) * (k < 2 ? 1 : 0.75));
+        root(x0, y0, 1.5708 - sd * (front ? 0.1 + 0.25 * Rr() : 0.3 + 0.75 * Rr()), len, 0.38 + 0.3 * Rr() + (k < 2 ? 0 : 0.1), sd, front ? 1 : 0); } }
     // The branch is alive (Yang 11-19: swaying in the wind, a petal or a blossom letting go now and then). The old wood
     // is painted once and stays; every twig is a small painting of its own (its wood, its blossoms), turned a little
     // about the point it grows from, each frame, on a layer of its own (as a river's current): a shoot on an old side
