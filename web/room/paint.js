@@ -1167,11 +1167,38 @@
     const w = Math.max(xb - xa, 0.05 * H), rise = Math.max(yb - ya, 0.02 * H), ar = Math.log(w / (bank ? 2.2 * rise : rise));
     const by = kit.slice().sort((a, b) => Math.abs(Math.log(a.w / a.h) - ar) - Math.abs(Math.log(b.w / b.h) - ar)), q = by[Math.floor(R() * Math.min(3, by.length))];
     let h = w * q.h / q.w; if (bank) h = clamp(h, 0.03 * H, 0.2 * H); else if (yb - ya > 0.03 * H) h *= clamp((yb - ya) / h, 0.75, 1.3);
-    const foot = bank ? ya + h : yb, flip = bank ? q0[q0.length - 1][0] < q0[0][0] : R() < 0.5, near = clamp((foot / H - 0.2) / 0.7, 0, 1);
-    const ox = Math.floor(xa) - 2, oy = Math.floor(foot - h) - 2, cw = Math.ceil((w + 4) * dpr), chh = Math.ceil((h + 4) * dpr), mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; return cv; };
-    const cv = mk(), body = mk(), put = (cx, im, a) => { const g = cx.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); g.globalAlpha = a; g.translate(xa + w / 2, foot); if (flip) g.scale(-1, 1); g.imageSmoothingQuality = 'high'; g.drawImage(im, -w / 2, -h, w, h); };
-    put(cv, q.im, 1); if (!bank) put(cv, q.im, 0.35); put(body, sil(q), 1);
-    return { river: true, solid: true, live: null, flow: null, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: foot, yTop: foot - h, tone: 0.5 + 0.5 * near, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+    const foot = bank ? ya + h : yb, flip = bank ? q0[q0.length - 1][0] < q0[0][0] : R() < 0.5, near = clamp((foot / H - 0.2) / 0.7, 0, 1), tone = 0.5 + 0.5 * near;
+    // a bank follows the stroke: where the stroke dips, the bank is lower there (its foot stays level, the columns of
+    // the piece are pressed down), by no more than to 0.4 of its height
+    const NB = 64, sy = new Array(NB).fill(1e9); for (const p of q0) { const k = clamp(Math.floor((p[0] - xa) / Math.max(1, xb - xa) * NB), 0, NB - 1); sy[k] = Math.min(sy[k], p[1]); }
+    for (let k = 0, last = -1; k <= NB; k++) if (k === NB || sy[k] < 1e8) { for (let j = last + 1; j < k; j++) sy[j] = last < 0 ? sy[k] : k === NB ? sy[last] : sy[last] + (sy[k] - sy[last]) * (j - last) / (k - last); last = k; }
+    for (let it = 0; it < 3; it++) for (let k = 1; k < NB - 1; k++) sy[k] = (sy[k - 1] + 2 * sy[k] + sy[k + 1]) / 4;
+    const hf = (u) => (bank ? clamp(h - 0.8 * (sy[clamp(Math.floor(u * NB), 0, NB - 1)] - ya), 0.4 * h, h) : h);
+    // It stands in water (on paper, bare white under a bank is water): below the foot its image upside down, squeezed,
+    // fading, with streaks left out, and a few level dashes of still water about the foot (sheet J). Not where it
+    // stands on another bank or rock.
+    const cx = xa + w / 2, onLand = st.done.some((o) => o !== d && o.m && o.m.solid && cx > o.m.ox && cx < o.m.ox + o.m.cv.width / dpr && foot > o.m.yTop + 0.004 * H && foot < o.m.yBase + 0.012 * H);
+    const rh = onLand ? 0 : Math.min(0.5 * h, 0.07 * H), padX = Math.round(0.05 * H), ox = Math.floor(xa) - padX, oy = Math.floor(foot - h) - 2, cw = Math.ceil((w + 2 * padX) * dpr), chh = Math.ceil((h + rh + 0.03 * H + 4) * dpr), mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; return cv; };
+    // laid column by column of the screen (each one whole pixel wide: wider slices that overlapped showed as a comb of darker seams)
+    const slices = (g, im, vs, a) => { const X0 = Math.round((xa - ox) * dpr), WP = Math.max(1, Math.round(w * dpr)), FY = (foot - oy) * dpr; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = a; g.imageSmoothingQuality = 'high';
+      if (!bank) { g.setTransform(flip ? -1 : 1, 0, 0, 1, flip ? 2 * X0 + WP : 0, 0); g.drawImage(im, X0, FY - h * dpr, WP, h * dpr); }
+      else for (let x = 0; x < WP; x++) { const u = (x + 0.5) / WP, hc = hf(u) * dpr; g.drawImage(im, clamp(flip ? 1 - u : u, 0, 0.999) * (im.width - 1), 0, 1, im.height, X0 + x, FY - hc, 1, hc); }
+      g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; };
+    const cv = mk(), body = mk(), g = cv.getContext('2d'), fy = (foot - oy) * dpr;
+    slices(body.getContext('2d'), sil(q), 1, 1);
+    // the belly of the brush under the drawn strokes: a wash inside the outline, pale at the crest and dark at the foot,
+    // as the mountains are laid in (the sheets' own wash is thin: on white paper the piece stood as a drawing, not a mass)
+    { const t = mk(), x = t.getContext('2d'); slices(x, sil(q), 1, 1); x.globalCompositeOperation = 'source-in'; const gd = x.createLinearGradient(0, fy - h * dpr, 0, fy); gd.addColorStop(0, `rgba(${INK},${(bank ? 0.1 : 0.05) * tone})`); gd.addColorStop(1, `rgba(${INK},${(bank ? 0.5 : 0.3) * tone})`); x.fillStyle = gd; x.fillRect(0, 0, cw, chh);
+      x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 0.35; x.fillStyle = x.createPattern(grain, 'repeat'); x.fillRect(0, 0, cw, chh); g.filter = `blur(${(0.0015 * H * dpr).toFixed(2)}px)`; g.drawImage(t, 0, 0); g.filter = 'none'; }
+    slices(g, q.im, 1, 1); if (!bank || near > 0.5) slices(g, q.im, 1, bank ? 0.5 * (near - 0.5) : 0.2 + 0.3 * near);
+    if (rh > 0) { const t = mk(), x = t.getContext('2d'); 
+      x.setTransform(1, 0, 0, -rh / h, 0, fy * (1 + rh / h)); x.drawImage(cv, 0, 0, cw, Math.ceil(fy), 0, 0, cw, Math.ceil(fy)); x.setTransform(1, 0, 0, 1, 0, 0);
+      x.globalCompositeOperation = 'destination-out'; const gd = x.createLinearGradient(0, fy, 0, fy + rh * dpr); gd.addColorStop(0, 'rgba(0,0,0,0.3)'); gd.addColorStop(1, 'rgba(0,0,0,1)'); x.fillStyle = gd; x.fillRect(0, fy, cw, chh);
+      x.fillStyle = '#000'; for (let y = fy + 2 * dpr; y < fy + rh * dpr; y += (2 + 7 * R()) * dpr) { x.globalAlpha = 0.5 + 0.5 * R(); x.fillRect(0, y, cw, Math.max(1, (0.6 + 1.2 * R()) * dpr)); } x.globalAlpha = 1;
+      g.filter = `blur(${(0.0012 * H * dpr).toFixed(2)}px)`; g.drawImage(t, 0, 0); g.filter = 'none';
+      const kj = kitOf('_j'); if (kj.length) { g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); for (let k = 0, nd = bank ? 5 + Math.floor(3 * R()) : 2 + Math.floor(2 * R()); k < nd; k++) { const j = kj[Math.floor(R() * kj.length) % kj.length], dw = clamp(w * (bank ? 0.08 + 0.2 * R() : 0.3 + 0.5 * R()), 0.02 * H, 0.3 * H), dh = Math.min(dw * j.h / j.w, 0.006 * H);
+          g.globalAlpha = (0.25 + 0.35 * R()) * tone; g.drawImage(j.im, xa - 0.04 * H + R() * (w + 0.08 * H - dw), foot + (k ? R() : 0) * (rh + 0.015 * H) - dh / 2, dw, dh); } g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; } }
+    return { river: true, solid: true, cx, live: null, flow: null, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: foot, yTop: foot - h, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
   const SNAP = 0.05;   // how near its start a lake's stroke must end for the two to be drawn together, in screen heights
@@ -1207,11 +1234,14 @@
     g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-in'; g2.drawImage(m.wat, 0, 0); g2.globalCompositeOperation = 'source-over';
     b.setTransform(1, 0, 0, 1, 0, 0); b.globalAlpha = 1; b.filter = `blur(${(0.0016 * H * dpr).toFixed(2)}px)`; b.drawImage(m.r2, X0, Y0); b.filter = 'none'; m.mirMs = +(performance.now() - tM).toFixed(1);
   }
+  // far ones first; but a bank or a rock whose foot lies in a lake's water stands in that lake, so it is laid after it (by
+  // its foot alone it lay behind the lake's near shore, and the water wiped it out)
+  const zk = (d) => (d.m.solid ? st.done.reduce((z, o) => (o.m && o.m.wat && d.m.yBase > o.m.yTop && d.m.yBase <= o.m.yBase && d.m.cx > o.m.ox && d.m.cx < o.m.ox + o.m.wat.width / dpr ? Math.max(z, o.m.yBase + 0.5) : z), d.m.yBase) : d.m.yBase);
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, tree, grass, bank: mass, rock: mass }[d.kind] || mountain)(d) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
-    const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
+    const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => zk(p) - zk(q)), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
       for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && o.m.yBase <= d.m.yBase && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, d.m.tone);
         if (d.m.mist) { const [mx, my, q] = d.m.mxy; b.globalCompositeOperation = 'destination-out'; b.globalAlpha = mistA(d); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high'; b.drawImage(d.m.mist, Math.round(mx * dpr), Math.round(my * dpr), d.m.mist.width * q * dpr, d.m.mist.height * q * dpr); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; } } }

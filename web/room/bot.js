@@ -135,8 +135,8 @@
       Pt.st.done.push({ stroke: Array.from({ length: 160 }, (_, k) => { const t = k / 159, e = Math.min(1, Math.min(t, 1 - t) / 0.17), u = e * e * (3 - 2 * e); return [(x0 + (x1 - x0) * (0.06 * (3 * t * t - 2 * t * t * t) + 0.94 * t)) * H, (yb - (yb - yt) * u * (0.9 + 0.1 * Math.sin(t * 13 + ph))) * H, 0.8]; }), t0: D.T, seed: 9401 + i }));
     // ?near=1 (with r7): the near tier of stroke Địa: earth banks (long level strokes, one flown right to left) and rocks (short strokes)
     if (new URLSearchParams(location.search).has('near')) { const ln = (kind, x0, x1, y, a, seed) => Pt.st.done.push({ kind, stroke: Array.from({ length: 60 }, (_, i) => { const t = i / 59; return [(x0 + (x1 - x0) * t) * H, (y - a * Math.sin(3.1416 * t)) * H, 0.6]; }), t0: D.T, seed });
-      ln('bank', 0.02, 0.85, 0.86, 0.02, 9501); ln('bank', 1.75, 1.05, 0.93, 0.03, 9502); ln('bank', 0.75, 1.25, 0.66, 0.008, 9503);
-      ln('rock', 0.9, 1.08, 0.97, 0.09, 9511); ln('rock', 1.12, 1.2, 0.975, 0.03, 9512); ln('rock', 0.3, 0.36, 0.83, 0.16, 9513); ln('rock', 1.45, 1.75, 0.78, 0.04, 9514); ln('rock', 0.55, 0.7, 0.99, 0.05, 9515); }
+      ln('bank', 0.02, 0.85, 0.86, 0.02, 9501); ln('bank', 1.75, 1.05, 0.9, 0.03, 9502); ln('bank', 0.75, 1.25, 0.66, 0.008, 9503);
+      ln('rock', 0.9, 1.08, 0.94, 0.09, 9511); ln('rock', 1.12, 1.2, 0.945, 0.03, 9512); ln('rock', 0.3, 0.36, 0.83, 0.16, 9513); ln('rock', 1.45, 1.75, 0.78, 0.04, 9514); ln('rock', 0.55, 0.7, 0.95, 0.05, 9515); }
     if (new URLSearchParams(location.search).has('river')) Pt.st.done.push({ kind: 'river', stroke: Array.from({ length: 140 }, (_, i) => { const t = i / 139; return [(0.72 + 0.3 * Math.sin(t * 7.2) * (0.25 + 0.75 * t)) * H, (0.5 + 0.46 * t) * H, 0.8]; }), t0: D.T, seed: 9001 });
     // ?lake=1 (with r7): a loop flown round, left a little open, low on the paper before the big mountain.
     // lake=2: only a little over half the loop flown (a wide gap). lake=3: flown past its own start (an overlap)
