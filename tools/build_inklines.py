@@ -169,14 +169,14 @@ def trunks(key, ink, thr=0.12, sufs=('_t', '_y'), ylow=0.6, core=False):
         save(Y_, k, a); man[Y_][-1].update(by=round(cy(a[:, :e]), 3), ty=round(cy(a[:, -e:]), 3)); k += 1
 
 
-def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None):
+def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None, join=25):
     """a sheet of rows of separate pieces (N: foliage, O: grass), one kind a row: rows found as bands of ink, pieces as
     runs of columns in a band (gap: what still joins two columns into one piece).
     blob (a width for every row): pieces found instead as islands of ink, grown by that much to hold an island of
     separate dabs together. For rows whose pieces reach over or under each other (long pine needles) and so share
     columns; a piece is then cut out by its own island, without its neighbour's ends"""
     u = ink.shape[1] / 2048; on = ink > thr
-    bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(25 * u) | 1))) if b - a > 40 * u]
+    bands = [(a, b) for a, b in runs(ndi.binary_dilation(on.any(axis=1), structure=np.ones(int(join * u) | 1))) if b - a > 40 * u]   # join: what still joins two lines of ink into one row (sheet AI: its first row is five long lines one under another)
     for j, ((a, b), suf) in enumerate(zip(bands, sufs)):
         man.pop(key + suf, None); k = 0
         if blob:
@@ -338,6 +338,9 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'y': rowsheet(src, ink, ('_yl', '_yf', '_yt', '_yp'), thr=0.06, gap=7)   # forest seen from afar: tree lines of a wooded crest, forest patches (tree tops above, loose dabs below), single far trees, the patches again in pale ink; bottom of a piece = the ground
     elif kind == 'z': rowsheet(src, ink, ('_za', '_zb', '_zc'), thr=0.06, blob=(5, 5, 5), skirt=(0.4, 0.22, 0))   # forest masses: long level woods (tree tops above, runs of ink below: cut off), woods slanting up to the right (they reach over each other: cut as islands), small woods
     elif kind == 'aa': wisps(src, ink)
+    elif kind == 'ag': rowsheet(src, ink, ('_gc', '_ga', '_gs', '_gd', '_gm'), blob=(31, 5, 5, 15, 19))   # marks of hard rock: angular contour strokes (one has a gap), large axe-cuts, small axe-cuts, dry scrapes, clusters of blunt dots
+    elif kind == 'ah': rowsheet(src, ink, ('_ec', '_eh', '_es', '_ed', '_eg'), thr=0.06, blob=(5, 15, 13, 25, 9))   # marks of soft earth: swelling contour strokes, hemp-fibre bundles, curling bundles, rice dots in level rows, grass tufts
+    elif kind == 'ai': rowsheet(src, ink, ('_il', '_is', '_ig', '_in', '_if'), thr=0.05, blob=(5, 21, 31, 9, 25), join=65)   # still water: long single lines, short ones, loose groups of two to four, net-pattern patches, fish-scale patches
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

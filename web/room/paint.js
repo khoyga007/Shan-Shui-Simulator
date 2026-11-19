@@ -190,7 +190,7 @@
     // A rock: its top broken into short ledges, dry line, many strokes.
     const land = d.kind === 'bank' || d.kind === 'rock' ? d.kind : null;
     if (land) { hill = land === 'bank' ? 0.5 : 0; rock = 0; }
-    const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.55 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 1.35 : 0.9), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
+    const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.55 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 0.6 : 0.3), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
     if (land === 'rock') { let ya = 1e9, yb = -1e9; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } const hgt = Math.max(0.02 * H, yb - ya), Rc = dice(d.seed ^ 0x3d71); let of = new Array(n).fill(0);
       for (let i = 0; i < n;) { const m = Math.max(3, Math.round(n * (0.08 + 0.2 * Rc()))), off = (Rc() - 0.5) * 0.3, tilt = (Rc() - 0.5) * 0.3; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
       of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
@@ -735,6 +735,28 @@
         // foot a bare cut, Yang r014)
         onLand = st.done.some((o) => { if (o === d || !o.m || !o.m.solid) return false; const k = Math.floor((cx - o.m.bx0) / BIN); return k >= 0 && k < o.m.ts.length && foot > o.m.ts[k] + 0.004 * H && foot < o.m.yBase + 0.012 * H; }),
         ground = onLand || H - foot < 0.07 * H, fdG = Math.round(clamp(0.3 * hl, 0.035 * H, 0.11 * H) * dpr);
+      // Marks of its own kind (Yang 11-19: rock and earth were built from the same kits, differing only in amounts: "hao hao nhau,
+      // khó phân biệt"). Sheets AG and AH, Muse's and Gemini's both: brush MARKS laid over the built body, never a whole shape.
+      //   rock   black, dry, angular: large axe-cuts slanting down its face, small chops, dry scrapes low down, blunt dots on its edge
+      //   earth  grey, soft, lying: hemp-fibre bundles along the slope, a soft fold or two, rice dots under the upper line, grass on it
+      // The shared cun of the mountain builder is turned down for both (S.cun above). Laid inside the body only; dots and grass stand on the edge.
+      { const K = (sf) => (STROKES['muse' + sf] || []).concat(STROKES['gemini' + sf] || []).filter((q) => q.im && q.tone > 0.02 && q.w > 60), Rk = dice(d.seed ^ 0x6a2d), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], w = bx1 - bx0,
+          tm = document.createElement('canvas'), bin = (x) => clamp(Math.floor((x - bx0) / BIN), 1, ts.length - 2), topAt = (x) => ts[bin(x)], slopeAt = (x) => Math.atan2(ts[bin(x) + 1] - ts[bin(x) - 1], 2 * BIN),
+          mark = (G, q, x, y, mw, rot, al, fx, ax, ay) => { const mh = mw * q.h / q.w; G.save(); G.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); G.translate(x, y); G.rotate(rot); G.scale(fx, 1); G.globalAlpha = al; G.drawImage(q.im, -ax * mw, -ay * mh, mw, mh); G.restore(); };
+        tm.width = cw2; tm.height = ch2; const xm = tm.getContext('2d'), gc = cv.getContext('2d'), each = (n, f) => { for (let i = 0; i < n; i++) { const x = bx0 + (0.06 + 0.88 * (i + Rk()) / n) * w, top = topAt(x), dep = foot - top; if (dep > 0.008 * H) f(x, top, dep); } };
+        if (ts.length > 3 && aux('_f').length) {
+          if (land === 'rock') { const kA = K('_ga'), kS = K('_gs'), kD = K('_gd'), kM = K('_gm'), nA = clamp(Math.round(w / (0.45 * hl)), 2, 8);
+            if (kD.length) each(1 + Math.floor(w / (0.2 * H)), (x, top, dep) => mark(xm, pk(kD), x, top + dep * (0.45 + 0.4 * Rk()), clamp(w * (0.25 + 0.3 * Rk()), 0.03 * H, 0.25 * H), (Rk() - 0.5) * 0.3, 0.35 + 0.25 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.5));
+            if (kA.length) each(nA, (x, top, dep) => { const fx = Rk() < 0.5 ? -1 : 1; mark(xm, pk(kA), x, top + dep * (0.2 + 0.45 * Rk()), clamp(dep * (0.5 + 0.6 * Rk()), 0.02 * H, 0.22 * H), fx * (0.5 + 0.5 * Rk()), 0.5 + 0.4 * Rk(), fx, 0.3, 0.5); });
+            if (kS.length) each(2 * nA + 2, (x, top, dep) => { const fx = Rk() < 0.5 ? -1 : 1; mark(xm, pk(kS), x, top + dep * (0.1 + 0.75 * Rk()), clamp(dep * (0.15 + 0.2 * Rk()), 0.01 * H, 0.06 * H), fx * (0.3 + 0.7 * Rk()), 0.6 + 0.35 * Rk(), fx, 0.3, 0.5); });
+            xm.setTransform(1, 0, 0, 1, 0, 0); xm.globalCompositeOperation = 'destination-in'; xm.drawImage(body, 0, 0); gc.save(); gc.setTransform(1, 0, 0, 1, 0, 0); gc.globalAlpha = 1; gc.drawImage(tm, 0, 0); gc.restore();
+            if (kM.length) each(1 + Math.floor(Rk() * 3), (x, top) => { const mw = clamp(0.2 * hl, 0.012 * H, 0.035 * H); mark(gc, pk(kM), x, top + 0.15 * mw, mw, Rk() * 6.283, 0.85, 1, 0.5, 0.5); }); }
+          else { const kH = K('_eh'), kC = K('_ec'), kR = K('_ed'), kG = K('_eg');
+            if (kC.length) each(Math.round(w / (0.3 * H)) + 1, (x, top, dep) => mark(xm, pk(kC), x, top + dep * (0.3 + 0.4 * Rk()), clamp((0.12 + 0.18 * Rk()) * H, 0.04 * H, 0.6 * w), slopeAt(x) + (Rk() - 0.5) * 0.15, 0.3 + 0.2 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.5));
+            if (kH.length) each(clamp(Math.round(w / (0.1 * H)), 3, 16), (x, top, dep) => { const fx = Rk() < 0.5 ? -1 : 1; mark(xm, pk(kH), x, top + dep * (0.2 + 0.5 * Rk()), clamp((0.1 + 0.16 * Rk()) * H, 0.04 * H, 0.6 * w), slopeAt(x) + fx * 0.28 + (Rk() - 0.5) * 0.2, 1, fx, 0.5, 0.5); });
+            if (kR.length) each(Math.round(w / (0.22 * H)) + 1, (x, top, dep) => mark(xm, pk(kR), x, top + dep * (0.1 + 0.3 * Rk()), (0.04 + 0.04 * Rk()) * H, slopeAt(x), 0.55 + 0.25 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.5));
+            xm.setTransform(1, 0, 0, 1, 0, 0); xm.globalCompositeOperation = 'destination-in'; xm.drawImage(body, 0, 0); gc.save(); gc.setTransform(1, 0, 0, 1, 0, 0); gc.globalAlpha = 1; gc.drawImage(tm, 0, 0); gc.restore();
+            if (kG.length) each(Math.round(w / (0.18 * H)), (x, top) => mark(gc, pk(kG), x, top + 0.004 * H, (0.02 + 0.02 * Rk()) * H, 0.5 * slopeAt(x), 0.7 + 0.3 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.95)); } } }
       if (land === 'bank') { const nb = ts.length, fw = clamp(0.12 * (bx1 - bx0), 0.02 * H, 0.1 * H);
         for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1;
           for (const [xe, sg, te] of [[bx0, 1, ts[0]], [bx0 + nb * BIN, -1, ts[nb - 1]]]) { const gd = x.createLinearGradient(xe, 0, xe + sg * fw, 0); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gd; x.fillRect(Math.min(xe - sg * 0.3 * H, xe + sg * fw), te + 0.008 * H, fw + 0.3 * H, H); }
@@ -1337,7 +1359,7 @@
     // is mirrored in it (Yang 11-19, of the swell alone: "anh chả thấy gì cả": a pale blurred image shifted by a few px
     // does not read as moving, and water with nothing behind it had nothing to shift). Sheet H's pale ripples (_r); a
     // thin line without them. Each has its own period and place; larger and darker toward the near side.
-    { const kj = S.tex === 'code' ? [] : (STROKES.muse_j || []).filter((q) => q.im); g2.strokeStyle = `rgb(${INK})`;
+    { const kI = S.tex === 'code' ? [] : (STROKES.muse_is || []).concat(STROKES.gemini_is || [], STROKES.muse_il || []).filter((q) => q.im && q.w > 8 * q.h), kj = kI.length || S.tex === 'code' ? kI : (STROKES.muse_j || []).filter((q) => q.im); g2.strokeStyle   // sheet AI (11-19): single water lines with the slow waver J's straight dashes lacked; J if AI is not there = `rgb(${INK})`;
       for (const q of m.gl) { const u = T / q.p + q.ph, l = u - Math.floor(u), n = Math.floor(u), a = Math.sin(3.1416 * l); if (a < 0.05) continue;
         const R = dice(q.sd + n * 131), x = R() * w, y = m.w0 + (0.03 + 0.97 * Math.pow(R(), 1.3)) * (h - m.w0), f = (y - m.w0) / Math.max(1, h - m.w0), wd = H * dpr * (0.025 + 0.075 * f) * (0.7 + 0.6 * R()), cx = x + q.v * (l - 0.5) * H * dpr * (0.4 + f);
         // a water line of sheet J (single level dashes of still water, the lake's own), one at a time. Not sheet H's ripples (stacks
