@@ -883,7 +883,12 @@
     const [live, gl] = mk(), leap = leaper(d.seed, (r1, r2, sg) => { const x = xa + r1 * (xb - xa), y = ya + (0.25 + 0.7 * r2) * (yb - ya), sz = H * (0.016 + 0.024 * nearY(y)), span = sz * (1.6 + r2);
         if (!inside(x, y - 0.01 * H) || !inside(x, y + 0.01 * H) || !inside(x + sg * span, y - 0.01 * H) || !inside(x + sg * span, y + 0.01 * H)) return null; return { x0: x, y0: y, span, sz, sg, hgt: span * (0.45 + 0.25 * r2) }; }),
       flow = (T) => { raw(gl); gl.clearRect(0, 0, cw, chh); home(gl); leap(T, gl); };
-    return { river: true, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+    // for the image in the water (mirror): the far shore, column by column of the layer (the highest point of the loop
+    // there; found from the loop itself: read back from the mask it took a second), smoothed, a notch would tear the image
+    const top = new Float32Array(cw).fill(1e9); for (let i = 0; i < n; i++) { const a = P[i], b = wrap(P, i + 1), xA = (a[0] - ox) * dpr, xB = (b[0] - ox) * dpr, x0 = Math.max(0, Math.floor(Math.min(xA, xB))), x1 = Math.min(cw - 1, Math.ceil(Math.max(xA, xB)));
+      for (let x = x0; x <= x1; x++) { const f = Math.abs(xB - xA) < 1e-6 ? 0 : clamp((x - xA) / (xB - xA), 0, 1), y = ((a[1] + (b[1] - a[1]) * f) - oy) * dpr; if (y < top[x]) top[x] = y; } }
+    const kS = Math.round(0.012 * H * dpr), topS = top.map((_, x) => { let a = 0, c2 = 0; for (let j = -kS; j <= kS; j++) { const v = top[x + j]; if (v < 1e8) { a += v; c2++; } } return top[x] < 1e8 && c2 ? a / c2 : -1; });
+    return { river: true, wat, top: topS, w0: (ya - oy) * dpr, w1: (yb - oy) * dpr, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
   // One stroke -> one tree (Yang 11-19, key 4). The stroke is the trunk: its lower end the root, its upper end the top,
@@ -1148,13 +1153,39 @@
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
   const bake = document.createElement('canvas'); let bakeKey = '';
   const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
+  // Still water mirrors what stands behind it (Yang 11-19: water drawn with the Thuỷ stroke parts the near from the far and
+  // shows the whole mountain upside down; a lake only, a river runs). Taken from the bake as it stands when the lake is
+  // laid (all that is farther, mist and all): column by column the picture above the far shore is turned over about the
+  // shore at that column, so an image hangs from the shore it belongs to, and squeezed (the water is seen aslant). Then,
+  // level band by level band: shifted sideways by a ripple that grows toward the near shore, paler the nearer, with a
+  // band left out here and there (a streak of light on the water). Kept inside the water, laid a little blurred.
+  let MIRROR = true;   // key M: the image in the water on and off, to compare
+  function mirror(b, m, yFar) {
+    const tM = performance.now();
+    const w = m.wat.width, h = m.wat.height, X0 = Math.round(m.ox * dpr), Y0 = Math.round(m.oy * dpr), H = D.H;
+    if (!m.r1) { const mk2 = () => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; return cv; }; m.r1 = mk2(); m.r2 = mk2(); }
+    const g1 = m.r1.getContext('2d'), g2 = m.r2.getContext('2d'), sw = Math.max(2, Math.round(2 * dpr)), MIRK = clamp(0.92 * (m.w1 - m.w0) / Math.max(1, Y0 + m.w0 - yFar * dpr), 0.3, 0.62);   // squeezed further where the tallest thing behind would not fit: the whole of it shows, top and all (a lake under a great mountain showed only its foot, an even grey)
+    g1.setTransform(1, 0, 0, 1, 0, 0); g1.clearRect(0, 0, w, h);
+    // the picture above the water, copied out once: read strip by strip from the canvas being painted, every strip waited on the painting (0.6 s)
+    const sy0 = Math.max(0, Math.floor(yFar * dpr) - 4), shh = Math.max(1, Math.ceil(Y0 + m.w1) - sy0); if (!m.r3) m.r3 = document.createElement('canvas'); if (m.r3.width !== w || m.r3.height !== shh) { m.r3.width = w; m.r3.height = shh; }
+    { const g3 = m.r3.getContext('2d'); g3.clearRect(0, 0, w, shh); g3.drawImage(bake, X0, sy0, w, shh, 0, 0, w, shh); }
+    for (let x = 0; x < w; x += sw) { const t = m.top[Math.min(w - 1, x + (sw >> 1))]; if (t < 0) continue;
+      const sh = Math.min(Math.floor(Y0 + t) - sy0, Math.ceil((h - t) / MIRK)); if (sh < 2) continue;
+      g1.setTransform(1, 0, 0, -MIRK, 0, t); g1.drawImage(m.r3, x, Math.floor(Y0 + t) - sy0 - sh, sw, sh, x, -sh, sw, sh); }
+    g2.setTransform(1, 0, 0, 1, 0, 0); g2.globalCompositeOperation = 'source-over'; g2.clearRect(0, 0, w, h);
+    const bh = Math.max(1, Math.round(0.0022 * H * dpr)), R = dice(m.w0 * 7919 + w), per = 0.011 * H * dpr;
+    for (let y = Math.floor(m.w0); y < m.w1; y += bh) { const f = (y - m.w0) / (m.w1 - m.w0), r = R(); if (r < 0.02 + 0.07 * f) continue;
+      g2.globalAlpha = (0.6 - 0.42 * f) * (0.8 + 0.2 * r); g2.drawImage(m.r1, 0, y, w, bh, Math.round((0.0008 + 0.0045 * f) * H * dpr * Math.sin(y / per + 5 * Math.sin(y / (3.7 * per)))), y, w, bh); }
+    g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-in'; g2.drawImage(m.wat, 0, 0); g2.globalCompositeOperation = 'source-over';
+    b.setTransform(1, 0, 0, 1, 0, 0); b.globalAlpha = 1; b.filter = `blur(${(0.0016 * H * dpr).toFixed(2)}px)`; b.drawImage(m.r2, X0, Y0); b.filter = 'none'; m.mirMs = +(performance.now() - tM).toFixed(1);
+  }
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) d.m = ({ river, lake, tree, grass }[d.kind] || mountain)(d) || false;
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => p.m.yBase - q.m.yBase), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
-      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; lay(b, d.m, d.m.tone);
+      for (const d of old) { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && !o.m.river && o.m.yBase <= d.m.yBase && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, d.m.tone);
         if (d.m.mist) { const [mx, my, q] = d.m.mxy; b.globalCompositeOperation = 'destination-out'; b.globalAlpha = mistA(d); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high'; b.drawImage(d.m.mist, Math.round(mx * dpr), Math.round(my * dpr), d.m.mist.width * q * dpr, d.m.mist.height * q * dpr); b.globalAlpha = 1; b.globalCompositeOperation = 'source-over'; } } }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     // moving water: each river's layer of current, redrawn for this instant, cut away where anything nearer stands
@@ -1233,12 +1264,12 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
   sync();
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
-    if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true); else if (k === 'b') nextTex(); else if (k === 'd') setMouse(!Rm.st.mouse); else if (k === 'v') { MBLOB = !MBLOB; redo(false); say('Sương: ' + (MBLOB ? 'nhiều lớp (blob)' : 'cũ (một mảng)')); }
+    if (k === 'c') reset(); else if (k === 'z') undo(); else if (k === 'x') redo(true); else if (k === 'b') nextTex(); else if (k === 'd') setMouse(!Rm.st.mouse); else if (k === 'm') { MIRROR = !MIRROR; bakeKey = ''; say('Bóng nước: ' + (MIRROR ? 'bật' : 'tắt')); } else if (k === 'v') { MBLOB = !MBLOB; redo(false); say('Sương: ' + (MBLOB ? 'nhiều lớp (blob)' : 'cũ (một mảng)')); }
     else if (KINDS[+k - 1] && !st.pen) { if (st.kind !== KINDS[+k - 1][0] || !turn()) { st.kind = KINDS[+k - 1][0]; say('Nét ' + KINDS[+k - 1][1] + ': ' + KINDS[+k - 1][2]); } sync(); }
   });
 
   try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
   window.__paint = { S, st, step, render, reset, undo, freeW, guess, ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
-    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), S: { ...S } }) };
+    info: () => ({ strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
 })();

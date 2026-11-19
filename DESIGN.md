@@ -139,7 +139,8 @@ Player picks ELEMENT, game reads sub-kind from how stroke was flown. Replaces fi
 - FIFTH element added by Yang 11-19: Nhan (man) = people, houses; also takes bridge, boat, pavilion. Key 5 (todo, after Thien). Thien/Dia/Nhan = tam tai. Sub-kind rules NOT yet agreed (Claire's proposal only: closed box/roof shape = house, short standing stroke = person, level stroke over water = bridge, short level stroke on water = boat).
 - Idea parked: loop direction as modifier for other elements (e.g. water loop cw/ccw).
 
-Order agreed: (1) merge keys DONE -> (2) NEAR tier for Địa -> (3) water reflection for Thuỷ -> (4) Thiên.
+Order (Yang swapped 11-19): (1) merge keys DONE -> (2) water mirror, lake only, v1 DONE (`mirror`, paint.js; key M on/off; bot `r7=1&lake=4`) -> (3) NEAR tier for Địa -> (4) Thiên -> (5) Nhân.
+Mirror v1 gaps: trees/reeds (live layers) not mirrored; image still (no moving ripple); appears at once when lake's reveal ends; river has none.
 
 ### Depth (why 2 and 3)
 All mountains read FAR (bình viễn only): tiny ridge trees fix scale, body = flat wash, low-on-paper only darkens. Need tầng cảnh: near/mid/far differ in DRAWING (tree size, rock faces, slope strokes), not tone alone.
