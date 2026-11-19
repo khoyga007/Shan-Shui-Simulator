@@ -74,16 +74,17 @@
   // edge, not from the ground), as before by turning a lying stroke into a tree.
   function ground(x, y) { const H = D.H; let best = null;
     for (const o of st.done) { const m = o.m; if (!m || !m.ts || m.river) continue; const k = Math.floor((x - m.bx0) / BIN); if (k < 0 || k >= m.ts.length) continue; const t = m.ts[k];
-      if (m.solid) { if (y > t - 0.1 * H && y < m.yBase + 0.02 * H) { const e = Math.abs(y - t); if (!best || !best.solid || e < best.e) best = { y: t, e, solid: true }; } }
+      if (m.solid) { if (y > t - 0.05 * H && y < m.yBase + 0.02 * H) { const e = Math.abs(y - t); if (!best || !best.solid || e < best.e) best = { y: t, e, solid: true }; } }
       else if (!best && y > t && y < m.yBase && !st.done.some((w) => w.m && w.m.wat && inWater(w.m, x, y))) best = { y, e: 0, solid: false }; }   // (a mountain's body runs on under the water before it: that is water, not land)
     return best; }
   function plant(q0, kind) { const H = D.H, q = q0.map((p) => p.slice());
     if (kind === 'tree') { const r = q.reduce((a, p) => (p[1] > a[1] ? p : a), q[0]), g = ground(r[0], r[1]); if (!g) return { msg: 'Cây chỉ mọc trên đất: vẽ nét Địa (phím 1) trước, rồi vẽ cây từ mặt đất lên' };
-      if (g.solid) { const dy = g.y + 0.006 * H - r[1]; for (const p of q) p[1] += dy; } return { kind, q, root: [r[0], r[1]] }; }
+      if (g.solid && r[1] < g.y + 0.006 * H) { const dy = g.y + 0.006 * H - r[1]; for (const p of q) p[1] += dy; }   /* only a root hanging in the air above the land is brought down to it. A root flown on the land's face stays there: "on land" is anywhere on it, not on its upper edge (Yang 11-19: every tree had been lined up on the bank's top line) */
+      return { kind, q, root: [r[0], r[1]] }; }
     const on = q.map((p) => ground(p[0], p[1])), keep = q.filter((p, i) => on[i]);
     if (keep.length < 0.5 * q.length || keep.length < 4) { const a = q[0], b = q[q.length - 1]; if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.3 * D.W) return { kind: 'tree', q, root: [a[0], a[1]], branch: true, msg: 'Mộc: cành (nét ngang dài, không nằm trên đất)' };
       return { msg: 'Cỏ chỉ mọc trên đất: vẽ nét Địa (phím 1) trước, rồi vẽ cỏ dọc mặt đất' }; }
-    let i = 0; for (const p of q) { const g = on[i++]; if (g && g.solid) p[1] = g.y + 0.002 * H; } const kq = q.filter((p, j) => on[j]), mid = kq[kq.length >> 1]; return { kind, q: kq, root: [mid[0], mid[1]] }; }
+    let i = 0; for (const p of q) { const g = on[i++]; if (g && g.solid && p[1] < g.y + 0.002 * H) p[1] = g.y + 0.002 * H; } const kq = q.filter((p, j) => on[j]), mid = kq[kq.length >> 1]; return { kind, q: kq, root: [mid[0], mid[1]] }; }
   function penUp() {
     if (!st.pen) return; st.pen = false;
     const q = st.stroke; st.stroke = []; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
