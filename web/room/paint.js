@@ -708,7 +708,11 @@
         // a foot at the very bottom of the paper has no room for water under it: cut level there it stood as a bare ruled line
         // with a white strip below (Yang r013). Such a piece stands on the paper's edge as ground: its ink thins out to nothing
         // over a band above the foot, no waterline, no image, no dashes
-        ground = H - foot < 0.07 * H, fdG = Math.round(clamp(0.3 * hl, 0.035 * H, 0.11 * H) * dpr);
+        // Likewise a piece standing ON other land (its foot on that land's body at this place: under its upper line THERE, not
+        // merely under its highest point, which took a rock in the water beside a sloping bank for one on it and left its
+        // foot a bare cut, Yang r014)
+        onLand = st.done.some((o) => { if (o === d || !o.m || !o.m.solid) return false; const k = Math.floor((cx - o.m.bx0) / BIN); return k >= 0 && k < o.m.ts.length && foot > o.m.ts[k] + 0.004 * H && foot < o.m.yBase + 0.012 * H; }),
+        ground = onLand || H - foot < 0.07 * H, fdG = Math.round(clamp(0.3 * hl, 0.035 * H, 0.11 * H) * dpr);
       if (land === 'bank') { const nb = ts.length, fw = clamp(0.12 * (bx1 - bx0), 0.02 * H, 0.1 * H);
         for (const cx2 of [cv, body]) { const x = cx2.getContext('2d'); x.save(); x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1;
           for (const [xe, sg, te] of [[bx0, 1, ts[0]], [bx0 + nb * BIN, -1, ts[nb - 1]]]) { const gd = x.createLinearGradient(xe, 0, xe + sg * fw, 0); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gd; x.fillRect(Math.min(xe - sg * 0.3 * H, xe + sg * fw), te + 0.008 * H, fw + 0.3 * H, H); }
@@ -719,7 +723,7 @@
       if (kf.length && !ground) { const q = kf[Math.floor(R() * kf.length) % kf.length], hF = Math.min(0.014 * H, (bx1 - bx0) * q.h / q.w) * dpr; x.globalAlpha = 0.75; x.drawImage(q.im, (bx0 - ox) * dpr, fy - hF * 0.9, (bx1 - bx0) * dpr, hF);
         x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in'; x.drawImage(body, 0, Math.round(0.004 * H * dpr)); x.globalCompositeOperation = 'destination-out'; x.fillRect(0, fy, cw2, ch2); x.globalCompositeOperation = 'source-over';
         gx.save(); gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalAlpha = 1; gx.drawImage(t, 0, 0); gx.restore(); x.clearRect(0, 0, cw2, ch2); }
-      const onLand = st.done.some((o) => o !== d && o.m && o.m.solid && cx > o.m.bx0 && cx < o.m.bx0 + o.m.ts.length * BIN && foot > o.m.yTop + 0.004 * H && foot < o.m.yBase + 0.012 * H), rh = onLand || ground ? 0 : Math.min(0.5 * hl, 0.07 * H, (ch2 - fy) / dpr - 2);
+      const rh = ground ? 0 : Math.min(0.5 * hl, 0.07 * H, (ch2 - fy) / dpr - 2);
       if (rh > 0.004 * H) { const k = rh / hl; x.setTransform(1, 0, 0, -k, 0, fy * (1 + k)); x.drawImage(cv, 0, 0, cw2, fy, 0, 0, cw2, fy); x.setTransform(1, 0, 0, 1, 0, 0);
         x.globalCompositeOperation = 'destination-out'; const gd = x.createLinearGradient(0, fy, 0, fy + rh * dpr); gd.addColorStop(0, 'rgba(0,0,0,0.35)'); gd.addColorStop(1, 'rgba(0,0,0,1)'); x.fillStyle = gd; x.fillRect(0, fy, cw2, ch2);
         x.fillStyle = '#000'; for (let y = fy + 2 * dpr; y < fy + rh * dpr; y += (2 + 7 * R()) * dpr) { x.globalAlpha = 0.5 + 0.5 * R(); x.fillRect(0, y, cw2, Math.max(1, (0.6 + 1.2 * R()) * dpr)); } x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';

@@ -139,7 +139,8 @@
     if (new URLSearchParams(location.search).has('near')) { const ln = (kind, x0, x1, y, a, seed, tilt = 0) => Pt.st.done.push({ kind, stroke: Array.from({ length: 60 }, (_, i) => { const t = i / 59; return [(x0 + (x1 - x0) * t) * H, (y - a * Math.sin(3.1416 * t) + tilt * t) * H, 0.6]; }), t0: D.T, seed });
       ln('bank', 0.02, 0.85, 0.86, 0.02, 9501); ln('bank', 1.75, 1.05, 0.9, 0.03, 9502, -0.09); ln('bank', 0.75, 1.25, 0.66, 0.008, 9503);
       ln('rock', 0.9, 1.08, 0.94, 0.09, 9511); ln('rock', 1.12, 1.2, 0.945, 0.03, 9512); ln('rock', 0.3, 0.36, 0.83, 0.16, 9513); ln('rock', 1.45, 1.75, 0.78, 0.04, 9514); ln('rock', 0.55, 0.7, 0.95, 0.05, 9515);
-      if (new URLSearchParams(location.search).has('tall')) ln('bank', 0.72, 1.3, 0.955, 0.43, 9507); }   // &tall=1: a high hill flown as a bank, its ends at the bottom of the paper (r013: its level foot stood as a ruled line)
+      if (new URLSearchParams(location.search).has('tall')) ln('bank', 0.72, 1.3, 0.955, 0.43, 9507);
+      if (new URLSearchParams(location.search).has('slope')) { ln('bank', 0.0, 1.2, 0.8, 0.0, 9521, 0.13); ln('bank', 1.38, 1.7, 0.8, 0.07, 9522); } }   // &slope=1 (without near's own pieces in mind): a bank sloping down to the right and a low piece in the water beside its low end (r014: taken for standing on it, foot a bare cut)   // &tall=1: a high hill flown as a bank, its ends at the bottom of the paper (r013: its level foot stood as a ruled line)
     if (new URLSearchParams(location.search).has('river')) Pt.st.done.push({ kind: 'river', stroke: Array.from({ length: 140 }, (_, i) => { const t = i / 139; return [(0.72 + 0.3 * Math.sin(t * 7.2) * (0.25 + 0.75 * t)) * H, (0.5 + 0.46 * t) * H, 0.8]; }), t0: D.T, seed: 9001 });
     // ?lake=1 (with r7): a loop flown round, left a little open, low on the paper before the big mountain.
     // lake=2: only a little over half the loop flown (a wide gap). lake=3: flown past its own start (an overlap)
