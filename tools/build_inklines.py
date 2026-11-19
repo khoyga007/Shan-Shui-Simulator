@@ -191,6 +191,7 @@ def rowsheet(key, ink, sufs, thr=0.1, gap=9, blob=None, top=0, skirt=None):
             if skirt and skirt[j]:   # sheet Z: under a wood the wet ink ran down in long drips. Kept: from its upper edge (tree tops smoothed over) down by that share of its height, then faded out
                 q = q[rows[0]:rows[-1] + 1]; hq = q.shape[0]; t0 = np.where((q > thr).any(axis=0), (q > thr).argmax(axis=0), hq).astype(np.float32)
                 t0 = ndi.median_filter(t0, size=int(81 * u) | 1, mode='nearest'); q = q * np.clip((t0[None, :] + (skirt[j] + 0.12) * hq - np.arange(hq)[:, None]) / (0.12 * hq), 0, 1)
+                q = q * np.clip((np.arange(hq)[:, None] - t0[None, :] + 0.035 * hq) / (0.03 * hq), 0, 1)   # and the sheet's tree tops: stout posts, in the painting a row of fingers on a ridge and tombstones in the wood (Yang 11-19). Cut off at the wood's upper edge; tree tops come from sheet Y
                 rows = np.nonzero(q.max(axis=1) > thr)[0]
             cols = np.nonzero(q.max(axis=0) > thr)[0]
             save(key + suf, k, q[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1]); k += 1

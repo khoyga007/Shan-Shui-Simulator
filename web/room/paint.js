@@ -442,7 +442,7 @@
       // many small dabs crowding each other, each one press of the brush tip: upright grains, round dots, a small moss cluster.
       for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.0016 + 0.0034 * Rv())) { const k = col(x), hi = 0.3 + 0.7 * sm((yBase - top[k]) / span / 0.6), stand = sm((N(x / (0.05 * H) + 500, 2) - 0.4) / 0.14);
         if (depth[k] < 0.05 * H || Rv() > amt * hi * (0.04 + 0.96 * stand)) continue;
-        const r = Rv(), sz = H * (0.0035 + 0.006 * Rv() * Rv()) * (0.75 + 0.5 * stand), y = top[k] + 0.002 * H - sz * 1.2 * Rv() * stand; g.globalAlpha = 0.55 + 0.4 * Rv();
+        const r = Rv(), sz = H * (0.0035 + 0.006 * Rv() * Rv()) * (0.75 + 0.5 * stand) * (S.tex !== 'code' && (STROKES.muse_yl || []).length ? 0.45 : 1) /* beside sheet Y's tree lines the upright code grains stood on the ridge as a row of fingers (Yang 11-19): now only a fine bristle */, y = top[k] + 0.002 * H - sz * 1.2 * Rv() * stand; g.globalAlpha = 0.55 + 0.4 * Rv();
         if (r < 0.55) { g.beginPath(); g.ellipse(x, y - sz * 0.5, sz * (0.22 + 0.2 * Rv()), sz * (0.6 + 0.5 * Rv()), (Rv() - 0.5) * 0.7, 0, 6.2832); g.fill(); }
         else if (r < 0.85 || !kM.length || (S.tex !== 'code' && (STROKES.muse_yl || []).length)) {   /* with sheet Y's tree lines on the crest the large moss clusters read as bubbles beside them */ g.beginPath(); g.ellipse(x, y - sz * 0.3, sz * (0.3 + 0.25 * Rv()), sz * (0.28 + 0.2 * Rv()), Rv() * 3, 0, 6.2832); g.fill(); }
         else { const q = kM[Math.floor(Rv() * kM.length) % kM.length], w = sz * (2.2 + 1.5 * Rv()), h = w * q.h / q.w; g.drawImage(q.im, x - w / 2, y - h * 0.8, w, h); } }
