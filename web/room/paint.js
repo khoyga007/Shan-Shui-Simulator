@@ -777,6 +777,17 @@
     //      pine     one leader to the top; branches in whorls, tier over tier, a pair at about one height, standing
     //               level and lifting only at the tip; the tiers shorten upward
     //      bare     nothing on the lowest part of the trunk (shed in the shade of the crown)
+    // -- wind (Yang 11-19: "có mỗi cây liễu là có chuyển động hả?"). The wood is painted once; every piece of foliage (a pine bough, a
+    //    cluster of leaves, a bamboo's leaf group) is kept as a place and a turn, and laid each frame on a layer of its own, turned
+    //    and shifted a little about where it sits: stiff needles hardly, hanging leaves more; a gust runs through the tree as a wave
+    const sway = [], curt = [], Rs = dice(d.seed ^ 0x77aa), wd = Rs() < 0.5 ? -1 : 1,
+      spr = (q, x, y, w, ax, ay, rot, fx, al, amp) => sway.push({ im: q.im, x, y, w, h: w * q.h / q.w, ax, ay, rot, fx, al, amp: amp * (0.7 + 0.6 * Rs()), ph: x / (0.2 * H) + 2 * Rs() }),
+      mkLive = (tone) => { if (!sway.length && !curt.length) return [null, null]; const live = document.createElement('canvas'); live.width = cw; live.height = chh; const gl = live.getContext('2d');
+        return [live, (T) => { gl.setTransform(1, 0, 0, 1, 0, 0); gl.clearRect(0, 0, cw, chh); const gust = 0.6 + 0.4 * Math.sin(T * 0.43 + 1.1 * Math.sin(T * 0.17));
+          for (const c of sway) { const sw = c.amp * gust * (0.6 * wd + Math.sin(T * 1.5 - c.ph) + 0.3 * Math.sin(T * 2.7 - 1.9 * c.ph)); gl.setTransform(dpr, 0, 0, dpr, (sw * c.w * 0.5 - ox) * dpr, -oy * dpr); gl.translate(c.x, c.y); gl.rotate(c.rot + sw); gl.scale(c.fx, 1); gl.globalAlpha = c.al * tone; gl.drawImage(c.im, -c.ax * c.w, -c.ay * c.h, c.w, c.h); }
+          gl.globalAlpha = tone;
+          for (const c of curt) { gl.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); gl.translate(c.x0, c.y0); gl.transform(1, 0, c.amp * gust * (0.6 * wd + Math.sin(T * 1.3 - c.ph) + 0.3 * Math.sin(T * 2.3 - 1.9 * c.ph)), 1, 0, 0); gl.translate(-c.x0, -c.y0); gl.drawImage(c.cv, c.x, c.y, c.w, c.h); }
+          gl.globalAlpha = 1; }]; };
     // -- bamboo: the stroke is a stalk, jointed (the sheet's own nodes); a clump: one to three more beside it, shorter,
     //    paler, leaning their own way. Leaves in groups on short twigs off the upper nodes, hanging, more toward the top
     if (kind === 'bamboo') { const leafAt = [], hang = (Q, Lq, al) => { const m = Q.length - 1; for (let j = 0, jn = clamp(Math.round(Lq / (0.055 * H)), 2, 9); j < jn; j++) { const q = Q[Math.round((0.3 + 0.7 * Math.pow((j + R()) / jn, 0.7)) * m)]; leafAt.push([q[0], q[1], al, R() < 0.5 ? -1 : 1]); } };
@@ -786,9 +797,9 @@
       hang(P, L, 1); leafAt.push([P[n - 1][0], P[n - 1][1], 1, 0]);
       for (const [x, y, al, sd] of leafAt) { if (!kitBL.length) break; const q = pick(kitBL), w = clamp(L * (0.12 + 0.1 * R()), 0.035 * H, 0.1 * H), h = w * q.h / q.w, tl = sd ? (0.008 + 0.02 * R()) * H : 0, ax = x + sd * tl, ay = y - tl * (0.2 + 0.5 * R());
         if (sd) { g.strokeStyle = `rgba(${INK},${(0.8 * al).toFixed(2)})`; g.lineWidth = Math.max(0.7, 0.0013 * H); g.beginPath(); g.moveTo(x, y); g.lineTo(ax, ay); g.stroke(); }
-        g.save(); g.translate(ax, ay); g.rotate(sd * (0.1 + 0.5 * R())); g.scale(R() < 0.5 ? -1 : 1, 1); g.globalAlpha = al * (0.75 + 0.25 * R()); g.drawImage(q.im, -0.5 * w, -0.06 * h, w, h); g.restore(); }
+        { const rt = sd * (0.1 + 0.5 * R()), fx = R() < 0.5 ? -1 : 1; spr(q, ax, ay, w, 0.5, 0.06, rt, fx, al * (0.75 + 0.25 * R()), 0.09); } }
       g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-      return { river: true, live: null, flow: null, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone: 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1), peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 }; }
+      const tone = 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1), [live, flow] = mkLive(tone); return { river: true, live, flow, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 }; }
     const tips = [], wrapA = (v) => Math.atan2(Math.sin(v), Math.cos(v));
     const grow = (x, y, ang, len, u0, depth) => { const m = Math.max(6, Math.round(len / 4)), Q = [[x, y]], sway = (R() - 0.5) * 0.7 / m, lvl = Math.cos(ang) < 0 ? Math.PI : 0, dsg = lvl ? -1 : 1, trop = pine ? 0 : (0.35 + 0.5 * R()) * (wil ? 0 : 1); let a = ang;
       // a pine branch is crooked by elbows: one to three sharp turns, down then up by turns, straight between them.
@@ -815,9 +826,9 @@
         if (R() < 0.7) sg = -sg; let ang = base + sg * phi; if (Math.sin(ang) > 0.35) ang = base - sg * phi;   // out of the upper side of a leaning trunk
         grow(p[0], p[1], ang, clamp(L * (0.52 - 0.32 * t) * (0.55 + 0.7 * R()) * (bare ? 1.35 : 1), 0.03 * H, (bare ? 0.38 : 0.3) * H), bare ? clamp(0.62 + 0.3 * t, 0, 0.93) : clamp(0.35 + 0.5 * t, 0, 0.88), 1); } }   // bare: nothing hides a limb, so it must be right: clearly thinner than the trunk where it leaves it (on a stout trunk they were fingers on a fist), and long
     tips.push({ x: P[n - 1][0], y: P[n - 1][1], len: clamp(0.35 * L, 0.04 * H, 0.2 * H), a: -1.57 });
-    const curt = [], leafKit = kind === 'jiezi' ? kitLJ : kind === 'mi' ? kitLM : kitQ, rotK = kind === 'jiezi' ? 0.25 : kind === 'mi' ? 0.1 : 0.5;   // drooping leaves hang, Mi dots lie level: hardly turned
+    const leafKit = kind === 'jiezi' ? kitLJ : kind === 'mi' ? kitLM : kitQ, rotK = kind === 'jiezi' ? 0.25 : kind === 'mi' ? 0.1 : 0.5;   // drooping leaves hang, Mi dots lie level: hardly turned
     // -- foliage: at the end of every limb, each of its own size; here and there a second one beside it
-    if (pine) { const turn = (q, x, y, w, ang, flip, al) => { const h = w * q.h / q.w; g.save(); g.translate(x, y); g.rotate(ang); g.scale(flip ? -1 : 1, 1); g.globalAlpha = al; g.drawImage(q.im, -w / 2, -h * 0.8, w, h); g.restore(); g.globalAlpha = 1; };   // a bough lies on the end of its branch, its flat dark underside a little below it
+    if (pine) { const turn = (q, x, y, w, ang, flip, al) => { spr(q, x, y, w, 0.5, 0.8, ang, flip ? -1 : 1, al, 0.022); };   // a bough lies on the end of its branch, its flat dark underside a little below it
       for (const t of tips) { if (kitN.length && R() < 0.4) turn(pick(kitN), t.x + Math.cos(t.a) * 0.02 * H, t.y + Math.sin(t.a) * 0.02 * H, clamp(t.len * (0.3 + 0.3 * R()), 0.02 * H, 0.07 * H), (R() - 0.5) * 1.2, R() < 0.5, 0.85);
         // needles grow along the outer half of a branch, on its side shoots: a band of boughs lying on it from the
         // middle to the end, the largest at the end. (One bough at the very tip: a lollipop on a bare pole)
@@ -853,16 +864,11 @@
     } else if (!bare && leafKit.length) { // one kind of leaf to a tree (the sheet's clusters differ: round dabs, level dashes, slanting ones), and a dab keeps
       // its size: a small cluster is not blown up to fill a large crown, several of it are laid there instead
       const qT = pick(leafKit), cap = qT.w * H / 1300, puff = (x, y, w0) => { const w = Math.min(w0, cap), h = w * qT.h / qT.w, nr = clamp(Math.round((w0 / w) ** 2 * 0.7), 1, 6);
-        for (let i = 0; i < nr; i++) { const ox = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) : 0, oy = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) * 0.8 : 0; g.save(); g.translate(x + ox, y + oy); g.rotate((R() - 0.5) * rotK); g.scale(R() < 0.5 ? -1 : 1, 1); g.globalAlpha = 0.65 + 0.35 * R(); g.drawImage(qT.im, -w / 2, -h / 2, w, h); g.restore(); } g.globalAlpha = 1; };
+        for (let i = 0; i < nr; i++) { const ox = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) : 0, oy = nr > 1 ? (R() - 0.5) * (w0 - w * 0.6) * 0.8 : 0; { const rt = (R() - 0.5) * rotK, fx = R() < 0.5 ? -1 : 1; spr(qT, x + ox, y + oy, w, 0.5, 0.5, rt, fx, 0.65 + 0.35 * R(), kind === 'jiezi' ? 0.07 : 0.04); } } g.globalAlpha = 1; };
       for (const t of tips) { const w = clamp(t.len * (0.55 + 0.55 * R()), 0.035 * H, 0.15 * H);   // no larger: blown up on a tall tree the dabs were blots, flung far from the tree (r010)
         puff(t.x, t.y, w); if (R() < 0.4) puff(t.x + (R() - 0.5) * w * 0.9, t.y + (R() - 0.5) * w * 0.7, w * (0.6 + 0.4 * R())); } }
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-    const tone = 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1); let live = null, flow = null;
-    // a willow's withes swing: each hung by its top, sheared to and fro about it each frame, a gust running through the tree
-    if (curt.length) { live = document.createElement('canvas'); live.width = cw; live.height = chh; const gl = live.getContext('2d'), wd = R() < 0.5 ? -1 : 1;
-      flow = (T) => { gl.setTransform(1, 0, 0, 1, 0, 0); gl.clearRect(0, 0, cw, chh); gl.globalAlpha = tone; const gust = 0.6 + 0.4 * Math.sin(T * 0.43 + 1.1 * Math.sin(T * 0.17));
-        for (const c of curt) { gl.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); gl.translate(c.x0, c.y0); gl.transform(1, 0, c.amp * gust * (0.6 * wd + Math.sin(T * 1.3 - c.ph) + 0.3 * Math.sin(T * 2.3 - 1.9 * c.ph)), 1, 0, 0); gl.translate(-c.x0, -c.y0); gl.drawImage(c.cv, c.x, c.y, c.w, c.h); }
-        gl.globalAlpha = 1; }; }
+    const tone = 0.45 + 0.55 * clamp((yb / H - 0.2) / 0.7, 0, 1), [live, flow] = mkLive(tone);
     return { river: true, live, flow, cv, body: NOBODY, mist: null, mxy: [0, 0, 1], ox, oy, yBase: yb, yTop: ya, tone, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
   const NOBODY = document.createElement('canvas'); NOBODY.width = NOBODY.height = 1;   // what a tree or grass hides of the things behind it: nothing
