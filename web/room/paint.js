@@ -1400,7 +1400,12 @@
     g2.setTransform(1, 0, 0, 1, 0, 0); g2.globalCompositeOperation = 'source-over'; g2.clearRect(0, 0, w, h);
     for (const [y, f, a] of m.bd) { let ag = 1; for (const q of rs) { const l = (T - q.t0) / RIPL, dy = (y - (q.y - m.oy) * dpr) / (0.03 * H * dpr); if (l < 1) ag += 1.5 * q.s * (1 - l) * Math.exp(-dy * dy); }
       const ph = y / per + 5 * Math.sin(y / (3.7 * per));
-      g2.globalAlpha = a * (1 - (0.12 + 0.3 * f) * (0.5 + 0.5 * Math.sin(0.31 * ph + 1.6 * T)) * Math.min(ag, 2)) /* streaks of light travelling down the water */; g2.drawImage(m.r4, 0, y, w, bh, ((0.002 + 0.01 * f) * Math.sin(ph - 2.2 * T) + (0.001 + 0.006 * f) * Math.sin(0.43 * ph + 1.1 * T + 2)) * ag * H * dpr, y, w, bh); }
+      g2.globalAlpha = a * (1 - (0.12 + 0.3 * f) * (0.5 + 0.5 * Math.sin(0.31 * ph + 1.6 * T)) * Math.min(ag, 2)) /* streaks of light travelling down the water */; const dx = ((0.002 + 0.01 * f) * Math.sin(ph - 2.2 * T) + (0.001 + 0.006 * f) * Math.sin(0.43 * ph + 1.1 * T + 2)) * ag * H * dpr, eg = Math.min(w >> 2, Math.ceil(0.006 * H * dpr));
+      g2.drawImage(m.r4, 0, y, w, bh, dx, y, w, bh);
+      // a band shifted inward bared the paper at that edge (and the blur had paled the image's outermost px): a white sickle down the
+      // left edge of the water, the image cut off (Yang 11-19). The image runs on to the edge: its column just inside, drawn out
+      if (dx + eg > 0) { g2.clearRect(0, y, dx + eg, bh); g2.drawImage(m.r4, eg, y, 1, bh, 0, y, dx + eg, bh); }
+      if (dx - eg < 0) { g2.clearRect(w + dx - eg, y, eg - dx, bh); g2.drawImage(m.r4, w - eg - 1, y, 1, bh, w + dx - eg, y, eg - dx, bh); } }
     // glints: short level ripple marks that come up, drift a little and go, all over the water, whether or not anything
     // is mirrored in it (Yang 11-19, of the swell alone: "anh chả thấy gì cả": a pale blurred image shifted by a few px
     // does not read as moving, and water with nothing behind it had nothing to shift). Sheet H's pale ripples (_r); a
