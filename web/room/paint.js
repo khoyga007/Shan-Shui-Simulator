@@ -1834,7 +1834,7 @@
   const setMouse = (on, quiet) => { penUp(); Rm.st.mouse = on; try { localStorage.setItem('room.mouse', on ? '1' : '0'); } catch { /* private window */ }
     if (on && document.pointerLockElement) document.exitPointerLock(); D.canvas.style.opacity = on ? 0 : 1; document.body.style.cursor = on ? 'crosshair' : '';
     document.getElementById('hint').classList.toggle('hide', on || Rm.st.locked); if (!quiet) say(on ? 'Tắt rồng: giữ chuột trái và kéo để vẽ' : 'Bật rồng: bấm vào màn hình để cầm đầu rồng'); sync(); };
-  document.addEventListener('mousedown', (e) => { if (e.button !== 0) return; if (Rm.st.mouse) { if (!e.target.closest('#panel')) { penDown(); mT = e.timeStamp; mPt(e); } } else if (Rm.st.locked) penDown(); });
+  document.addEventListener('mousedown', (e) => { if (e.button !== 0) return; if (Rm.st.mouse) { if (!e.target.closest('#panel, #uiBtn')) { penDown(); mT = e.timeStamp; mPt(e); } } else if (Rm.st.locked) penDown(); });
   document.addEventListener('mousemove', mPt);
   document.addEventListener('mouseup', (e) => { if (e.button === 0) penUp(); });
   document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) penUp(); });

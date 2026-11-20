@@ -52,7 +52,7 @@
 
   // ---- the room: wallpaper life off, white paper ------------------------------------------
   D.props({ theme: 'light', cloudfreq: 0, calligraphy: false, audioreactive: false, rainlightning: false, dance: false });
-  const st = { paused: false, scale: 1, stepReq: false, ov: true, locked: false, fps: 0, ms: 0, v: 0, vMax: 0, bend: 0, rep: false, nRep: 0 };
+  const st = { paused: false, scale: 1, stepReq: false, ov: true, ui: true, locked: false, fps: 0, ms: 0, v: 0, vMax: 0, bend: 0, rep: false, nRep: 0 };
   try { st.nRep = +localStorage.getItem('room.rep') || 0; } catch { /* 0 */ }
   const trail = [], ft = [], log = [];
   let gpu = '?'; try { const g = D.canvas.getContext('webgl'), x = g.getExtension('WEBGL_debug_renderer_info'); gpu = String(g.getParameter(x ? x.UNMASKED_RENDERER_WEBGL : g.RENDERER)); } catch { /* unknown */ }
@@ -224,7 +224,7 @@
   function drawOverlay() {
     const W = D.W, H = D.H, dg = D.dg, P = dg.pts, N = D.N, L = st.mouse ? { grid: S.L.grid, text: S.L.text } : S.L;   // dragon off: none of its layers
     c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    if (!st.ov || !P.length) return;
+    if (!st.ov || !st.ui || !P.length) return;
     c.lineWidth = 1; c.font = '12px Consolas, monospace';
     if (L.grid) {
       const g = H / 10; c.strokeStyle = 'rgba(0,0,0,.09)'; c.beginPath();
@@ -315,6 +315,12 @@
   }
 
   // ---- panel ------------------------------------------------------------------------------
+  // Key H / the corner button (Yang 11-20): everything that is not the picture goes: panel, numbers, hint. The button
+  // stays where it was, unseen till the mouse is over it, so a screenshot is clean. Not kept across reloads: a room
+  // that opens with no controls and an unseen button reads as broken.
+  function setUi(on) { st.ui = on; document.body.classList.toggle('noui', !on); $('uiBtn').textContent = on ? 'Ẩn giao diện (H)' : 'Hiện giao diện (H)';
+    say(on ? 'Hiện giao diện' : 'Đã ẩn giao diện · bấm H (hoặc rê chuột lên góc trên phải) để hiện lại'); }
+  $('uiBtn').onclick = (e) => { e.currentTarget.blur(); setUi(!st.ui); };
   function build() {
     const sl = SL.map(([k, lab, a, b, s]) => `<label><span class="row"><span>${lab}</span><b id="v_${k}"></b></span><input type="range" id="s_${k}" min="${a}" max="${b}" step="${s}"></label>`).join('');
     const ly = LAYERS.map(([k, lab]) => `<label><input type="checkbox" id="l_${k}"> ${lab}</label>`).join('');
@@ -325,6 +331,7 @@
       <h3>Báo em</h3><button id="b_rep">Lưu báo cáo (F8)</button>
       <h3>Phím</h3><div class="keys">Bấm màn hình: cầm đầu rồng
 Esc: thả chuột     F1: ẩn bảng
+H: ẩn/hiện hết giao diện
 F3: bật/tắt soi    G: lưới
 Space/P: tạm dừng  . : 1 khung
 [ ]: chậm/nhanh    F8: báo em
@@ -354,6 +361,7 @@ M: múa vô cực</div>`;
     const k = e.key;
     if (k === 'F1') panel.classList.toggle('hide');
     else if (k === 'F3') st.ov = !st.ov;
+    else if (k === 'h' || k === 'H') setUi(!st.ui);
     else if (k === 'F8') st.rep = true;
     else if (k === 'm' || k === 'M') setDance(!st.dance);
     else if (k === 'g' || k === 'G') { S.L.grid = !S.L.grid; save(); sync(); }
@@ -364,6 +372,6 @@ M: múa vô cực</div>`;
     e.preventDefault();
   });
 
-  window.__room = { S, st, G, hc, trail, tick: (dt) => advance(dt), dance: setDance, aim: () => [tx, ty], seat, target: (x, y) => { tx = x; ty = y; }, report: () => { st.rep = true; } };   // test hooks
+  window.__room = { S, st, G, hc, trail, tick: (dt) => advance(dt), dance: setDance, ui: setUi, aim: () => [tx, ty], seat, target: (x, y) => { tx = x; ty = y; }, report: () => { st.rep = true; } };   // test hooks
   if (new URLSearchParams(location.search).has('bot')) { const s = document.createElement('script'); s.src = 'bot.js'; document.body.appendChild(s); }   // tools/roomtest.py
 })();
