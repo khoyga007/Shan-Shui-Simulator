@@ -179,6 +179,14 @@
         [[0.3, 0.9], [0.34, 0.78], [0.46, 0.77], [0.5, 0.9]], arch(0.9, 1.15, 0.9, 0.09)].forEach((V, i) => { const raw = dens(V), q = rnd(raw); let L = 0; for (let j = 1; j < q.length; j++) L += Math.hypot(q[j][0] - q[j - 1][0], q[j][1] - q[j - 1][1]);
         const kind = Pt.guess('earth', q, L, raw), elb = Pt.guess.elb; kr['s' + i] = kind + ':' + elb.length + ' (dragon path alone: ' + Pt.elbows(q).length + ')'; Pt.st.done.push({ stroke: q, kind, el: 'earth', elb, t0: D.T, seed: 9701 + i }); });
       pr.push({ karst: kr }); }
+    // ?pillars=1: six tall rock pillars with their feet at six heights (0.74 to 0.93 H), one standing before another, about as Yang flew them 11-20
+    // ("nhìn đỉnh quá, nhưng vẫn thiếu cái gì đó": all six one ink, a fence). What depth by layer makes of them. &flat=1: the same six with their feet at one height (nothing may change).
+    if (new URLSearchParams(location.search).has('pillars')) { const flat = new URLSearchParams(location.search).has('flat');
+      const dens = (V) => { const o = []; for (let i = 1; i < V.length; i++) { const a = V[i - 1], b = V[i], m = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) * 200)); for (let j = 0; j < m; j++) o.push([(a[0] + (b[0] - a[0]) * j / m) * H, (a[1] + (b[1] - a[1]) * j / m) * H, 0.8]); } const e = V[V.length - 1]; o.push([e[0] * H, e[1] * H, 0.8]); return o; };
+      const rnd = (q) => { let o = q; for (let k = 0; k < 300; k++) o = o.map((p, i) => (i === 0 || i === o.length - 1 ? p : [(o[i - 1][0] + 2 * p[0] + o[i + 1][0]) / 4, (o[i - 1][1] + 2 * p[1] + o[i + 1][1]) / 4, p[2]])); return o; };
+      [[[0.10, 0.74], [0.13, 0.40], [0.17, 0.36], [0.23, 0.38], [0.25, 0.74]], [[0.28, 0.80], [0.30, 0.30], [0.34, 0.24], [0.41, 0.27], [0.44, 0.47], [0.47, 0.80]], [[0.49, 0.86], [0.51, 0.22], [0.55, 0.17], [0.66, 0.19], [0.69, 0.86]],
+        [[0.84, 0.78], [0.86, 0.24], [0.90, 0.18], [0.99, 0.20], [1.03, 0.78]], [[0.72, 0.93], [0.76, 0.40], [0.83, 0.37], [0.88, 0.41], [0.92, 0.52], [0.97, 0.93]], [[1.12, 0.84], [1.18, 0.20], [1.23, 0.13], [1.36, 0.15], [1.40, 0.45], [1.44, 0.84]]]
+        .forEach((V, i) => { if (flat) { V[0][1] = 0.86; V[V.length - 1][1] = 0.86; } const raw = dens(V), q = rnd(raw); let L = 0; for (let j = 1; j < q.length; j++) L += Math.hypot(q[j][0] - q[j - 1][0], q[j][1] - q[j - 1][1]); Pt.guess('earth', q, L, raw); Pt.st.done.push({ stroke: q, kind: 'rockmtn', el: 'earth', elb: Pt.guess.elb, t0: D.T, seed: 9801 + i }); }); }
     if (new URLSearchParams(location.search).has('twin')) { const pl = (pts, seed) => { const q = []; for (let i = 1; i < pts.length; i++) for (let u = 0; u < 30; u++) q.push([(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u / 30) * H, (pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u / 30) * H, 0.6]); Pt.st.done.push({ stroke: q, t0: D.T, seed }); };
       pl([[0.05, 0.62], [0.42, 0.14], [0.78, 0.66]], 9701); pl([[0.8, 0.66], [1.15, 0.1], [1.5, 0.68]], 9702); }
     Rm.S.cap = cap0;

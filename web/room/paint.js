@@ -1769,6 +1769,24 @@
     // peak (r018, Yang: "depth đang bị vô lý"). Near is dark, far is pale: among such the darker stands in front. darkOf: the mean ink of its picture, once.
     let z = d.m.yBase; if (!d.m.river) { const dk = darkOf(d.m); z += 0.03 * D.H * (dk - 0.5); for (const o of st.done) if (o.m && o.m.sea && d.m.yBase > o.m.yBase - 0.04 * D.H && meanY(d) < o.m.yBase) z = o.m.yBase - 0.5 + 0.1 * clamp((d.m.yBase - o.m.yBase) / D.H, -0.04, 1) + 0.3 * dk; } return z; };
   function darkOf(m) { if (m.dark === undefined) { m.dark = 0.5; try { const t = document.createElement('canvas'); t.width = t.height = 32; const x = t.getContext('2d'); x.drawImage(m.cv, 0, 0, 32, 32); const im = x.getImageData(0, 0, 32, 32).data; let a = 0, n = 0; for (let i = 3; i < im.length; i += 4) if (im[i] > 12) { a += im[i]; n++; } if (n) m.dark = clamp(a / n / 255 * (m.tone || 1), 0, 1); } catch (e) {} } return m.dark; }
+  // Depth by layer (Yang 11-20, six tall rock pillars flown side by side: "nhìn đỉnh quá, nhưng vẫn thiếu cái gì đó", and of Claire's guesses he took depth). A mountain's
+  // ink went by the height of its own foot on the paper alone (m.tone), full from 0.8 H down: pillars with their feet at 0.73 to 0.88 H all came out one ink, a fence,
+  // not rank behind rank. Now also by the mountains standing nearer: behind one whose foot lies `gap` lower it has at most that one's m.tone times
+  //    1 - DP.a * (1 - exp(-gap / DP.tau)) - DP.b * gap      (gap in screen heights; not under DP.lo)
+  // a quick first step (the rank just behind is clearly paler: 0.03 H -> 0.89, 0.07 -> 0.78, 0.1 -> 0.73), then slowly on (0.2 -> 0.6, 0.35 -> 0.5); and never more
+  // than its own m.tone. Feet at one height: nothing changes (no picture with one mountain or one range does).
+  //  - laid at the bake (alpha), nothing is built again; a new, nearer mountain pales the others while its own ink runs down and its mist gathers.
+  //  - mountains standing on a waterline have their foot there, wherever the stroke's ends dipped under it (as zk reads them).
+  //  - far mountains only: near land (rock, bank) is this side of the water and keeps its ink; plants keep theirs (high on the paper they are pale already).
+  //  - the ORDER (zk, darkOf) still goes by m.tone. ?dp=0 off, ?dp=0.3,0.08,0.6 = a, tau, b.
+  //  (First: m.tone times 1 - 0.6 * gap / 0.17 H, floor 0.4. On the pillars it read, but far ranges that were pale by their own height already were paled twice:
+  //   bot default 0.57 -> 0.23, r7 0.61 -> 0.24, and every range behind 0.17 H came out one ink.)
+  const DP = (() => { const q = new URLSearchParams(location.search), v = (q.get('dp') || '').split(',').map(Number), off = q.has('dp') && v[0] === 0; return { a: off ? 0 : v[0] > 0 ? v[0] : 0.3, tau: v[1] > 0 ? v[1] : 0.08, b: off ? 0 : v[2] >= 0 ? v[2] : 0.6, lo: 0.4 }; })();
+  const footOf = (d) => { let y = d.m.yBase; for (const o of st.done) if (o.m && o.m.sea && d.m.yBase > o.m.yBase - 0.04 * D.H && meanY(d) < o.m.yBase) y = Math.min(y, o.m.yBase); return y; };
+  function tones() { const far = st.done.filter((d) => d.m && !d.m.river && !d.m.solid), ft = far.map(footOf), w = far.map((d) => Math.round(12 * sm((D.T - d.t0) / (REVEAL + MIST))) / 12 /* in twelve steps: every step is a bake of the whole picture */), tn = new Map();
+    far.forEach((d, i) => { let t = d.m.tone; for (let j = 0; j < far.length; j++) { const gap = (ft[j] - ft[i]) / D.H; if (j === i || gap <= 0) continue;
+        const c = far[j].m.tone * Math.max(DP.lo, 1 - DP.a * (1 - Math.exp(-gap / DP.tau)) - DP.b * gap); if (c < d.m.tone) t = Math.min(t, d.m.tone + (c - d.m.tone) * w[j]); } tn.set(d, t); }); return tn; }
+  let TN = new Map(); const toneOf = (d) => (TN.has(d) ? TN.get(d) : d.m.tone);
   // Near land begun or ended close to a side of the paper runs off that side (Yang 11-19: "nét đất mà bắt đầu từ sát cạnh
   // thì nó tự snap"): flown by hand the stroke starts a little inside the edge, and the bank ended there in a faded stump with
   // bare paper beside it. The end is carried on, level, to beyond the edge. Once a stroke. The right side: the paper's, under the panel.
@@ -1779,7 +1797,7 @@
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) { snapEdge(d); d.m = ({ river, lake, sea, tree, grass }[d.kind] || mountain)(d) || false; }
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
-    const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => zk(p) - zk(q)), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24)).join() + '|' + ink.width + 'x' + ink.height;
+    TN = tones(); const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => zk(p) - zk(q)), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24) + ':' + Math.round(toneOf(d) * 256)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
       // The mist at a land's foot lies over what grows on that land too (Yang 11-19: roots and grass at the foot stood out sharp before the mist): the land's
       // mist is held back until the last tree or tuft rooted on it has been laid, then wiped through all of them at once (once: wiping per plant would thin the land each time).
@@ -1790,7 +1808,7 @@
         if (d.m.cv && d.m.clipK !== h.seed + ':' + h.t0) { d.m.clipK = h.seed + ':' + h.t0; const x = d.m.cv.getContext('2d'), kh = clamp(Math.floor((d.root[0] - h.m.bx0) / BIN), 0, h.m.ts.length - 1), dph = h.m.yBase - h.m.ts[kh],   /* on the viewer's ground (left open below, no mist) the plant's ink goes as the ground's does: thinning from where the ground starts to break up, gone well above the foot (Yang 11-19: "rễ vẫn đè lên chỗ để ngỏ này") */ y1 = ((h.m.edge ? h.m.ts[kh] + 0.92 * dph : h.m.yBase) - d.m.oy) * dpr, y0 = h.m.edge ? (h.m.ts[kh] + 0.5 * dph - d.m.oy) * dpr : y1 - 0.035 * H * dpr;
           if (h.m.edge && h.m.brk) { x.save(); x.globalCompositeOperation = 'destination-out'; for (const [q, px, py, rt, fx, mw, mh, al] of h.m.brk) { x.setTransform(dpr, 0, 0, dpr, -d.m.ox * dpr, -d.m.oy * dpr); x.translate(px, py); x.rotate(rt); x.scale(fx, 1); x.globalAlpha = Math.min(1, al * 1.5); x.drawImage(q.im, -mw / 2, -mh / 2, mw, mh); } x.restore(); }   // broken by the ground's own scrapes (a little harder: a root is blacker than the earth), then the last thinning
           if (y0 < d.m.cv.height) { const gd = x.createLinearGradient(0, y0, 0, y1); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(1, 'rgba(0,0,0,1)'); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'destination-out'; x.fillStyle = gd; x.fillRect(0, y0, d.m.cv.width, d.m.cv.height - y0); x.restore(); } } });
-      old.forEach((d, i) => { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && zk(o) <= zk(d) && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, d.m.tone);
+      old.forEach((d, i) => { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && zk(o) <= zk(d) && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, toneOf(d));
         if (d.m.mist && !lastOf.has(d)) mistOn(d); for (const [h, j] of lastOf) if (j === i) mistOn(h); }); }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     // moving water: each river's layer of current, redrawn for this instant, cut away where anything nearer stands
@@ -1812,7 +1830,7 @@
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m;
       if (m.river) {   // a river comes up all at once: the water clears, the banks darken
-        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e * m.tone); c.restore(); if (m.flow) flowOf(d, e, -1);
+        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e * toneOf(d)); c.restore(); if (m.flow) flowOf(d, e, -1);
         strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1))); continue; }
       const nb = m.ts.length;
       c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.moveTo(m.bx0 - 0.05 * H, m.ts[0] - 0.12 * H);
@@ -1820,7 +1838,7 @@
       for (let k = nb - 1; k >= 0; k -= 4) c.lineTo(m.bx0 + k * BIN + (k > nb - 5 ? 0.05 * H : 0), m.ts[k] + 0.02 * H + e * m.depth[k]); c.lineTo(m.bx0 - 0.05 * H, m.ts[0] + 0.02 * H + e * m.depth[0]); c.closePath();
       if (m.extL + m.extR > 0) c.rect(m.bx0 - m.extL - 0.05 * H, m.yTop - 0.12 * H, nb * BIN + m.extL + m.extR + 0.1 * H, 0.14 * H + e * (m.yBase - m.yTop + 0.2 * H));   // a rock face: its ink lies beside the stroke
       c.clip();
-      lay(c, m, m.tone * clamp(a * 3, 0, 1)); c.restore();
+      lay(c, m, toneOf(d) * clamp(a * 3, 0, 1)); c.restore();
       strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1)));
     }
     if (st.stroke.length > 1) strokePath(st.stroke, 0.85);
@@ -1887,5 +1905,5 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
   try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
   window.__paint = { S, st, step, render, reset, undo, freeW, guess, elbows, ripAt: (p) => { BOTRIP = p; }, plant, wavMs: () => st.done.map((d) => (d.m && d.m.wavMs) || 0), ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
-    info: () => ({ kinds: st.done.map((d) => d.kind || 'mountain'), elbows: st.done.map((d) => (d.elb ? d.elb.length : 0)), paths: st.done.map((d) => { const q = d.stroke, n = Math.max(1, Math.ceil(q.length / 24)); return q.filter((p, i) => i % n === 0 || i === q.length - 1).map((p) => [Math.round(p[0]), Math.round(p[1])]); }) /* what each stroke became and where it ran, thinned: a report could not say why a stroke was guessed as it was (Yang 11-19, rock or bank) */, strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
+    info: () => ({ kinds: st.done.map((d) => d.kind || 'mountain'), tones: st.done.map((d) => (d.m ? +toneOf(d).toFixed(2) : null)), tone0: st.done.map((d) => (d.m ? +d.m.tone.toFixed(2) : null)), feet: st.done.map((d) => (d.m && !d.m.river && !d.m.solid ? +(footOf(d) / D.H).toFixed(3) : null)), elbows: st.done.map((d) => (d.elb ? d.elb.length : 0)), paths: st.done.map((d) => { const q = d.stroke, n = Math.max(1, Math.ceil(q.length / 24)); return q.filter((p, i) => i % n === 0 || i === q.length - 1).map((p) => [Math.round(p[0]), Math.round(p[1])]); }) /* what each stroke became and where it ran, thinned: a report could not say why a stroke was guessed as it was (Yang 11-19, rock or bank) */, strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
 })();
