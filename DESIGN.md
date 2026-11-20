@@ -213,6 +213,7 @@ BUILT 11-20 (paint.js):
 - Build time of one rock mountain in bot: 43-236 ms (one sample 236, was ~85 before the sheets): not measured properly; a hitch on pen-up if real.
 - _mc (knots on a thin line) = beads on a string: cut, NOT used. _mt at alpha 0.35-0.8 = stamped bars with dot heads (now 0.2-0.55, fewer).
 - Weak now: left (light) walls show the ridge stroke as 2-3 clean parallel hairlines (rail); _md drags carry dark clots = knotted stalks; one pale upright slab from the crag kit; no trees on ledges beyond the crag's own; shadow side fixed right for every mountain.
+- Yang 11-20 (after 4f51dd9): wall "chưa có texture đá". Cause as Claire reads it: only long plumb streaks, no cracks / slabs / rooted chops / grain. Sheets AO, AP asked (art/prompts.md, with the planned wiring); waiting on his gen. Do NOT patch with AG marks meanwhile (own sheets per stroke kind).
 - Weak (v1, before textures): body = flat grey wash, not "much bare paper"; no top-light / side-dark face split; ribbed band of even vertical drags on a broad wall; strokes without a mouse path (dragon off / old fixtures) count corners on their own path. Mouse-mode strokes untested. Waterfall not started.
 
 - Two independent questions. Material: stroke has broken corners (straight runs, elbows, steps) -> ROCK; smooth curve -> EARTH. Depth: feet vs waterline (as now) -> near / far.
