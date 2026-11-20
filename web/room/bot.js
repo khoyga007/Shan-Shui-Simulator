@@ -168,6 +168,17 @@
     if (new URLSearchParams(location.search).has('depth')) { const pl = (pts, seed) => { const q = []; for (let i = 1; i < pts.length; i++) for (let u = 0; u < 30; u++) q.push([(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u / 30) * H, (pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u / 30) * H, 0.6]); Pt.st.done.push({ stroke: q, t0: D.T, seed }); };
       pl([[0.01, 0.17], [0.2, 0.24], [0.4, 0.31], [0.55, 0.335]], 9601); pl([[0.17, 0.3], [0.21, 0.2], [0.27, 0.16], [0.4, 0.25], [0.55, 0.335]], 9602); }
     // ?twin=1 (with r7=1&m7=9): two three-cornered peaks of one size side by side (Yang 11-19: their bodies bore the same pattern)
+    // ?karst=1: earth strokes with corners (Yang 11-19 night: broken stroke = rock, smooth = earth): a pillar, a stepped massif, a thin spire, and a smooth arch beside them
+    // as the control; lower on the paper a small angular stroke and a small smooth one (near land once there is water: add r7=1&m7=9&sea=0.66). Each is given as the
+    // hand's path with its corners, and as the dragon would have flown it (rounded); what it was read as and how many elbows were counted goes into the report (karst).
+    if (new URLSearchParams(location.search).has('karst')) {
+      const dens = (V) => { const o = []; for (let i = 1; i < V.length; i++) { const a = V[i - 1], b = V[i], m = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) * 200)); for (let j = 0; j < m; j++) o.push([(a[0] + (b[0] - a[0]) * j / m) * H, (a[1] + (b[1] - a[1]) * j / m) * H, 0.8]); } const e = V[V.length - 1]; o.push([e[0] * H, e[1] * H, 0.8]); return o; };
+      const rnd = (q) => { let o = q; for (let k = 0; k < 300; k++) o = o.map((p, i) => (i === 0 || i === o.length - 1 ? p : [(o[i - 1][0] + 2 * p[0] + o[i + 1][0]) / 4, (o[i - 1][1] + 2 * p[1] + o[i + 1][1]) / 4, p[2]])); return o; };
+      const arch = (x0, x1, y, a) => Array.from({ length: 40 }, (_, i) => [x0 + (x1 - x0) * i / 39, y - a * Math.sin(3.1416 * i / 39)]), kr = {};
+      [[[0.22, 0.62], [0.28, 0.22], [0.41, 0.2], [0.47, 0.6]], [[0.58, 0.62], [0.65, 0.31], [0.8, 0.29], [0.84, 0.13], [0.99, 0.15], [1.04, 0.47], [1.16, 0.45], [1.22, 0.66]], [[1.36, 0.6], [1.41, 0.25], [1.47, 0.24], [1.52, 0.58]], arch(1.5, 1.8, 0.56, 0.2),
+        [[0.3, 0.9], [0.34, 0.78], [0.46, 0.77], [0.5, 0.9]], arch(0.9, 1.15, 0.9, 0.09)].forEach((V, i) => { const raw = dens(V), q = rnd(raw); let L = 0; for (let j = 1; j < q.length; j++) L += Math.hypot(q[j][0] - q[j - 1][0], q[j][1] - q[j - 1][1]);
+        const kind = Pt.guess('earth', q, L, raw), elb = Pt.guess.elb; kr['s' + i] = kind + ':' + elb.length + ' (dragon path alone: ' + Pt.elbows(q).length + ')'; Pt.st.done.push({ stroke: q, kind, el: 'earth', elb, t0: D.T, seed: 9701 + i }); });
+      pr.push({ karst: kr }); }
     if (new URLSearchParams(location.search).has('twin')) { const pl = (pts, seed) => { const q = []; for (let i = 1; i < pts.length; i++) for (let u = 0; u < 30; u++) q.push([(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u / 30) * H, (pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u / 30) * H, 0.6]); Pt.st.done.push({ stroke: q, t0: D.T, seed }); };
       pl([[0.05, 0.62], [0.42, 0.14], [0.78, 0.66]], 9701); pl([[0.8, 0.66], [1.15, 0.1], [1.5, 0.68]], 9702); }
     Rm.S.cap = cap0;

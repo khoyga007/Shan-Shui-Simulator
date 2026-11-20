@@ -33,11 +33,24 @@
   // (wood: trees, grass). The element is chosen; what the stroke becomes within it is read from how it was flown (guess).
   // A fourth, Thiên (sky: sun flown clockwise, moon counter-clockwise, clouds, birds), is to come.
   const KINDS = [['earth', 'Địa', 'núi, bờ đất, đá'], ['water', 'Thuỷ', 'sông, hồ, mặt nước'], ['wood', 'Mộc', 'cây, cỏ']];
-  const SUBS = { earth: ['mountain', 'bank', 'rock'], water: ['river', 'lake', 'sea'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', bank: 'bờ đất', rock: 'mỏm đá', river: 'sông', lake: 'hồ', sea: 'mặt nước', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
+  const SUBS = { earth: ['mountain', 'rockmtn', 'bank', 'rock'], water: ['river', 'lake', 'sea'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', rockmtn: 'núi đá', bank: 'bờ đất', rock: 'mỏm đá', river: 'sông', lake: 'hồ', sea: 'mặt nước', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
   // water: a loop that comes back to its start (its last quarter passing near its first; flown past the start counts) is
   // a lake, else a river. wood: a stroke that stands is a tree (the stroke its trunk), one that lies is grass (its ground);
   // the slope is the one `tree` uses for a branch seen close, which is now reached by turning a lying stroke into a tree
-  function guess(el, q, L) {
+  // Corners of a stroke (Yang 11-19 night: the SHAPE of an earth stroke says what it is made of: broken, with straight runs and elbows, it is rock; one smooth curve, earth).
+  // Counted on the path of the mouse point, not the dragon's: the dragon has a turning circle and rounds every corner it is led through. The path is laid out again in even
+  // steps and the heading before and after each point compared over an arm long enough that a shaking hand is no corner. ?ang=50,2 : degrees of an elbow, how many make rock.
+  const ANG = { step: 0.01, arm: 0.03, gap: 0.06, turn: 50, n: 2 }; { const a = (new URLSearchParams(location.search).get('ang') || '').split(',').map(Number); if (a[0] > 0) ANG.turn = a[0]; if (a[1] > 0) ANG.n = a[1]; }
+  function elbows(q) {
+    const h = ANG.step * D.H, P = [[q[0][0], q[0][1]]]; let acc = 0;
+    for (let i = 1; i < q.length; i++) { const ax = q[i - 1][0], ay = q[i - 1][1], dx = q[i][0] - ax, dy = q[i][1] - ay, l = Math.hypot(dx, dy); if (!(l > 0)) continue; let u = h - acc; while (u <= l) { P.push([ax + dx * u / l, ay + dy * u / l]); u += h; } acc = l - (u - h); }
+    const n = P.length, k = Math.max(1, Math.round(ANG.arm / ANG.step)), S2 = P.map((p, i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; }), c = [];
+    for (let i = k; i < n - k; i++) { const a = S2[i - k], b = S2[i], e = S2[i + k], t = Math.abs(Math.atan2((b[0] - a[0]) * (e[1] - b[1]) - (b[1] - a[1]) * (e[0] - b[0]), (b[0] - a[0]) * (e[0] - b[0]) + (b[1] - a[1]) * (e[1] - b[1]))) * 57.2958; if (t > ANG.turn) c.push([t, i]); }
+    c.sort((a, b) => b[0] - a[0]); const g = Math.round(ANG.gap / ANG.step), out = []; for (const [, i] of c) if (!out.some((j) => Math.abs(j - i) < g)) out.push(i);
+    return out.sort((a, b) => a - b).map((i) => P[i]);
+  }
+  function guess(el, q, L, raw) {
+    guess.elb = undefined;
     const n = q.length, a = q[0], b = q[n - 1];
     let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of q) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
     // water flown level across most of the paper is no river: it is the waterline, the far shore above it, the near one below
@@ -48,7 +61,11 @@
     // A stroke flown beyond the water is a mountain; one flown on this side of it (most of its points below a waterline,
     // or in or before a lake) is near land: short, a rock; else an earth bank. No water on the paper yet: a mountain.
     // (Before, by shape alone: a low arc could be a far hill or a near bank, and the guess was often wrong.)
-    if (!nearSide(q, xb - xa < 0.45 * D.H)) return 'mountain';
+    // (Yang 11-19 night, replacing the box rule below it: two questions, each answered by one thing. Which side of the water: near or far. Corners or none: rock or earth.
+    //  Far and angular is a rock mountain, far and smooth a mountain; near and angular a rock, near and smooth an earth bank or mound, whatever its length.
+    //  The box rule made a rock of every short stroke, and the same arch could still come out either way.)
+    const E = elbows(raw || q), near = nearSide(q, xb - xa < 0.45 * D.H); guess.elb = E;
+    return E.length >= ANG.n ? (near ? 'rock' : 'rockmtn') : near ? 'bank' : 'mountain';
     // Rock or bank, by one measure only (Yang 11-19: the same arch flown twice came out a rock, then a bank: "phải thống nhất luật nét". It had gone by the stroke's
     // LENGTH as well as its run, and a second arch a little taller or shakier was longer, so it tipped over into a bank). By the box alone now: a bank is long and low,
     // a run of 30% of a screen and more, lower than half its run. Anything else, small or standing, is a rock.
@@ -96,13 +113,15 @@
     if (!st.pen) return; st.pen = false;
     const q = st.stroke; st.stroke = []; let L = 0; for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
     if (L < 0.06 * D.H) return;   // a tap, not a stroke
-    let kind = guess(st.kind, q, L), root;
+    const raw = st.raw && st.raw.length > 3 ? st.raw : null; st.raw = [];
+    let kind = guess(st.kind, q, L, raw), root; const elb = guess.elb;
     if (st.kind === 'wood') { const pl = plant(q, kind); if (!pl.kind) { say(pl.msg); return; } kind = pl.kind; root = pl.root; q.length = 0; q.push(...pl.q); if (pl.msg) { st.done.push({ stroke: q, kind, el: st.kind, root, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); say(pl.msg); sync(); return; } }
-    st.done.push({ stroke: q, kind, el: st.kind, root, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); if (SUBS[st.kind].length > 1) say(ELN[st.kind] + ': ' + SUBN[kind] + ' (bấm ' + (KINDS.findIndex((k) => k[0] === st.kind) + 1) + ' lần nữa để đổi)'); sync();
+    st.done.push({ stroke: q, kind, el: st.kind, root, elb, t0: D.T, seed: (Math.random() * 2147483647) | 0 }); if (SUBS[st.kind].length > 1) say(ELN[st.kind] + ': ' + SUBN[kind] + (elb ? ', ' + elb.length + ' góc gãy' : '') + ' (bấm ' + (KINDS.findIndex((k) => k[0] === st.kind) + 1) + ' lần nữa để đổi)'); sync();
   }
   function step(dt) {
     if (!st.pen || Rm.st.mouse) return;   // dragon off: the mouse lays the points itself (mPt)
     const hc = Rm.hc, q = st.stroke, l = q[q.length - 1], d = l ? Math.hypot(hc.x - l[0], hc.y - l[1]) : 0;
+    if (!l || !st.raw) st.raw = []; { const a = Rm.aim(), r = st.raw[st.raw.length - 1]; if (!r || Math.hypot(a[0] - r[0], a[1] - r[1]) > 1.5) st.raw.push([a[0], a[1]]); }   // where the mouse point ran: the stroke as the hand meant it, corners and all (elbows)
     if (!l || d > 1.5) q.push([hc.x, hc.y, l ? d / dt / D.H : 0]);   // x, y, speed in screens a second
   }
 
@@ -181,9 +200,18 @@
   // kind of mountain was not enough). hill 0..1 from the stroke's shape: its rise against its run. Such a hill gets no
   // summit drawn up into a point, next to no texture strokes, and a ridge line that is wet, pale and soft.
   const hillS = (h, rk = 0) => Object.assign({}, S, { peak: S.peak * (1 - h) * (1 - rk), cun: S.cun * (1 - 0.92 * h), dry: S.dry * (1 - 0.8 * h) });
+  // Rock keeps its corners. The dragon rounds every elbow it is led through; where the hand made one (d.elb, from the mouse point's path) the line is drawn out to it
+  // again: straight from a little before, to the corner, straight on to a little after. Halfway to the next corner at most.
+  function sharpen(P, E, H) { const n = P.length, ks = [];
+    for (const e of E) { let b = -1, bd = 0.14 * H; for (let i = 0; i < n; i++) { const dd = Math.hypot(P[i][0] - e[0], P[i][1] - e[1]); if (dd < bd) { bd = dd; b = i; } } if (b > 1 && b < n - 2) ks.push([b, e]); }
+    ks.sort((a, b) => a[0] - b[0]); const w0 = Math.max(3, Math.round(0.07 * H / STEP));
+    ks.forEach(([k, e], j) => { const lo = Math.max(0, k - Math.min(w0, j ? (k - ks[j - 1][0]) >> 1 : k)), hi = Math.min(n - 1, k + Math.min(w0, j < ks.length - 1 ? (ks[j + 1][0] - k) >> 1 : n - 1 - k)); if (k - lo < 2 || hi - k < 2) return;
+      const A = [P[lo][0], P[lo][1]], B = [P[hi][0], P[hi][1]];
+      for (let i = lo + 1; i < hi; i++) { const t = i < k ? (i - lo) / (k - lo) : (hi - i) / (hi - k), s0 = i < k ? A : B; P[i][0] = s0[0] + (e[0] - s0[0]) * t; P[i][1] = s0[1] + (e[1] - s0[1]) * t; } }); }
   function mountain(d) {
     const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), P = calm(d.stroke, STEP, 4), n = P.length;
     if (n < 8) return null;
+    if ((d.kind === 'rock' || d.kind === 'rockmtn') && d.elb) sharpen(P, d.elb, H);
     let hill = 0; { let sy = 0, sx = 0; for (let i = 1; i < n; i++) { sy += Math.abs(P[i][1] - P[i - 1][1]); sx += Math.abs(P[i][0] - P[i - 1][0]); } hill = 1 - sm((sy / Math.max(1, sx) - 0.3) / 0.2); }   // how steep its slopes are on the whole, up and down alike: by rise against run, a long range of peaks flown in one stroke counted as flat and lost its summits
     // A stroke flown up steeply, level across, and steeply down again is a flat-topped crag (the karst walls of Yang's
     // reference paintings): rock 0..1 = steep on the whole, and a good part of its length lying along its top. No summit is
@@ -197,6 +225,13 @@
     // A rock: its top broken into short ledges, dry line, many strokes.
     const land = d.kind === 'bank' || d.kind === 'rock' ? d.kind : null;
     if (land) { hill = land === 'bank' ? 0.5 : 0; rock = 0; }
+    // Its walls are no ruled lines (first bot still: trapezoids, a factory's outline): each wall is broken into stretches of uneven length, every one set a little in or
+    // out and leaning its own way, with a step between two. Only where the line stands steep; top and foot stay as flown.
+    if (d.kind === 'rockmtn') { const Rw = dice(d.seed ^ 0x51a7), wl = P.map((_, j) => { const a = P[Math.max(0, j - 3)], b = P[Math.min(n - 1, j + 3)]; return sm((Math.abs(b[1] - a[1]) / (Math.hypot(b[0] - a[0], b[1] - a[1]) || 1) - 0.6) / 0.25); }); let of = new Array(n).fill(0);
+      for (let i = 0; i < n;) { const m = Math.max(4, Math.round(H * (0.025 + 0.09 * Rw() * Rw()) / STEP)), off = (Rw() - 0.5) * 0.028, tilt = (Rw() - 0.5) * 0.03; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
+      for (let q = 0; q < 3; q++) of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
+      for (let j = 0; j < n; j++) P[j][0] += H * of[j] * wl[j]; }
+    if (d.kind === 'rockmtn') { hill = 0; rock = Math.max(rock, 0.85); }   // a rock mountain: the crag's walls and broken top, whatever the stroke's proportions
     const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.55 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 0.6 : 0.3), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
     if (land === 'rock') { let ya = 1e9, yb = -1e9; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } const hgt = Math.max(0.02 * H, yb - ya), Rc = dice(d.seed ^ 0x3d71); let of = new Array(n).fill(0);
       for (let i = 0; i < n;) { const m = Math.max(3, Math.round(n * (0.08 + 0.2 * Rc()))), off = (Rc() - 0.5) * 0.3, tilt = (Rc() - 0.5) * 0.3; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
@@ -1648,6 +1683,6 @@ Vẽ thấp: gần, đậm, sông rộng</div>`;
 
   try { if (localStorage.getItem('room.mouse') === '1' && !new URLSearchParams(location.search).has('bot')) setMouse(true, true); } catch { /* dragon on */ }
 
-  window.__paint = { S, st, step, render, reset, undo, freeW, guess, ripAt: (p) => { BOTRIP = p; }, plant, wavMs: () => st.done.map((d) => (d.m && d.m.wavMs) || 0), ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
-    info: () => ({ kinds: st.done.map((d) => d.kind || 'mountain'), paths: st.done.map((d) => { const q = d.stroke, n = Math.max(1, Math.ceil(q.length / 24)); return q.filter((p, i) => i % n === 0 || i === q.length - 1).map((p) => [Math.round(p[0]), Math.round(p[1])]); }) /* what each stroke became and where it ran, thinned: a report could not say why a stroke was guessed as it was (Yang 11-19, rock or bank) */, strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
+  window.__paint = { S, st, step, render, reset, undo, freeW, guess, elbows, ripAt: (p) => { BOTRIP = p; }, plant, wavMs: () => st.done.map((d) => (d.m && d.m.wavMs) || 0), ready: () => strokesReady, pen: (on) => (on ? penDown() : penUp()),
+    info: () => ({ kinds: st.done.map((d) => d.kind || 'mountain'), elbows: st.done.map((d) => (d.elb ? d.elb.length : 0)), paths: st.done.map((d) => { const q = d.stroke, n = Math.max(1, Math.ceil(q.length / 24)); return q.filter((p, i) => i % n === 0 || i === q.length - 1).map((p) => [Math.round(p[0]), Math.round(p[1])]); }) /* what each stroke became and where it ran, thinned: a report could not say why a stroke was guessed as it was (Yang 11-19, rock or bank) */, strokes: st.done.length, pen: st.pen, peaks: st.done.map((d) => (d.m ? d.m.peaks : null)), buildMs: st.done.map((d) => (d.m ? d.m.ms : null)), mistMs: st.done.map((d) => (d.m ? d.m.mistMs : null)), mirMs: st.done.map((d) => (d.m && d.m.mirMs) || 0), S: { ...S } }) };
 })();

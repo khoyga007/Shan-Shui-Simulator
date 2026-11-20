@@ -198,7 +198,17 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Roots under the foot (Yang shot: bamboo roots hanging out below the bank, past its mist): a plant's cv is faded out over the last 3.5% H above its land's foot (once, m.clipK), nothing of it below. Case not reproduced in bot.
 - Depth of mountains (r018, Yang: "depth đang bị vô lý": pale washed hill lay BEFORE a dark peak, both feet on the waterline): order was by yBase only, a tie for all that stand on a waterline. zk now: mountains with foot within 4% H of / below a waterline are ordered mainly by darkOf(m) (mean alpha of cv x tone, cached m.dark), darker in front; elsewhere yBase +- 3% H by darkness. Bot `r7=1&m7=9&sea=0.34&depth=1`, reports/depth.jpg.
 
-## NEXT (Yang 11-19 night, agreed, not built): Dia stroke rule = shape decides material
+## Dia stroke rule = shape decides material (agreed 11-19 night; v1 BUILT 11-20, bot-only, awaits Yang hands-on)
+
+BUILT 11-20 (paint.js):
+- `st.raw` = mouse-point path (`Rm.aim()`) recorded beside the dragon stroke; `elbows(q)`: resample 0.01 H, heading change over +-0.03 H arm > 50 deg, corners >= 0.06 H apart. `ANG`, URL `?ang=<deg>,<count>`.
+- `guess()` earth: elbows >= 2 -> near `rock` / far `rockmtn` (new kind, "núi đá"); else near `bank` / far `mountain`. Box rule gone. Corners kept on record `d.elb`; say() + F8 `info().elbows` show the count.
+- Open questions 1+2 below: built as Claire proposed (mouse path; >= 2). Bot proof for (1): same strokes counted on the rounded dragon path = 0-1 elbows, on the hand's path 2-6.
+- `sharpen(P, d.elb, H)` in mountain(): line drawn back out to each corner (rock + rockmtn). rockmtn = crag path (`rock` >= 0.85, hill 0) + walls broken into offset stretches (x only, steep parts).
+- Bot: `DSF=1.2 python tools/roomtest.py "" paint "karst=1&m7=9&r7=1"`, still reports/rock-mountain.jpg, report key `karst`.
+- Flipped by the rule: near smooth short stroke = bank now (was rock): bot guess cases `nearRock`, `nearArch`, `nearTallArch` -> bank.
+- FAILED first: sharpened corners alone = straight walls, trapezoid factory outline.
+- Weak: body = flat grey wash, not "much bare paper"; no top-light / side-dark face split; ribbed band of even vertical drags on a broad wall; strokes without a mouse path (dragon off / old fixtures) count corners on their own path. Mouse-mode strokes untested. Waterfall not started.
 
 - Two independent questions. Material: stroke has broken corners (straight runs, elbows, steps) -> ROCK; smooth curve -> EARTH. Depth: feet vs waterline (as now) -> near / far.
 - Result grid: angular+near = rock outcrop, angular+far = ROCK MOUNTAIN (new look), smooth+near = earth mound/bank, smooth+far = ordinary mountain.
