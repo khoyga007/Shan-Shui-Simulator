@@ -235,7 +235,7 @@
     // wooded mountain's forest on its tops. Thinned to a fringe for bare rock (a7efb60), he rejected it at once: reverted. Do not strip the wood from a rock mountain.)
     if (d.kind === 'rockmtn') { hill = 0; rock = Math.max(rock, 0.85); }   // a rock mountain: the crag's walls and broken top, whatever the stroke's proportions
     const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.55 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 0.6 : 0.3), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
-    if (d.kind === 'rockmtn') S.body *= 0.4;   // a wall of rock is mostly bare paper: its tone comes from the passes hung down it (sheet AN), not from an even wash
+    if (d.kind === 'rockmtn') S.body *= 0.3;   // a wall of rock is mostly bare paper: its tone comes from the passes hung down it (sheet AN), not from an even wash
     if (land === 'rock') { let ya = 1e9, yb = -1e9; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } const hgt = Math.max(0.02 * H, yb - ya), Rc = dice(d.seed ^ 0x3d71); let of = new Array(n).fill(0);
       for (let i = 0; i < n;) { const m = Math.max(3, Math.round(n * (0.08 + 0.2 * Rc()))), off = (Rc() - 0.5) * 0.3, tilt = (Rc() - 0.5) * 0.3; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
       of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
@@ -450,7 +450,7 @@
             sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5)) + rock * ((N(x / (0.2 * H) + 97, 1) - 0.5) * 0.5 + 0.14 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), fl = R() < 0.5 ? 1 : -1,
             y = ts[k] - 0.006 * H + depth[k] * (lo * 0.5 * r3 * r3 + rock * (r3 < 0.45 ? 0 : 0.65 * (r3 - 0.45) / 0.55));
           g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); const low = rock * (r3 < 0.45 ? 0 : 1);   // begun down the face, away from the dark of the top: pale and narrow, or its solid end stood on the wall as a black slab
-          g.globalAlpha = (d.kind === 'rockmtn' ? 0.35 : 1) * tx * (0.25 + 0.6 * R()) * (1 - 0.6 * lo) * (1 - 0.55 * low); g.drawImage(q.im, 0, 0, swc, q.h, 0, -wd * (0.5 - 0.22 * low), len, wd * (1 - 0.44 * low)); }
+          g.globalAlpha = (d.kind === 'rockmtn' ? 0 : 1) * tx * (0.25 + 0.6 * R()) * (1 - 0.6 * lo) * (1 - 0.55 * low); g.drawImage(q.im, 0, 0, swc, q.h, 0, -wd * (0.5 - 0.22 * low), len, wd * (1 - 0.44 * low)); }
         g.globalAlpha = 1; home(g); }
       // Sheet X, the cun proper (Yang's gen 11-19), mixed in with the drags: hemp-fibre lines (_xh, pale, many, down the slope),
       // axe-cut chops (_xa, few, dark, slanting with the slope, high on the flank), folded-belt strokes (_xf, on a crag's
@@ -459,7 +459,7 @@
       const slAt = (k) => clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1);
       const stamp = (q, x, y, an, len, al, fl = 1) => { const c0 = Math.cos(an), s0 = Math.sin(an), hh = len * q.h / q.w; g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = Math.min(1, al); g.drawImage(q.im, 0, -hh / 2, len, hh); };
       const sow = (kit, stepH, f) => { if (kit.length && dn > 0.05) for (let x = bx0 + stepH * H * R(); x < bx1; x += H * stepH * (0.5 + R()) / dn) { const k = col(x); if (depth[k] > 0.03 * H) f(kit[Math.floor(R() * kit.length) % kit.length], x, k, slAt(k)); } };
-      sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (d.kind === 'rockmtn' ? 0.3 : 1) * (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
+      sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (d.kind === 'rockmtn' ? 0 : 1) * (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
       sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
       if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), (d.kind === 'rockmtn' ? 0 : 1) * rock * (0.3 + 0.35 * R()), 1));   // none on a rock mountain (Yang 11-20: level hooks floating on the wall). Still thrown, unseen: the dice after it fall as before, and the wooded tops he passed stay as they were
       sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
@@ -471,7 +471,7 @@
       //  _md  long narrow drags down the face (Gemini's, see below); _mt short blunt strokes standing in clusters (horse-tooth). _mc (knots on a thin line) reads as beads: not used
       if (d.kind === 'rockmtn') { const gx = (suf) => (STROKES['gemini_' + suf] || []).filter((q) => q.im), kNW = kx('nw').concat(gx('nw')), kMS = kx('ms').slice(2).concat(gx('ms')), kMD = gx('md').concat(gx('md2'), gx('md3')), kMT = kx('mt'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
         if (kNW.length) for (let x = bx0 + 0.03 * H * R(); x < bx1; x += H * (0.03 + 0.055 * R())) { const k = col(x), v = N(x / (0.11 * H) + 53, 2), r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (depth[k] < 0.08 * H || v < 0.3) continue;
-          stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), 0.6 * Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.75 * (0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3)), r4 < 0.5 ? 1 : -1); }
+          stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), 0.4 * Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.3 * (0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3)), r4 < 0.5 ? 1 : -1); }
         if (kMS.length) { const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN);
           for (let k = 2; k < nb - 2; k++) { if (s2(k) < 0.9) continue; let e = k; while (e < nb - 3 && s2(e + 1) > 0.6) e++;
             const xa = bx0 + k * BIN, xb = bx0 + e * BIN, ya = ts[k], yb = ts[e], len = Math.hypot(xb - xa, yb - ya);
@@ -479,42 +479,44 @@
               for (let j = 0; j < nP; j++) { const q = pick(kMS), l1 = len / nP * (1.05 + 0.2 * R()), wd = clamp(len * (0.14 + 0.12 * R()), 0.018 * H, 0.07 * H);
                 g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (xa + (xb - xa) * j / nP - ox), dpr * (ya + (yb - ya) * j / nP - oy)); g.globalAlpha = 0.5 + 0.4 * R(); g.drawImage(q.im, 0, -0.004 * H, l1, wd); } }
             k = e; } }
-        sow(kMT, 0.045, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (N(x / (0.06 * H) + 171, 2) < 0.6) return; stamp(q, x, ts[k] + depth[k] * (0.06 + 0.5 * r1 * r1), Math.atan2(1, 0.25 * (r2 - 0.5)), H * (0.014 + 0.02 * r3), 0.2 + 0.35 * r4, r4 < 0.5 ? 1 : -1); });   // fewer, smaller, paler: at 0.35 to 0.8 they stood on the wall as stamped bars with a dot for a head
+        sow(kMT, 0.045, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (N(x / (0.06 * H) + 171, 2) < 0.6) return; stamp(q, x, ts[k] + depth[k] * (0.06 + 0.5 * r1 * r1), Math.atan2(1, 0.25 * (r2 - 0.5)), H * (0.014 + 0.02 * r3), 0 * (0.2 + 0.35 * r4), r4 < 0.5 ? 1 : -1); });   // fewer, smaller, paler: at 0.35 to 0.8 they stood on the wall as stamped bars with a dot for a head
         // Gemini's sheets (same day) pooled in: its washes and sweeps beside Muse's. The drags are Gemini's alone, each from behind its clot of ink on (the first third cut
         // off) and hung from the top line, where the cut end lies under the dark of the edge: Muse's carry two clots each and stood on the wall as knotted stalks
         sow(kMD, 0.05, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(), u0 = 0.34, len = Math.min(depth[k] * 0.75, H * (0.1 + 0.2 * r1)), hh = clamp(len * q.h / (q.w * (1 - u0)) * (0.8 + 0.8 * r2), 0.008 * H, 0.03 * H), an = Math.atan2(1, 0.12 * (r3 - 0.5)), c0 = Math.cos(an), s0 = Math.sin(an), fl = r4 < 0.5 ? 1 : -1;
-          g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (ts[k] + 0.002 * H - oy)); g.globalAlpha = 0.6 * (0.3 + 0.4 * r2); g.drawImage(q.im, q.w * u0, 0, q.w * (1 - u0), q.h, 0, -hh / 2, len, hh); });
-        // The rock itself (sheets AO, AP, Yang's gen 11-20: "chưa có texture đá"). Till now every mark on the wall was a long plumb streak hung from the
-        // top line: a curtain, wood grain, no stone (those are turned down above, their dice thrown as before: the wooded tops he passed stay). Rock = a wall
-        // split into slabs, and marks ROOTED on the splits:
-        //  cracks  one let down from the foot of every step in the top line (the wall of the step carried on down: the massif reads as columns standing
-        //          side by side), more where a face is left wide; _oc pieces end to end, each leaning its own way, fading downward
-        //  to the right of each crack (its shadow side, light from the left), every piece with its crisp edge ON the crack:
-        //    _pf / _pd flat faces (set-down end up: a level break in the rock; torn end down), _pr grain, _of a fan of chops (pieces 1, 2: the others
-        //    are combs), _oa single chops, _on short slanting strokes (the last four: the others have the head of a real nail), _pm dabs in the crack
-        // Dice of its own (Rk).
-        { const Rk = dice(d.seed ^ 0x0c4a), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], kOC = kx('oc').filter((_, i) => i !== 2), kOF = kx('of').slice(0, 2), kOA = kx('oa'), kON = kx('on').slice(8), kPF = kx('pf'), kPD = kx('pd'), kPR = kx('pr').filter((_, i) => i !== 0 && i !== 4), kPM = kx('pm');
+          g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (ts[k] + 0.002 * H - oy)); g.globalAlpha = 0 * (0.3 + 0.4 * r2); g.drawImage(q.im, q.w * u0, 0, q.w * (1 - u0), q.h, 0, -hh / 2, len, hh); });
+        // The rock itself (sheets AO, AP, Yang's gen 11-20: "chưa có texture đá"). Light from the left. The wall is columns of rock standing side by side:
+        //  cracks  the splits between columns: one let down from the foot of every step in the top line (main: long, heavy where it leaves the corner),
+        //          a few more where a face is left wide (short, thin). _oc pieces end to end, nearly straight, thick and black above, thinning downward
+        //  each column is lit on its left (bare paper) and dark on its right, against the crack: there, rooted ON the crack and all running the same
+        //  way (down and to the left, the way the face falls: axe-cut cun), a rank of _oa chops up the crack with gaps in it, over pale _pd touches
+        //  sheared so their set-down end lies on the crack. How dark = the crack's own (sh), more toward the mountain's right. _on, _pm: few, on the crack.
+        // v1 of this (876c407) read as glass, the critique Yang passed on 11-20: flat translucent grey with no lit / dark face; neat grey boxes (_pf, and
+        // _pd laid plumb with its level set-down end showing); plumb streaks ("water on glass"); cracks thin, even, wavy (crazing); marks strewn any
+        // way. So: no _pf, no _pr (round spatter), no _of (lashes), nothing laid plumb but the crack itself. Dice of its own (Rk).
+        { const Rk = dice(d.seed ^ 0x0c4a), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], kOC = kx('oc').filter((_, i) => i !== 2), kOA = kx('oa'), kON = kx('on').slice(8), kPD = kx('pd'), kPM = kx('pm'), DIR = Math.PI - 0.95;
+          g.save(); home(g); g.beginPath(); g.rect(bx0, oy - 0.1 * H, bx1 - bx0, 4 * H); g.clip();   // marks reaching left of the first crack ran out past the mountain's left end at its foot, to the edge of its canvas: a ruled upright edge in the mist
           // a piece laid from (x, y) along an; its body to the side sd of that line (1 = right of a line going down), off = -hh / 2: astride it
           const lay = (q, x, y, an, len, hh, al, sd, off = 0) => { const c0 = Math.cos(an), s0 = Math.sin(an); g.setTransform(dpr * c0, dpr * s0, dpr * s0 * sd, -dpr * c0 * sd, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = clamp(al, 0, 1); g.drawImage(q.im, 0, off, len, hh); };
+          // sheared: the piece's left end ON the plumb line through (x, y), down it for hh; its length away along an
+          const shr = (q, x, y, an, len, hh, al) => { g.setTransform(dpr * Math.cos(an), dpr * Math.sin(an), 0, dpr, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = clamp(al, 0, 1); g.drawImage(q.im, 0, 0, len, hh); };
           const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN); let cr = [];
           for (let k = 3; k < nb - 3; k++) { const s = s2(k); if (Math.abs(s) < 0.9) continue; let e = k; while (e < nb - 4 && s2(e + 1) * s > 0 && Math.abs(s2(e + 1)) > 0.6) e++;
-            const f = s > 0 ? e + 2 : k - 2, x = bx0 + f * BIN; if (Math.abs(ts[e] - ts[k]) > 0.025 * H && x > bx0 + 0.05 * H && x < bx1 - 0.05 * H) cr.push(x); k = e; }
-          cr.sort((a, b) => a - b); { const all = [bx0 + 0.02 * H].concat(cr, [bx1 - 0.02 * H]), add = []; for (let i = 0; i + 1 < all.length; i++) for (let x = all[i] + H * (0.07 + 0.08 * Rk()); x < all[i + 1] - 0.06 * H; x += H * (0.08 + 0.09 * Rk())) add.push(x); cr = cr.concat(add).sort((a, b) => a - b); }
-          cr = cr.filter((x, i) => depth[col(x)] > 0.12 * H && (i === 0 || x - cr[i - 1] > 0.035 * H));
-          const C = cr.map((x0, i) => { const k = col(x0), dp = depth[k]; return { x0, k, y0: ts[k] + 0.004 * H, dp, L: Math.min(0.6 * H, dp * (0.35 + 0.5 * Rk())), lean: 0.1 * (Rk() - 0.5), wd: (i + 1 < cr.length ? cr[i + 1] : bx1) - x0 }; });
-          const at = (c, u) => [c.x0 + c.lean * u * c.L, c.y0 + u * c.L], fd = (u) => 1 - 0.65 * u;
-          C.forEach((c, ci) => {   // under the lines: faces, then grain
-            const nF = 1 + (Rk() < 0.55 ? 1 : 0);
-            for (let j = 0; j < nF; j++) { const dk = Rk() < 0.85, kit = dk ? kPD : kPF; if (!kit.length) continue; const q = pk(kit), u = (j + 0.9 * Rk()) / nF * 0.6, [x, y] = at(c, u), r = Rk(), hh = c.wd < 0.16 * H ? c.wd : H * (0.06 + 0.05 * r), len = Math.min(c.dp * 0.6, hh * q.w / q.h * (0.9 + 0.8 * Rk()));
-              lay(q, x, y, Math.atan2(1, c.lean), len, hh, ((ci + j) % 2 ? 0.34 : 0.16) * (0.75 + 0.5 * Rk()) * fd(u), 1); }
-            if (kPR.length) for (let j = 0; j < 2; j++) { const q = pk(kPR), u = 0.85 * Rk(), [x, y] = at(c, u), len = H * (0.045 + 0.05 * Rk()), r = Rk(); if (r < 0.8) lay(q, x, y, Math.atan2(1, c.lean), len, Math.min(0.95 * c.wd, len * q.h / q.w), (0.55 + 0.3 * Rk()) * fd(u), 1); } });
-          for (const c of C) {
-            if (kOC.length) { let x = c.x0, y = c.y0, run = 0; while (run < c.L) { const q = pk(kOC), l = Math.min(c.L - run + 0.02 * H, H * (0.06 + 0.07 * Rk())), an = Math.atan2(1, c.lean + 0.26 * (Rk() - 0.5)), hh = clamp(l * q.h / q.w * (1.05 - 0.5 * run / c.L), 0.004 * H, 0.014 * H);
-                lay(q, x, y, an, l, hh, (0.6 + 0.4 * Rk()) * (1 - 0.7 * run / c.L), Rk() < 0.5 ? 1 : -1, -hh / 2); x += Math.cos(an) * l * 0.9 + 0.006 * H * (Rk() - 0.5); y += Math.sin(an) * l * 0.9; run += l * 0.9; } }
-            if (kOF.length && Rk() < 0.4) { const q = pk(kOF), u = 0.3 * Rk(), [x, y] = at(c, u), len = Math.min(0.5 * c.dp, H * (0.07 + 0.07 * Rk())); lay(q, x, y, Math.atan2(1, c.lean), len, Math.min(1.1 * c.wd, len * q.h / q.w), (0.45 + 0.35 * Rk()) * fd(u), 1); }
-            if (kOA.length) for (let j = 0, nA = 2 + Math.floor(3 * Rk()); j < nA; j++) { const q = pk(kOA), u = 0.9 * Rk(), [x, y] = at(c, u), len = H * (0.03 + 0.045 * Rk()); lay(q, x, y, Math.atan2(1, c.lean + 0.3 * (Rk() - 0.35)), len, Math.min(c.wd, len * q.h / q.w), (0.5 + 0.4 * Rk()) * fd(u), 1); }
-            if (kON.length) for (let j = 0, nN = Math.floor(2.4 * Rk()); j < nN; j++) { const q = pk(kON), u = 0.8 * Rk(), [x, y] = at(c, u), len = H * (0.018 + 0.028 * Rk()), hh = Math.max(0.003 * H, len * q.h / q.w); lay(q, x, y, 0.5 + 0.6 * Rk(), len, hh, (0.4 + 0.3 * Rk()) * fd(u), 1, -hh / 2); }
-            if (kPM.length && Rk() < 0.4) { const q = pk(kPM), u = 0.7 * Rk(), [x, y] = at(c, u), len = H * (0.022 + 0.022 * Rk()), hh = len * q.h / q.w; lay(q, x, y, Math.atan2(1, c.lean), len, hh, (0.5 + 0.3 * Rk()) * fd(u), 1, -hh / 2); } } } }
+            const f = s > 0 ? e + 2 : k - 2, x = bx0 + f * BIN; if (Math.abs(ts[e] - ts[k]) > 0.025 * H && x > bx0 + 0.05 * H && x < bx1 - 0.05 * H) cr.push([x, 1]); k = e; }
+          cr.sort((a, b) => a[0] - b[0]); { const all = [bx0 + 0.02 * H].concat(cr.map((c) => c[0]), [bx1 - 0.02 * H]), add = []; for (let i = 0; i + 1 < all.length; i++) for (let x = all[i] + H * (0.09 + 0.08 * Rk()); x < all[i + 1] - 0.07 * H; x += H * (0.11 + 0.1 * Rk())) add.push([x, 0]); cr = cr.concat(add).sort((a, b) => a[0] - b[0]); }
+          cr = cr.filter((c, i) => depth[col(c[0])] > 0.12 * H && (i === 0 || c[0] - cr[i - 1][0] > 0.04 * H));
+          const C = cr.map(([x0, main], i) => { const k = col(x0), dp = depth[k]; return { x0, k, main, y0: ts[k] + 0.004 * H, dp, L: Math.min(0.62 * H, dp * (main ? 0.5 + 0.4 * Rk() : 0.22 + 0.33 * Rk())), lean: 0.16 * (Rk() - 0.5), wdL: x0 - (i ? cr[i - 1][0] : bx0),
+            sh: (main ? 1 : 0.6) * (0.6 + 0.4 * Rk()) * (0.7 + 0.5 * (x0 - bx0) / (bx1 - bx0)) }; });
+          const at = (c, y) => c.x0 + c.lean * (y - c.y0), fd = (c, y) => 1 - 0.7 * (y - c.y0) / c.L;
+          for (const c of C) { const reach = Math.min(0.62 * c.wdL, H * (0.035 + 0.05 * Rk()));   // the dark of the column's right flank: pale touches first
+            if (kPD.length) for (let y = c.y0 - 0.01 * H; y < c.y0 + 0.92 * c.L; ) { const q = pk(kPD), hh = H * (0.05 + 0.06 * Rk()), an = DIR + 0.24 * (Rk() - 0.5); shr(q, at(c, y), y, an, reach * (1.3 + 0.9 * Rk()) / -Math.cos(an), hh, c.sh * (0.24 + 0.2 * Rk()) * fd(c, y)); y += hh * (0.5 + 0.3 * Rk()); } }
+          for (const c of C) { const reach = Math.min(0.55 * c.wdL, H * (0.03 + 0.045 * Rk()));
+            // the rank of chops: each with its crisp edge up the crack (begun at its lower end), its torn tails away down-left
+            if (kOA.length) for (let y = c.y0 + 0.03 * H; y < c.y0 + 0.95 * c.L; ) { const q = pk(kOA), len = H * (0.028 + 0.04 * Rk()), r1 = Rk(), r2 = Rk(), r3 = Rk();
+                if (N(y / (0.06 * H) + 17 * c.k, 2) > 0.36) lay(q, at(c, y), y, -Math.PI / 2 + 0.12 * (r3 - 0.5), len, Math.min(1.5 * len, reach * (0.6 + 0.7 * r1)), c.sh * (0.75 + 0.35 * r2) * (0.35 + 0.65 * fd(c, y)), 1); y += len * (0.4 + 0.4 * r1); }
+            if (kOC.length) { let x = c.x0, y = c.y0, run = 0; while (run < c.L) { const q = pk(kOC), l = Math.min(c.L - run + 0.02 * H, H * (0.07 + 0.07 * Rk())), an = Math.atan2(1, c.lean + 0.08 * (Rk() - 0.5)), hh = clamp(l * q.h / q.w * (c.main ? 1.7 : 1) * (1 - 0.6 * run / c.L), 0.004 * H, 0.02 * H);
+                lay(q, x, y, an, l, hh, (c.main ? 0.75 : 0.5) * (0.8 + 0.3 * Rk()) * (1 - 0.6 * run / c.L), Rk() < 0.5 ? 1 : -1, -hh / 2); x += Math.cos(an) * l * 0.9; y += Math.sin(an) * l * 0.9; run += l * 0.9; } }
+            if (kON.length) for (let j = 0, nN = Math.floor(2.2 * Rk()); j < nN; j++) { const q = pk(kON), y = c.y0 + c.L * 0.8 * Rk(), len = H * (0.02 + 0.025 * Rk()), hh = Math.max(0.003 * H, len * q.h / q.w); lay(q, at(c, y), y, DIR + 0.2 * (Rk() - 0.5), len, hh, c.sh * (0.4 + 0.3 * Rk()) * fd(c, y), 1, -hh / 2); }
+            if (kPM.length && Rk() < 0.3) { const q = pk(kPM), y = c.y0 + c.L * 0.6 * Rk(), len = H * (0.02 + 0.02 * Rk()), hh = len * q.h / q.w; lay(q, at(c, y), y, Math.atan2(1, c.lean), len, hh, (0.5 + 0.3 * Rk()) * fd(c, y), 1, -hh / 2); } } g.restore(); } }
       g.globalAlpha = 1; home(g); }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
@@ -768,6 +770,9 @@
     //    after this mountain's ink: it takes this mountain and those behind it, never one in front.
     //    Built coarse (one value per MQ px) and drawn enlarged: mist has no fine edge.
     //    (The first mist, 545dcc2, lay behind the ridge and only paled the far mountain: not what was meant.)
+    // A rock mountain ends in walls and its mist loses nothing of its ends (rock, below). What is painted out past them (the soft ground of the wood
+    // on a low shoulder) then stood beside the wall as a faint grey box, cut off plumb by the edge of the canvas: thinned out to nothing toward that edge
+    if (d.kind === 'rockmtn') for (const x of [g, gb]) { home(x); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; for (const [xo, xi] of [[bx0 - pad - 5, bx0 - 0.008 * H], [bx1 + pad + 5, bx1 + 0.008 * H]]) { const gd = x.createLinearGradient(xo, 0, xi, 0); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(0.3, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gd; x.fillRect(Math.min(xo, xi), oy - 5, Math.abs(xi - xo), 6 * H); } x.globalCompositeOperation = 'source-over'; }
     let mist = null, mxy = [0, 0, 1]; const tMist = performance.now();
     //    Its edge is real: the top of the sea is a band of wash that mist has eaten into (sheet D, key *_m), laid level
     //    along the sea level; each end of the ridge gets a bank that drifted in from the side (sheet E, *_e). Read as
@@ -776,7 +781,7 @@
          kitM = mk('_m'), kitE = mk('_e').filter((q) => q.side === 'l' || q.side === 'r'), tb = kitM.length ? kitM[Math.floor(R() * kitM.length)] : null,
          tk = tb ? tb.w / (2.6 * H) : 1, tu0 = R() * 4000, tfl = R() < 0.5 ? -1 : 1, tUp = tb ? tb.b / tk : 0, tDn = tb ? (tb.h - tb.b) / tk : 0,   // a band lies 2.6 screens long (mirrored on past its end)
          smp = (q, u, v) => { const w = q.w, p = 2 * w; u = ((u % p) + p) % p; if (u >= w) u = p - u; u = clamp(u - 0.5, 0, w - 1.001); v = clamp(v, 0, q.h - 1.001); const i = u | 0, j = v | 0, fx = u - i, fy = v - j, o = j * w + i, a = q.a; return ((a[o] * (1 - fx) + a[o + 1] * fx) * (1 - fy) + (a[o + w] * (1 - fx) + a[o + w + 1] * fx) * fy) / 255; },
-         MQ = tb ? 4 : 6, rise = yBase - yTop, mg = 0.2 * H, rock = cliff > 0.5, xa = bx0 - extL, xb = bx1 + extR, mx = Math.floor(xa - mg), my = Math.floor(yTop - 0.2 * H), yBot = yBase + 0.19 * H, mw = Math.ceil((xb + mg - mx) / MQ), mh = Math.ceil((yBot - my) / MQ), x1 = mx + mw * MQ;
+         MQ = tb ? 4 : 6, rise = yBase - yTop, mg = 0.2 * H, rock = cliff > 0.5 || d.kind === 'rockmtn' /* a rock mountain stands in the sea of mist as a cliff does: its ends are walls, not the ends of a ridge to be lost in a bank. Lost so, the streaked end-mist lay over the wood of a low shoulder as a glare of white rays (critique 11-20, r021 right mountain) */, xa = bx0 - extL, xb = bx1 + extR, mx = Math.floor(xa - mg), my = Math.floor(yTop - 0.2 * H), yBot = yBase + 0.19 * H, mw = Math.ceil((xb + mg - mx) / MQ), mh = Math.ceil((yBot - my) / MQ), x1 = mx + mw * MQ;
       const sd = d.seed | 0, h2 = (ix, iy) => { let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + sd) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; },
          v2 = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), a = h2(ix, iy), b = h2(ix + 1, iy), c0 = h2(ix, iy + 1), e = h2(ix + 1, iy + 1); return a + (b - a) * sx + (c0 - a + (a - b - c0 + e) * sx) * sy; },
          f2 = (x, y, o) => { let s = 0, w = 1, t = 0; for (let i = 0; i < o; i++) { s += w * v2(x, y); t += w; w *= 0.5; x = x * 2 + 13.7; y = y * 2 + 7.1; } return s / t; };
