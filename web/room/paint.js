@@ -474,10 +474,15 @@
           stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), 0.4 * Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.3 * (0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3)), r4 < 0.5 ? 1 : -1); }
         if (kMS.length) { const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN);
           for (let k = 2; k < nb - 2; k++) { if (s2(k) < 0.9) continue; let e = k; while (e < nb - 3 && s2(e + 1) > 0.6) e++;
-            const xa = bx0 + k * BIN, xb = bx0 + e * BIN, ya = ts[k], yb = ts[e], len = Math.hypot(xb - xa, yb - ya);
-            if (len > 0.05 * H) { const an = Math.atan2(yb - ya, xb - xa), c0 = Math.cos(an), s0 = Math.sin(an), nP = Math.max(1, Math.round(len / (0.3 * H)));
+            // (past the mountain's right end the top line goes on falling, to 0.3 H under its foot: the sweep on the last wall was laid all that way, 0.44 H long for a wall of 0.14, and
+            // stood under the mountain as a band of ruled dry streaks down to the edge of its canvas, below the mist. Yang 11-20, r023 "đường streamline ở cuối chân núi". The sweep
+            // ends where the wall does: f = the last bin not under the foot. Dice thrown for the pieces it would have had, so every later mark falls where it fell)
+            let f = e; while (f > k && ts[f] > yBase) f--; const len0 = Math.hypot((e - k) * BIN, ts[e] - ts[k]), nP0 = len0 > 0.05 * H ? Math.max(1, Math.round(len0 / (0.3 * H))) : 0; let nD = 0;
+            const xa = bx0 + k * BIN, xb = bx0 + f * BIN, ya = ts[k], yb = ts[f], len = Math.hypot(xb - xa, yb - ya);
+            if (len > 0.05 * H && ya < yBase) { const an = Math.atan2(yb - ya, xb - xa), c0 = Math.cos(an), s0 = Math.sin(an), nP = nD = Math.max(1, Math.round(len / (0.3 * H)));
               for (let j = 0; j < nP; j++) { const q = pick(kMS), l1 = len / nP * (1.05 + 0.2 * R()), wd = clamp(len * (0.14 + 0.12 * R()), 0.018 * H, 0.07 * H);
                 g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (xa + (xb - xa) * j / nP - ox), dpr * (ya + (yb - ya) * j / nP - oy)); g.globalAlpha = 0.5 + 0.4 * R(); g.drawImage(q.im, 0, -0.004 * H, l1, wd); } }
+            for (let j = nD; j < nP0; j++) { R(); R(); R(); R(); }
             k = e; } }
         sow(kMT, 0.045, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (N(x / (0.06 * H) + 171, 2) < 0.6) return; stamp(q, x, ts[k] + depth[k] * (0.06 + 0.5 * r1 * r1), Math.atan2(1, 0.25 * (r2 - 0.5)), H * (0.014 + 0.02 * r3), 0 * (0.2 + 0.35 * r4), r4 < 0.5 ? 1 : -1); });   // fewer, smaller, paler: at 0.35 to 0.8 they stood on the wall as stamped bars with a dot for a head
         // Gemini's sheets (same day) pooled in: its washes and sweeps beside Muse's. The drags are Gemini's alone, each from behind its clot of ink on (the first third cut
