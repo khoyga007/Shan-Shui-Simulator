@@ -1292,11 +1292,11 @@
     const lip = i0 > 0; P = P.slice(i0, i1 + 1);
     const n = P.length, cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const L = cum[n - 1], seg = L / (n - 1), frame = (Q) => Q.map((_, i) => { const a = Q[Math.max(0, i - 4)], b = Q[Math.min(Q.length - 1, i + 4)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }), tan = frame(P);
-    const W0 = clamp(0.032 * nb * BIN, 0.005 * H, 0.013 * H) * (0.85 + 0.3 * R());   // (at 0.045 of the mountain's breadth, to 0.022 H, the band was a quarter of a pillar: a white slab, a doorway)
-    const hw = P.map((p, i) => W0 * (0.8 + 0.45 * cum[i] / L) * (0.82 + 0.36 * N(cum[i] / (0.09 * H) + 3, 2)) * (0.45 + 0.55 * tan[i][1] * tan[i][1]) * (lip ? 0.6 + 0.4 * sm(cum[i] / (0.035 * H)) : 0.22 + 0.78 * sm(cum[i] / (0.07 * H))));   // over the lip it comes a little gathered and spreads below it; out of a cleft it begins thin and opens over a stretch (from a point over 0.05 H: a white needle; at once and broad: a doorway)
+    const W0 = clamp(0.04 * nb * BIN, 0.006 * H, 0.016 * H) * (0.85 + 0.3 * R());   // (at 0.045 of the mountain's breadth, to 0.022 H, the band was a quarter of a pillar: a white slab, a doorway)
+    const hw = P.map((p, i) => W0 * (0.75 + 0.7 * Math.pow(cum[i] / L, 1.6)) * (0.82 + 0.36 * N(cum[i] / (0.09 * H) + 3, 2)) * (0.45 + 0.55 * tan[i][1] * tan[i][1]) * (lip ? 0.6 + 0.4 * sm(cum[i] / (0.035 * H)) : 0.22 + 0.78 * sm(cum[i] / (0.07 * H))));   // over the lip it comes a little gathered and spreads below it; out of a cleft it begins thin and opens over a stretch (from a point over 0.05 H: a white needle; at once and broad: a doorway)
     // its two edges (sg -1: on the right of water falling down the paper, +1: on its left), each ragged in its own way
     const edge = (sg, ph) => P.map((p, i) => { const w = hw[i] * (0.72 + 0.56 * N(cum[i] / (0.035 * H) + ph, 2)) + 0.003 * H * (N(cum[i] / (0.011 * H) + ph + 20, 2) - 0.5);   /* (at 0.85 + 0.3 the two edges ran side by side: a ribbon, a road) */ return [p[0] - sg * tan[i][1] * w, p[1] + sg * tan[i][0] * w]; });
-    const A = edge(-1, 100), B = edge(1, 200), F = P[n - 1], sr = Math.max(3.4 * hw[n - 1], 0.034 * H);   // sr: how far the spray reaches about the foot
+    const A = edge(-1, 100), B = edge(1, 200), F = P[n - 1], sr = Math.max(4.2 * hw[n - 1], 0.045 * H), leds = [];   // sr: how far the spray reaches about the foot
     let x0 = F[0] - 1.5 * sr, x1 = F[0] + 1.5 * sr, y0 = 1e9, y1 = F[1] + sr; for (const Q of [A, B]) for (const p of Q) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
     const pad = Math.round(0.09 * H), ox = Math.floor(x0) - pad, oy = Math.floor(y0) - pad, cw = Math.ceil((x1 - x0 + 2 * pad + 2) * dpr), chh = Math.ceil((y1 - y0 + 2 * pad + 2) * dpr);
     const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
@@ -1311,19 +1311,21 @@
     const puff = (x, y, rx, ry, al) => { gp.save(); gp.translate(x, y); gp.scale(1, ry / rx); const gd = gp.createRadialGradient(0, 0, 0, 0, 0, rx); gd.addColorStop(0, `rgba(0,0,0,${al})`); gd.addColorStop(0.45, `rgba(0,0,0,${(al * 0.75).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)'); gp.fillStyle = gd; gp.beginPath(); gp.arc(0, 0, rx, 0, 6.2832); gp.fill(); gp.restore(); };
     puff(F[0], F[1] + 0.2 * sr, sr, 0.62 * sr, 0.95);
     for (let k = 0; k < 4; k++) { const an = R() * 6.2832, rr = sr * (0.35 + 0.35 * R()); puff(F[0] + Math.cos(an) * sr * 0.7, F[1] + 0.2 * sr + Math.sin(an) * sr * 0.3, rr, rr * (0.5 + 0.3 * R()), 0.7); }
+    for (let k = 0; k < 4; k++) { const rr = sr * (0.72 - 0.13 * k); puff(F[0] + (R() - 0.5) * sr * 0.6, F[1] - sr * (0.35 + 0.42 * k), rr, rr * 0.85, 0.5 - 0.1 * k); }   // the spray thrown back up the fall, thinning with height
     // where the stroke steps aside the water strikes a ledge: foam there too, which breaks the band into falls one under another
-    { let led = 0; for (let i = 12; i < n - 12 && led < 3; i++) { const t = Math.abs(tan[i][0]); if (t > 0.26 && t >= Math.abs(tan[i - 6][0]) && t > Math.abs(tan[i + 6][0]) && cum[i] > 0.05 * H && L - cum[i] > 0.05 * H) { puff(P[i][0], P[i][1] + 0.4 * hw[i], 2.3 * hw[i], 1.25 * hw[i], 0.85); led++; i += 14; } } }
+    { let led = 0; for (let i = 12; i < n - 12 && led < 3; i++) { const t = Math.abs(tan[i][0]); if (t > 0.26 && t >= Math.abs(tan[i - 6][0]) && t > Math.abs(tan[i + 6][0]) && cum[i] > 0.05 * H && L - cum[i] > 0.05 * H) { puff(P[i][0], P[i][1] + 0.4 * hw[i], 2.3 * hw[i], 1.25 * hw[i], 0.85); leds.push([P[i][0], P[i][1] + 0.4 * hw[i], 2.3 * hw[i]]); led++; i += 14; } } }
     raw(gb); gb.filter = `blur(${(0.007 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 0.5; gb.drawImage(wat, 0, 0); gb.filter = `blur(${(0.0022 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 1; gb.drawImage(wat, 0, 0); gb.filter = 'none'; gb.drawImage(spr, 0, 0); hostIn(gb);
     // -- the rock beside it. Where it is drawn at all: in stretches, by noise, more of it on the right (the dark side of a rock mountain)
     const own = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
-    const kitF = own('_f'), kitS = own('_tr').length ? own('_tr') : own('_ms'), kitL = own('_ta').length ? own('_ta') : own('_g'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    const at = (suf) => (S.tex === 'code' ? [] : (STROKES['muse' + suf] || []).concat(STROKES['gemini' + suf] || []).filter((q) => q.im)),   /* its own sheet, AT: Muse's and Gemini's pieces in one pool (as the rock mountain's AQ / AR) */
+      ownR = at('_tr').length > 0, kitF = own('_f'), kitS = ownR ? ((STROKES.gemini_tr || []).filter((q) => q.im).length ? STROKES.gemini_tr.filter((q) => q.im) : at('_tr')) : own('_ms'),   /* of the rock edges Gemini's (ends torn, chops slanting off); Muse's are square black blocks, and about the head of a narrow fall they stood as a black house */ kitL = at('_ta').length ? at('_ta') : own('_g'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
     for (const [E, sg, ph] of [[A, -1, 300], [B, 1, 400]]) {
       const ga = (i) => N(cum[i] / (0.11 * H) + ph, 2) + (sg < 0 ? 0.12 : 0), et = frame(E), ec = [0]; for (let i = 1; i < n; i++) ec.push(ec[i - 1] + Math.hypot(E[i][0] - E[i - 1][0], E[i][1] - E[i - 1][1]));
       // wet rock: a little wash along the water where the rock is dark
       gs.lineCap = 'round'; gs.strokeStyle = '#000';
       for (let i = 1; i < n; i++) { if (ga(i) < 0.46) continue; gs.lineWidth = 0.012 * H + 1.5 * hw[i]; gs.beginPath(); gs.moveTo(E[i - 1][0], E[i - 1][1]); gs.lineTo(E[i][0], E[i][1]); gs.stroke(); }
       // the line of the rock on the water: a real stroke in thin slices, its dark edge on the water, the rest on the rock (as a river's bank)
-      if (kitF.length) { const q = pick(kitF), ds = 2, per = 0.6 * H, off = R() * 2; let j = 0;
+      if (kitF.length && !ownR) { const q = pick(kitF), ds = 2, per = 0.6 * H, off = R() * 2; let j = 0;   // (borrowed from the river until sheet AT came: its pebbles stood along the fall as a row of dots)
         for (let a = 0; a < ec[n - 1]; a += ds) { while (j < n - 2 && ec[j + 1] < a) j++;
           const al = sm((ga(j) - 0.36) / 0.14); if (al < 0.05) continue;
           const f = clamp((a - ec[j]) / Math.max(1e-6, ec[j + 1] - ec[j]), 0, 1), px = E[j][0] + (E[j + 1][0] - E[j][0]) * f, py = E[j][1] + (E[j + 1][1] - E[j][1]) * f, tx = et[j][0], ty = et[j][1];
@@ -1333,9 +1335,9 @@
         home(gk); }
       // dark wet masses: sweeps whose hard edge lies on the water, torn away from it into the rock
       if (kitS.length) { let j = 0;
-        for (let a = R() * 0.04 * H; a < ec[n - 1]; a += H * (0.03 + 0.045 * R())) { while (j < n - 2 && ec[j + 1] < a) j++; const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (ga(j) < 0.5) continue;
-          const q = kitS[Math.floor(r1 * kitS.length) % kitS.length], len = H * (0.045 + 0.06 * r2) * clamp(W0 / (0.014 * H), 0.6, 1.4), hh = Math.min(len * q.h / q.w, 0.012 * H + 2.4 * W0) * (0.7 + 0.5 * r3), fl = r4 < 0.5 ? 1 : -1, tx = et[j][0], ty = et[j][1];
-          gk.setTransform(dpr * tx * fl, dpr * ty * fl, -sg * dpr * ty, sg * dpr * tx, dpr * (E[j][0] - ox), dpr * (E[j][1] - oy)); gk.globalAlpha = 0.5 + 0.4 * r3; gk.drawImage(q.im, -len / 2, -0.04 * hh, len, hh); }
+        for (let a = R() * 0.04 * H; a < ec[n - 1]; a += H * (ownR ? 0.018 + 0.03 * R() : 0.03 + 0.045 * R())) { while (j < n - 2 && ec[j + 1] < a) j++; const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (ga(j) < (ownR ? 0.4 : 0.5)) continue;
+          const q = kitS[Math.floor(r1 * kitS.length) % kitS.length], len = H * (ownR ? 0.035 + 0.05 * r2 : 0.045 + 0.06 * r2) * clamp(W0 / (0.014 * H), 0.6, 1.4), hh = Math.min(len * q.h / q.w, ownR ? 0.006 * H + 1.7 * W0 : 0.012 * H + 2.4 * W0) * (0.7 + 0.5 * r3), fl = r4 < 0.5 ? 1 : -1, tx = et[j][0], ty = et[j][1];
+          gk.setTransform(dpr * tx * fl, dpr * ty * fl, -sg * dpr * ty, sg * dpr * tx, dpr * (E[j][0] - ox), dpr * (E[j][1] - oy)); gk.globalAlpha = ownR ? 0.7 + 0.3 * r3 : 0.5 + 0.4 * r3; gk.drawImage(q.im, -len / 2, -0.04 * hh, len, hh); }
         gk.globalAlpha = 1; home(gk); }
     }
     { const [w2, g2] = mk(); raw(g2); g2.filter = `blur(${(0.008 * H * dpr).toFixed(1)}px)`; g2.drawImage(wsh, 0, 0); g2.filter = 'none'; g2.globalCompositeOperation = 'source-in'; g2.fillStyle = `rgb(${INK})`; g2.fillRect(0, 0, cw, chh);
@@ -1344,23 +1346,45 @@
     raw(g); g.globalCompositeOperation = 'destination-out'; g.drawImage(wat, 0, 0); g.drawImage(spr, 0, 0);
     if (hm.mist) { const [mx, my, mq] = hm.mxy; g.drawImage(hm.mist, Math.round((mx - ox) * dpr), Math.round((my - oy) * dpr), hm.mist.width * mq * dpr, hm.mist.height * mq * dpr); }
     g.globalAlpha = 0.11; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; hostIn(g);
-    // -- the falling water: thin lines running down the band, each on its own lane, faster as it falls; near the edges
-    //    more than down the middle, which stays bare. Redrawn each frame (flow), as a river's current
-    let live = null, flow = null;
-    if (kitL.length) { const [lv, gl] = mk(), lines = []; live = lv;
-      for (let k = 0, cnt = clamp(Math.round(8 + L / (0.03 * H)), 8, 30); k < cnt; k++) lines.push({ u0: (R() < 0.5 ? -1 : 1) * (0.2 + 0.7 * Math.pow(R(), 0.6)), len: H * (0.05 + 0.13 * R()), ph: R() * 90, q: pick(kitL), fr: R(), per: (1.3 + 1.1 * R()) * Math.sqrt(Math.max(0.3, L / (0.3 * H))), t0: R() });
-      flow = (T) => { raw(gl); gl.globalCompositeOperation = 'source-over'; gl.globalAlpha = 1; gl.clearRect(0, 0, cw, chh);
-        for (const ln of lines) { const s = (T / ln.per + ln.t0) % 1, len = Math.min(ln.len, 0.7 * L), a0 = Math.pow(s, 1.4) * (L + len) - len, aS = Math.max(0, a0), a1 = Math.min(L, a0 + len); if (a1 - aS < 6) continue;
-          const life = sm(s / 0.1) * sm((1 - s) / 0.15), m = Math.max(3, Math.round((a1 - aS) / 8)), Q = [], cl = [0];
-          for (let j = 0; j <= m; j++) { const fi = Math.min(n - 1.001, (aS + (a1 - aS) * j / m) / seg), i = fi | 0, f = fi - i, tx = tan[i][0] + (tan[i + 1][0] - tan[i][0]) * f, ty = tan[i][1] + (tan[i + 1][1] - tan[i][1]) * f,
-            w = (hw[i] + (hw[i + 1] - hw[i]) * f) * clamp(ln.u0 + 0.16 * (N(fi * seg / (0.06 * H) + ln.ph + 9000, 2) - 0.5), -0.9, 0.9); Q.push([P[i][0] + (P[i + 1][0] - P[i][0]) * f - ty * w, P[i][1] + (P[i + 1][1] - P[i][1]) * f + tx * w]);
+    // -- the falling water (Yang 11-20, on v1: "thác nước phải nhìn như nó chảy thật mạnh, dữ dội mới đúng thác nước": a few hairlines sliding down at a river's
+    //    pace were a trickle). What makes it fall hard:
+    //      mass    many lines, and among them broad bands of parted streaks (sheet AT, _tb) that fill a third of the band and more
+    //      speed   a line is down the fall in well under a second, faster the farther it has fallen
+    //      surge   the water does not come evenly: darker and lighter stretches run down through the lines, faster than they
+    //      spray   at the foot it boils: heaps of white (a layer that WIPES, redrawn each frame) swell, rise and drift off,
+    //              drops are thrown out in arcs, flicks of splash (_ts) burst and are gone; the same, smaller, at each ledge
+    //    Lines and bands are redrawn each frame (flow), as a river's current; near the edges more than down the middle
+    let live = null, flow = null, wipe = null; const SPLASH = false;   // sheet AT's spray clusters (_ts: flicks from one point, dots over them) stood at the foot of the fall as tufts of grass, on both Muse's and Gemini's sheet. Off until a sheet of spray that is not grass
+    if (kitL.length) { const [lv, gl] = mk(), [wp, gx] = mk(), els = [], kitB = at('_tb'), kitP = at('_ts'), perK = Math.sqrt(Math.max(0.3, L / (0.3 * H))); live = lv; wipe = wp;
+      for (let k = 0, cnt = clamp(Math.round(10 + L / (0.022 * H)), 10, 32); k < cnt; k++) els.push({ u0: (R() < 0.5 ? -1 : 1) * (0.1 + 0.8 * Math.pow(R(), 0.7)), wd: 0, len: H * (0.07 + 0.16 * R()), ph: R() * 90, q: pick(kitL), fr: R(), per: (0.55 + 0.45 * R()) * perK, t0: R(), al: 1 });
+      if (kitB.length) for (let k = 0, cnt = clamp(Math.round(3 + L / (0.07 * H)), 3, 9); k < cnt; k++) els.push({ u0: (R() - 0.5) * 0.9, wd: 0.5 + 0.7 * R(), len: H * (0.1 + 0.16 * R()), ph: R() * 90, q: pick(kitB), fr: 0, per: (0.7 + 0.5 * R()) * perK, t0: R(), al: 0.26 + 0.2 * R() });   // pale: at 0.5 to 0.8 they filled the band with grey, and the water is the white of the paper
+      const src = [[F[0], F[1] + 0.15 * sr, sr, 9, 16, 4]].concat(leds.map((q) => [q[0], q[1], 1.5 * q[2], 2, 4, 1])), puffs = [], drops = [], bursts = [];   // where it boils: the foot, and each ledge in small
+      for (const [x, y, s, np, nd, nbu] of src) {
+        for (let k = 0; k < np; k++) puffs.push({ x, y, s, t0: R(), per: 1.0 + 1.2 * R(), sx: (R() - 0.5) * 1.5, vx: (R() - 0.5) * 1.3, up: 0.5 + 1.2 * R(), r0: 0.32 + 0.3 * R(), r1: 0.8 + 0.6 * R() });
+        for (let k = 0; k < nd; k++) drops.push({ x, y, s, t0: R(), per: 0.5 + 0.5 * R(), vx: (R() < 0.5 ? -1 : 1) * (0.5 + 1.4 * R()), vy: 1.1 + 1.5 * R(), r: H * (0.0009 + 0.0013 * R()) });
+        if (kitP.length && SPLASH) for (let k = 0; k < nbu; k++) bursts.push({ x, y, s, t0: R(), per: 0.45 + 0.5 * R(), q: pick(kitP), sx: (R() - 0.5) * 1.3, sz: 0.6 + 0.6 * R(), fl: R() < 0.5 ? 1 : -1, rt: (R() - 0.5) * 0.7 }); }
+      flow = (T) => { const tone = clamp(toneOf(host), 0.3, 1); raw(gl); gl.globalCompositeOperation = 'source-over'; gl.globalAlpha = 1; gl.clearRect(0, 0, cw, chh);
+        for (const ln of els) { const s = (T / ln.per + ln.t0) % 1, len = Math.min(ln.len, 0.8 * L), a0 = Math.pow(s, 1.3) * (L + len) - len, aS = Math.max(0, a0), a1 = Math.min(L, a0 + len); if (a1 - aS < 6) continue;
+          const surge = 0.55 + 0.9 * N((aS + a1) / 2 / (0.13 * H) - T * 2.1 + 700, 2), life = sm(s / 0.06) * sm((1 - s) / 0.1), m = Math.max(3, Math.round((a1 - aS) / 8)), Q = [], cl = [0], wl = [];
+          for (let j = 0; j <= m; j++) { const fi = Math.min(n - 1.001, (aS + (a1 - aS) * j / m) / seg), i = fi | 0, f = fi - i, tx = tan[i][0] + (tan[i + 1][0] - tan[i][0]) * f, ty = tan[i][1] + (tan[i + 1][1] - tan[i][1]) * f, hl = hw[i] + (hw[i + 1] - hw[i]) * f,
+            w = hl * clamp(ln.u0 + 0.16 * (N(fi * seg / (0.06 * H) + ln.ph + 9000, 2) - 0.5), -0.9, 0.9); Q.push([P[i][0] + (P[i + 1][0] - P[i][0]) * f - ty * w, P[i][1] + (P[i + 1][1] - P[i][1]) * f + tx * w]); wl.push(hl);
             if (j) cl.push(cl[j - 1] + Math.hypot(Q[j][0] - Q[j - 1][0], Q[j][1] - Q[j - 1][1])); }
-          const q = ln.q, lp = cl[m], frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = ln.fr * (1 - frac) * q.w, th0 = life * H * (0.0032 + 0.003 * ln.fr), ds = 5; let j = 0;
-          for (let a = 0; a < lp; a += ds) { while (j < m - 1 && cl[j + 1] < a) j++; const x = a / lp, th = th0 * (0.1 + 0.9 * sm(x / 0.65) * sm((1 - x) / 0.14)), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1, f = a - cl[j];
-            gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx / l * f - ox), dpr * (Q[j][1] + dy / l * f - oy)); gl.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, ds / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.1, th); } }   // slices edge to edge: the pieces are pale, and every overlap of two showed as a dot, the line as a row of stitches
+          const q = ln.q, lp = cl[m], frac = ln.wd ? 1 : clamp(len / (0.5 * H), 0.15, 0.9), us = ln.wd ? 0 : ln.fr * (1 - frac) * q.w, th0 = life * H * (0.004 + 0.004 * ln.fr), ds = 5; let j = 0; gl.globalAlpha = clamp(ln.al * surge, 0, 1);
+          for (let a = 0; a < lp; a += ds) { while (j < m - 1 && cl[j + 1] < a) j++; const x = (aS - a0 + a) / len, th = ln.wd ? life * ln.wd * 2 * wl[j] * (0.25 + 0.75 * sm(x / 0.2)) /* a band begins narrow: its blunt upper end, where the brush was set down, stood in the fall as a ruled bar */ : th0 * (0.25 + 0.75 * sm(x / 0.5) * sm((1 - x) / 0.14)), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1, f = a - cl[j];   // x: how far along the piece (its left end = its upper end), also while only part of it is on the fall
+            gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx / l * f - ox), dpr * (Q[j][1] + dy / l * f - oy)); gl.drawImage(q.im, clamp(us + x * frac * q.w, 0, q.w - 2), 0, Math.max(1, ds / len * frac * q.w), q.h, 0, -th / 2, ds + 0.1, th); } }   // slices edge to edge: the pieces are pale, and every overlap of two showed as a dot, the line as a row of stitches
         // only in the band, paled as its mountain is, and lost in the spray
-        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.globalAlpha = 0.75 * clamp(toneOf(host), 0.3, 1); gl.drawImage(wat, 0, 0); gl.globalCompositeOperation = 'destination-out'; gl.globalAlpha = 1; gl.drawImage(spr, 0, 0); gl.globalCompositeOperation = 'source-over'; home(gl); }; }
-    return { river: true, fall: true, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: F[1], yTop: P[0][1], tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.globalAlpha = 0.8 * tone; gl.drawImage(wat, 0, 0); gl.globalCompositeOperation = 'destination-out'; gl.globalAlpha = 0.85; gl.drawImage(spr, 0, 0); gl.globalCompositeOperation = 'source-over'; home(gl);
+        // the spray, boiling: heaps of white that swell as they rise and drift
+        raw(gx); gx.globalCompositeOperation = 'source-over'; gx.globalAlpha = 1; gx.clearRect(0, 0, cw, chh); home(gx);
+        for (const p of puffs) { const s = (T / p.per + p.t0) % 1, a = 0.7 * sm(s / 0.25) * sm((1 - s) / 0.5), rr = p.s * (p.r0 + (p.r1 - p.r0) * s); if (a < 0.02) continue;
+          gx.save(); gx.translate(p.x + p.s * (0.5 * p.sx + 0.7 * p.vx * s), p.y - p.s * p.up * s); gx.scale(1, 0.72); const gd = gx.createRadialGradient(0, 0, 0, 0, 0, rr); gd.addColorStop(0, `rgba(0,0,0,${a.toFixed(3)})`); gd.addColorStop(0.5, `rgba(0,0,0,${(a * 0.6).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)'); gx.fillStyle = gd; gx.beginPath(); gx.arc(0, 0, rr, 0, 6.2832); gx.fill(); gx.restore(); }
+        hostIn(gx);
+        // splash: flicks that burst and are gone, drops thrown out in arcs (ink, over the white)
+        for (const b of bursts) { const s = (T / b.per + b.t0) % 1, w = b.s * b.sz * (0.45 + 0.8 * s), h = w * b.q.h / b.q.w; gl.save(); gl.translate(b.x + 0.6 * b.s * b.sx, b.y + 0.1 * b.s); gl.rotate(b.rt); gl.scale(b.fl, 1); gl.globalAlpha = 0.6 * tone * sm(s / 0.12) * sm((1 - s) / 0.55); gl.drawImage(b.q.im, -w / 2, -h, w, h); gl.restore(); }
+        gl.fillStyle = `rgb(${INK})`;
+        for (const p of drops) { const s = (T / p.per + p.t0) % 1; gl.globalAlpha = 0.45 * tone * sm(s / 0.08) * sm((1 - s) / 0.35); gl.beginPath(); gl.arc(p.x + 1.05 * p.s * p.vx * s, p.y - p.s * p.vy * (2.2 * s - 3.2 * s * s), p.r * (1 - 0.4 * s), 0, 6.2832); gl.fill(); }
+        gl.globalAlpha = 1; hostIn(gl); }; }
+    return { river: true, fall: true, live, wipe, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: F[1], yTop: P[0][1], tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
   // One stroke -> one lake (Yang 11-19, key 3). The stroke is the shore: flown round, its ends joined if left open. Still
@@ -1924,9 +1948,11 @@
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     // moving water: each river's layer of current, redrawn for this instant, cut away where anything nearer stands
     // before it (the bodies of everything after it in the bake), and laid over the bake
-    const flowOf = (d, a, k) => { const m = d.m; m.flow(T); const x = m.live.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-out';
-      for (let j = k + 1; j < old.length && k >= 0; j++) { const o = old[j].m, dx = Math.round((o.ox - m.ox) * dpr), dy = Math.round((o.oy - m.oy) * dpr); if (dx < m.live.width && dy < m.live.height && dx + o.body.width > 0 && dy + o.body.height > 0) x.drawImage(o.body, dx, dy); }
-      x.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = a; c.drawImage(m.live, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.restore(); };
+    // (a waterfall has a second layer, wipe: its spray, which takes ink away. Laid first, then the lines over it)
+    const flowOf = (d, a, k) => { const m = d.m; m.flow(T);
+      for (const ly of [m.wipe, m.live]) { if (!ly) continue; const x = ly.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'destination-out';
+        for (let j = k + 1; j < old.length && k >= 0; j++) { const o = old[j].m, dx = Math.round((o.ox - m.ox) * dpr), dy = Math.round((o.oy - m.oy) * dpr); if (dx < ly.width && dy < ly.height && dx + o.body.width > 0 && dy + o.body.height > 0) x.drawImage(o.body, dx, dy); }
+        x.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = a; if (ly === m.wipe) c.globalCompositeOperation = 'destination-out'; c.drawImage(ly, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.restore(); } };
     old.forEach((d, k) => { if (d.m.flow) flowOf(d, 1, k); });
     if (WAVES && MIRROR) {
       rip = rip.filter((q) => T >= q.t0 && T - q.t0 < RIPL + 0.5);

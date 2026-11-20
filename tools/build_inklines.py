@@ -342,7 +342,7 @@ for name in sorted(os.listdir(SRC)):
         (mist_bands if kind == 'd' else mist_patches)(src + ('_m' if kind == 'd' else '_e'), dark)
         print(name, L.shape[::-1]); continue
     bg = float(np.percentile(L, 75 if kind not in ('c', 'an') else 97))      # the paper (Gemini's is off-white with shading)
-    bgmap = ndi.gaussian_filter(ndi.maximum_filter(L, size=61 if kind not in ('c', 'an') else 301), 40)   # its slow shading, taken off
+    bgmap = ndi.gaussian_filter(ndi.maximum_filter(L, size=61 if kind not in ('c', 'an', 'at') else 301), 40)   # its slow shading, taken off
     ink = np.clip((np.minimum(bgmap, bg + 20) - 10 - L) / (bg - 40), 0, 1)
     if kind == '': level(src, ink, 0.3, 0.35, 0.2)
     elif kind == 'a': level(src + '_a', ink, 0.3, 0.35, 0.2)
@@ -379,6 +379,13 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'ap': rowsheet(src, ink, ('_pf', '_pd', '_pr', '_pm'), thr=0.05, blob=(7, 7, 11, 25))   # its faces: flat mid-grey touches (set-down end and upper edge crisp, far end torn), the same dark and drier, dry rubs (grain, dense along a straight upper edge), strings of squarish dabs
     elif kind == 'aq': swatches(src + '_qd', ink)   # a rock mountain's stone, shadow side: axe-cut (wedges falling to the lower left, layered), broken ink (a black mass split by white cracks), folded-belt (level pulls turning plumb)
     elif kind == 'ar': swatches(src + '_ql', ink, torn=0.1 if src == 'gemini' else 0)   # the same, lit side: open axe-cut clumps, dry rub (grain of hairlines), plumb broken strokes with moss dots
+    elif kind == 'at':   # a waterfall: lines of falling water (long, hair-thin to dashed: cut as the river's lines of current, the rows below blanked), split-brush bands (parted hairs, dense at the left end), wet rock edges (hard upper edge = the edge on the water, lower edge torn), spray (flicks from one point, dots over them)
+        u = ink.shape[1] / 2048; bands = [(a, b) for a, b in runs(ndi.binary_dilation((ink > 0.05).any(axis=1), structure=np.ones(int(65 * u) | 1))) if b - a > 40 * u]
+        top = np.zeros_like(ink); top[:bands[0][1]] = ink[:bands[0][1]]; rest = ink.copy(); rest[:bands[0][1]] = 0
+        man.pop(src + '_ta', None); level(src + '_ta', top, 0.1, 0.12, 0.05, grow=(5, int(200 * u) | 1), gain=0.9)
+        man.pop(src + '_ts', None); rowsheet(src, rest, ('_tb', '_tr', '_ts'), thr=0.05, blob=(9, 9, 19))
+        if not man.get(src + '_ts'):   # Gemini: the chops of its rock edges reach down to the dots of the spray, the two rows found as one. Told apart by how much ink a piece holds
+            pcs = man.get(src + '_tr', []); man[src + '_tr'] = [q for q in pcs if q['tone'] >= 0.25]; man[src + '_ts'] = [q for q in pcs if q['tone'] < 0.25]
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])
