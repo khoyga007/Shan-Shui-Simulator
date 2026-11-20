@@ -310,14 +310,22 @@ def wisps(key, ink, sufs=('_aw', '_ap', '_av'), counts=(6, 8, 5), thr=0.05):
     print(' wisp rows', len(bands), 'of', len(sufs))
 
 
-def swatches(key, ink, n=3, thr=0.05):
+def swatches(key, ink, n=3, thr=0.05, torn=0):
     """sheets AQ, AR: n tall swatches of rock-face brushwork side by side (each hundreds of strokes: the SURFACE of a wall, not a
     mark). Cut by the widest empty runs of columns between them; cropped to their ink; ragged ends kept (they are brush ends,
-    and the room lays swatches over one another). webp: they are large"""
+    and the room lays swatches over one another). webp: they are large.
+    torn (share of the width): Gemini's lit swatches are cut off square, strokes sliced by a ruled frame; all four edges are
+    thinned out over that much, each row / column from a place of its own, so an edge laid on the wall is torn and not ruled"""
     u = ink.shape[1] / 2048; on = ink > thr; man.pop(key, None)
     cs = sorted(sorted(runs(ndi.binary_dilation(on.sum(axis=0) > 6 * u, structure=np.ones(int(31 * u) | 1))), key=lambda r: r[0] - r[1])[:n])
     for k, (ca, cb) in enumerate(cs):
         q = ink[:, ca:cb]; rows = np.nonzero((q > thr).sum(axis=1) > 6 * u)[0]; q = q[rows[0]:rows[-1] + 1]
+        if torn:
+            hq, wq = q.shape; f = max(4, int(torn * wq)); rg = np.random.default_rng(31 + k)
+            def edge(m):   # how far in the edge lies, for each of m rows / columns
+                o = ndi.gaussian_filter1d(rg.random(m).astype(np.float32), max(1.0, 0.012 * m), mode='nearest'); return (o - o.min()) / max(1e-6, float(o.max() - o.min())) * f
+            xs = np.arange(wq, dtype=np.float32)[None, :]; ys = np.arange(hq, dtype=np.float32)[:, None]
+            q = q * np.clip((xs - edge(hq)[:, None]) / f, 0, 1) * np.clip((wq - 1 - xs - edge(hq)[:, None]) / f, 0, 1) * np.clip((ys - edge(wq)[None, :]) / f, 0, 1) * np.clip((hq - 1 - ys - edge(wq)[None, :]) / f, 0, 1)
         save(key, k, shrink(q, min(q.shape[1], 420)), 'webp')
     print(' swatches', len(cs), 'of', n)
 
@@ -370,7 +378,7 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'ao': rowsheet(src, ink, ('_oc', '_of', '_oa', '_on'), thr=0.05, blob=(9, 9, 9, 7))   # a rock mountain's rock: crack lines (straight pieces joined by abrupt steps), fringes of chops (heads merged on one straight edge, tails slanting away), single chops (one long edge crisp, the other torn), nail-head strokes
     elif kind == 'ap': rowsheet(src, ink, ('_pf', '_pd', '_pr', '_pm'), thr=0.05, blob=(7, 7, 11, 25))   # its faces: flat mid-grey touches (set-down end and upper edge crisp, far end torn), the same dark and drier, dry rubs (grain, dense along a straight upper edge), strings of squarish dabs
     elif kind == 'aq': swatches(src + '_qd', ink)   # a rock mountain's stone, shadow side: axe-cut (wedges falling to the lower left, layered), broken ink (a black mass split by white cracks), folded-belt (level pulls turning plumb)
-    elif kind == 'ar': swatches(src + '_ql', ink)   # the same, lit side: open axe-cut clumps, dry rub (grain of hairlines), plumb broken strokes with moss dots
+    elif kind == 'ar': swatches(src + '_ql', ink, torn=0.1 if src == 'gemini' else 0)   # the same, lit side: open axe-cut clumps, dry rub (grain of hairlines), plumb broken strokes with moss dots
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

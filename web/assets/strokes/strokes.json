@@ -6415,6 +6415,26 @@
    "tone": 0.532
   }
  ],
+ "gemini_qd": [
+  {
+   "f": "gemini_qd-1.webp",
+   "w": 420,
+   "h": 727,
+   "tone": 0.537
+  },
+  {
+   "f": "gemini_qd-2.webp",
+   "w": 420,
+   "h": 737,
+   "tone": 0.598
+  },
+  {
+   "f": "gemini_qd-3.webp",
+   "w": 420,
+   "h": 723,
+   "tone": 0.273
+  }
+ ],
  "muse_qd": [
   {
    "f": "muse_qd-1.webp",
@@ -6433,6 +6453,26 @@
    "w": 420,
    "h": 1033,
    "tone": 0.385
+  }
+ ],
+ "gemini_ql": [
+  {
+   "f": "gemini_ql-1.webp",
+   "w": 420,
+   "h": 728,
+   "tone": 0.13
+  },
+  {
+   "f": "gemini_ql-2.webp",
+   "w": 420,
+   "h": 701,
+   "tone": 0.069
+  },
+  {
+   "f": "gemini_ql-3.webp",
+   "w": 420,
+   "h": 737,
+   "tone": 0.092
   }
  ],
  "muse_ql": [
