@@ -209,7 +209,7 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Cause: paint.js, `if (!land)` block after the forest: masses were clipped to the figure, the marks after the second `woodEnd()` were not (`_la` split-brush up to 0.14 H, `_lx` chops, `muse_xa` chops on the line, `_lk` knots). Set just under the ridge, turned to the local slope -> run straight on where the ridge turns down.
 - Fix: one clip for all of them = below the top line, 0.004 H let out above (chop heads sit on the line). Mountains + rock mountains (rock mountain also has `figCut(g, 0.06 H)`).
 - Test: fixture r028 (from `paint.paths`), `fix=r028&paper=0&sd=8001|8101`, DSF=1.2. sd 8001 old: flag at right summit, chops beside middle peak; new: gone. r026 as rockmtn, r022: fine.
-- LEFT, not a slip: clumps of upright dabs on a steep flank (ridge growth, trees stand plumb -> stick out sideways). Yang's rule: summit / ridge stays densely treed. Ask before touching.
+- LEFT, not a slip: clumps of upright dabs on a steep flank (ridge growth, trees stand plumb -> stick out sideways). Yang's rule: summit / ridge stays densely treed. Asked 11-20: "Giữ nguyên" = KEEP, do not thin on steep flanks.
 - Bot does not take Yang's paint sliders (his r028: peak .5 cun .5 dry .3 body .55; bot = defaults .6 .6 .5 .5), nor his dice.
 
 ## Paper (Yang 11-20: "mình cần nền giấy, cái này quan trọng lắm"; BUILT 11-20, bot + own browser only, Yang's hand not yet)
