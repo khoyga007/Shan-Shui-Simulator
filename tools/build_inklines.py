@@ -355,6 +355,8 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'am' and src == 'gemini': rowsheet(src, ink, ('_mc', '_mc2', '_mc3', '_ms', '_md', '_md2', '_md3', '_mt'), thr=0.05, join=7)   # Gemini laid the sheet out its own way: three contour lines one under another, the sweeps, the drags two abreast in three lines, the blunt strokes: eight bands
     elif kind == 'am': rowsheet(src, ink, ('_mc', '_ms', '_md', '_mt'), thr=0.05)   # a rock mountain's wall: contour strokes (knots on a thin line: beads, not used), shadow-face sweeps (hard upper edge = the arris, lower edge torn), long wall drags, short blunt strokes
     elif kind == 'an': level(src + '_nw', ink, 0.04, 0.05, 0.03, 'webp', gain=0.85)   # a rock mountain's light face: wide passes of a half-loaded brush, streaks with slivers of bare paper, dark end left; all brought to one strength (their tone is given when laid)
+    elif kind == 'ao': rowsheet(src, ink, ('_oc', '_of', '_oa', '_on'), thr=0.05, blob=(9, 9, 9, 7))   # a rock mountain's rock: crack lines (straight pieces joined by abrupt steps), fringes of chops (heads merged on one straight edge, tails slanting away), single chops (one long edge crisp, the other torn), nail-head strokes
+    elif kind == 'ap': rowsheet(src, ink, ('_pf', '_pd', '_pr', '_pm'), thr=0.05, blob=(7, 7, 11, 25))   # its faces: flat mid-grey touches (set-down end and upper edge crisp, far end torn), the same dark and drier, dry rubs (grain, dense along a straight upper edge), strings of squarish dabs
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

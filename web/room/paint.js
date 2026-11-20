@@ -450,7 +450,7 @@
             sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5)) + rock * ((N(x / (0.2 * H) + 97, 1) - 0.5) * 0.5 + 0.14 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), fl = R() < 0.5 ? 1 : -1,
             y = ts[k] - 0.006 * H + depth[k] * (lo * 0.5 * r3 * r3 + rock * (r3 < 0.45 ? 0 : 0.65 * (r3 - 0.45) / 0.55));
           g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); const low = rock * (r3 < 0.45 ? 0 : 1);   // begun down the face, away from the dark of the top: pale and narrow, or its solid end stood on the wall as a black slab
-          g.globalAlpha = tx * (0.25 + 0.6 * R()) * (1 - 0.6 * lo) * (1 - 0.55 * low); g.drawImage(q.im, 0, 0, swc, q.h, 0, -wd * (0.5 - 0.22 * low), len, wd * (1 - 0.44 * low)); }
+          g.globalAlpha = (d.kind === 'rockmtn' ? 0.35 : 1) * tx * (0.25 + 0.6 * R()) * (1 - 0.6 * lo) * (1 - 0.55 * low); g.drawImage(q.im, 0, 0, swc, q.h, 0, -wd * (0.5 - 0.22 * low), len, wd * (1 - 0.44 * low)); }
         g.globalAlpha = 1; home(g); }
       // Sheet X, the cun proper (Yang's gen 11-19), mixed in with the drags: hemp-fibre lines (_xh, pale, many, down the slope),
       // axe-cut chops (_xa, few, dark, slanting with the slope, high on the flank), folded-belt strokes (_xf, on a crag's
@@ -459,7 +459,7 @@
       const slAt = (k) => clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1);
       const stamp = (q, x, y, an, len, al, fl = 1) => { const c0 = Math.cos(an), s0 = Math.sin(an), hh = len * q.h / q.w; g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = Math.min(1, al); g.drawImage(q.im, 0, -hh / 2, len, hh); };
       const sow = (kit, stepH, f) => { if (kit.length && dn > 0.05) for (let x = bx0 + stepH * H * R(); x < bx1; x += H * stepH * (0.5 + R()) / dn) { const k = col(x); if (depth[k] > 0.03 * H) f(kit[Math.floor(R() * kit.length) % kit.length], x, k, slAt(k)); } };
-      sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
+      sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (d.kind === 'rockmtn' ? 0.3 : 1) * (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
       sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
       if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), (d.kind === 'rockmtn' ? 0 : 1) * rock * (0.3 + 0.35 * R()), 1));   // none on a rock mountain (Yang 11-20: level hooks floating on the wall). Still thrown, unseen: the dice after it fall as before, and the wooded tops he passed stay as they were
       sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
@@ -471,7 +471,7 @@
       //  _md  long narrow drags down the face (Gemini's, see below); _mt short blunt strokes standing in clusters (horse-tooth). _mc (knots on a thin line) reads as beads: not used
       if (d.kind === 'rockmtn') { const gx = (suf) => (STROKES['gemini_' + suf] || []).filter((q) => q.im), kNW = kx('nw').concat(gx('nw')), kMS = kx('ms').slice(2).concat(gx('ms')), kMD = gx('md').concat(gx('md2'), gx('md3')), kMT = kx('mt'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
         if (kNW.length) for (let x = bx0 + 0.03 * H * R(); x < bx1; x += H * (0.03 + 0.055 * R())) { const k = col(x), v = N(x / (0.11 * H) + 53, 2), r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (depth[k] < 0.08 * H || v < 0.3) continue;
-          stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3), r4 < 0.5 ? 1 : -1); }
+          stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), 0.6 * Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.75 * (0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3)), r4 < 0.5 ? 1 : -1); }
         if (kMS.length) { const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN);
           for (let k = 2; k < nb - 2; k++) { if (s2(k) < 0.9) continue; let e = k; while (e < nb - 3 && s2(e + 1) > 0.6) e++;
             const xa = bx0 + k * BIN, xb = bx0 + e * BIN, ya = ts[k], yb = ts[e], len = Math.hypot(xb - xa, yb - ya);
@@ -483,7 +483,38 @@
         // Gemini's sheets (same day) pooled in: its washes and sweeps beside Muse's. The drags are Gemini's alone, each from behind its clot of ink on (the first third cut
         // off) and hung from the top line, where the cut end lies under the dark of the edge: Muse's carry two clots each and stood on the wall as knotted stalks
         sow(kMD, 0.05, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(), u0 = 0.34, len = Math.min(depth[k] * 0.75, H * (0.1 + 0.2 * r1)), hh = clamp(len * q.h / (q.w * (1 - u0)) * (0.8 + 0.8 * r2), 0.008 * H, 0.03 * H), an = Math.atan2(1, 0.12 * (r3 - 0.5)), c0 = Math.cos(an), s0 = Math.sin(an), fl = r4 < 0.5 ? 1 : -1;
-          g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (ts[k] + 0.002 * H - oy)); g.globalAlpha = 0.3 + 0.4 * r2; g.drawImage(q.im, q.w * u0, 0, q.w * (1 - u0), q.h, 0, -hh / 2, len, hh); }); }
+          g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (ts[k] + 0.002 * H - oy)); g.globalAlpha = 0.6 * (0.3 + 0.4 * r2); g.drawImage(q.im, q.w * u0, 0, q.w * (1 - u0), q.h, 0, -hh / 2, len, hh); });
+        // The rock itself (sheets AO, AP, Yang's gen 11-20: "chưa có texture đá"). Till now every mark on the wall was a long plumb streak hung from the
+        // top line: a curtain, wood grain, no stone (those are turned down above, their dice thrown as before: the wooded tops he passed stay). Rock = a wall
+        // split into slabs, and marks ROOTED on the splits:
+        //  cracks  one let down from the foot of every step in the top line (the wall of the step carried on down: the massif reads as columns standing
+        //          side by side), more where a face is left wide; _oc pieces end to end, each leaning its own way, fading downward
+        //  to the right of each crack (its shadow side, light from the left), every piece with its crisp edge ON the crack:
+        //    _pf / _pd flat faces (set-down end up: a level break in the rock; torn end down), _pr grain, _of a fan of chops (pieces 1, 2: the others
+        //    are combs), _oa single chops, _on short slanting strokes (the last four: the others have the head of a real nail), _pm dabs in the crack
+        // Dice of its own (Rk).
+        { const Rk = dice(d.seed ^ 0x0c4a), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], kOC = kx('oc').filter((_, i) => i !== 2), kOF = kx('of').slice(0, 2), kOA = kx('oa'), kON = kx('on').slice(8), kPF = kx('pf'), kPD = kx('pd'), kPR = kx('pr').filter((_, i) => i !== 0 && i !== 4), kPM = kx('pm');
+          // a piece laid from (x, y) along an; its body to the side sd of that line (1 = right of a line going down), off = -hh / 2: astride it
+          const lay = (q, x, y, an, len, hh, al, sd, off = 0) => { const c0 = Math.cos(an), s0 = Math.sin(an); g.setTransform(dpr * c0, dpr * s0, dpr * s0 * sd, -dpr * c0 * sd, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = clamp(al, 0, 1); g.drawImage(q.im, 0, off, len, hh); };
+          const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN); let cr = [];
+          for (let k = 3; k < nb - 3; k++) { const s = s2(k); if (Math.abs(s) < 0.9) continue; let e = k; while (e < nb - 4 && s2(e + 1) * s > 0 && Math.abs(s2(e + 1)) > 0.6) e++;
+            const f = s > 0 ? e + 2 : k - 2, x = bx0 + f * BIN; if (Math.abs(ts[e] - ts[k]) > 0.025 * H && x > bx0 + 0.05 * H && x < bx1 - 0.05 * H) cr.push(x); k = e; }
+          cr.sort((a, b) => a - b); { const all = [bx0 + 0.02 * H].concat(cr, [bx1 - 0.02 * H]), add = []; for (let i = 0; i + 1 < all.length; i++) for (let x = all[i] + H * (0.07 + 0.08 * Rk()); x < all[i + 1] - 0.06 * H; x += H * (0.08 + 0.09 * Rk())) add.push(x); cr = cr.concat(add).sort((a, b) => a - b); }
+          cr = cr.filter((x, i) => depth[col(x)] > 0.12 * H && (i === 0 || x - cr[i - 1] > 0.035 * H));
+          const C = cr.map((x0, i) => { const k = col(x0), dp = depth[k]; return { x0, k, y0: ts[k] + 0.004 * H, dp, L: Math.min(0.6 * H, dp * (0.35 + 0.5 * Rk())), lean: 0.1 * (Rk() - 0.5), wd: (i + 1 < cr.length ? cr[i + 1] : bx1) - x0 }; });
+          const at = (c, u) => [c.x0 + c.lean * u * c.L, c.y0 + u * c.L], fd = (u) => 1 - 0.65 * u;
+          C.forEach((c, ci) => {   // under the lines: faces, then grain
+            const nF = 1 + (Rk() < 0.55 ? 1 : 0);
+            for (let j = 0; j < nF; j++) { const dk = Rk() < 0.85, kit = dk ? kPD : kPF; if (!kit.length) continue; const q = pk(kit), u = (j + 0.9 * Rk()) / nF * 0.6, [x, y] = at(c, u), r = Rk(), hh = c.wd < 0.16 * H ? c.wd : H * (0.06 + 0.05 * r), len = Math.min(c.dp * 0.6, hh * q.w / q.h * (0.9 + 0.8 * Rk()));
+              lay(q, x, y, Math.atan2(1, c.lean), len, hh, ((ci + j) % 2 ? 0.34 : 0.16) * (0.75 + 0.5 * Rk()) * fd(u), 1); }
+            if (kPR.length) for (let j = 0; j < 2; j++) { const q = pk(kPR), u = 0.85 * Rk(), [x, y] = at(c, u), len = H * (0.045 + 0.05 * Rk()), r = Rk(); if (r < 0.8) lay(q, x, y, Math.atan2(1, c.lean), len, Math.min(0.95 * c.wd, len * q.h / q.w), (0.55 + 0.3 * Rk()) * fd(u), 1); } });
+          for (const c of C) {
+            if (kOC.length) { let x = c.x0, y = c.y0, run = 0; while (run < c.L) { const q = pk(kOC), l = Math.min(c.L - run + 0.02 * H, H * (0.06 + 0.07 * Rk())), an = Math.atan2(1, c.lean + 0.26 * (Rk() - 0.5)), hh = clamp(l * q.h / q.w * (1.05 - 0.5 * run / c.L), 0.004 * H, 0.014 * H);
+                lay(q, x, y, an, l, hh, (0.6 + 0.4 * Rk()) * (1 - 0.7 * run / c.L), Rk() < 0.5 ? 1 : -1, -hh / 2); x += Math.cos(an) * l * 0.9 + 0.006 * H * (Rk() - 0.5); y += Math.sin(an) * l * 0.9; run += l * 0.9; } }
+            if (kOF.length && Rk() < 0.4) { const q = pk(kOF), u = 0.3 * Rk(), [x, y] = at(c, u), len = Math.min(0.5 * c.dp, H * (0.07 + 0.07 * Rk())); lay(q, x, y, Math.atan2(1, c.lean), len, Math.min(1.1 * c.wd, len * q.h / q.w), (0.45 + 0.35 * Rk()) * fd(u), 1); }
+            if (kOA.length) for (let j = 0, nA = 2 + Math.floor(3 * Rk()); j < nA; j++) { const q = pk(kOA), u = 0.9 * Rk(), [x, y] = at(c, u), len = H * (0.03 + 0.045 * Rk()); lay(q, x, y, Math.atan2(1, c.lean + 0.3 * (Rk() - 0.35)), len, Math.min(c.wd, len * q.h / q.w), (0.5 + 0.4 * Rk()) * fd(u), 1); }
+            if (kON.length) for (let j = 0, nN = Math.floor(2.4 * Rk()); j < nN; j++) { const q = pk(kON), u = 0.8 * Rk(), [x, y] = at(c, u), len = H * (0.018 + 0.028 * Rk()), hh = Math.max(0.003 * H, len * q.h / q.w); lay(q, x, y, 0.5 + 0.6 * Rk(), len, hh, (0.4 + 0.3 * Rk()) * fd(u), 1, -hh / 2); }
+            if (kPM.length && Rk() < 0.4) { const q = pk(kPM), u = 0.7 * Rk(), [x, y] = at(c, u), len = H * (0.022 + 0.022 * Rk()), hh = len * q.h / q.w; lay(q, x, y, Math.atan2(1, c.lean), len, hh, (0.5 + 0.3 * Rk()) * fd(u), 1, -hh / 2); } } } }
       g.globalAlpha = 1; home(g); }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
