@@ -1294,7 +1294,7 @@
     const n = P.length, cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
     const L = cum[n - 1], seg = L / (n - 1), frame = (Q) => Q.map((_, i) => { const a = Q[Math.max(0, i - 4)], b = Q[Math.min(Q.length - 1, i + 4)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }), tan = frame(P);
     const W0 = clamp(0.032 * nb * BIN, 0.005 * H, (0.013 + 0.006 * nq) * H) * (0.85 + 0.3 * R()) * (0.5 + 0.5 * nq);   // (v4) far: half as broad, a thread; on a broad near wall up to 0.019 H   // v3 = v1's figure again (Yang on v2, of v1's picture: "tại sao anh lại thấy cái thác này đẹp hơn"): slim band, WHITE (the paper), big dark rock on it. v2 (0.04, to 0.016 H, fanning out) was heavy   // (at 0.045 of the mountain's breadth, to 0.022 H, the band was a quarter of a pillar: a white slab, a doorway)
-    const hw = P.map((p, i) => W0 * (0.8 + 0.45 * cum[i] / L) * (0.82 + 0.36 * N(cum[i] / (0.09 * H) + 3, 2)) * (0.45 + 0.55 * tan[i][1] * tan[i][1]) * (lip ? 0.6 + 0.4 * sm(cum[i] / (0.035 * H)) : 0.22 + 0.78 * sm(cum[i] / (0.07 * H))));   // over the lip it comes a little gathered and spreads below it; out of a cleft it begins thin and opens over a stretch (from a point over 0.05 H: a white needle; at once and broad: a doorway)
+    const hw = P.map((p, i) => W0 * (0.8 + 0.45 * cum[i] / L) * (0.82 + 0.36 * N(cum[i] / (0.09 * H) + 3, 2)) * (0.45 + 0.55 * tan[i][1] * tan[i][1]) * (lip ? 0.6 + 0.4 * sm(cum[i] / (0.035 * H)) : FHEAD ? 0.72 + 0.28 * sm(cum[i] / (0.05 * H)) : 0.22 + 0.78 * sm(cum[i] / (0.07 * H))));   // over the lip it comes a little gathered and spreads below it; out of a cleft it begins thin and opens over a stretch (from a point over 0.05 H: a white needle; at once and broad: a doorway)
     // its two edges (sg -1: on the right of water falling down the paper, +1: on its left), each ragged in its own way
     const edge = (sg, ph) => P.map((p, i) => { const w = hw[i] * (0.72 + 0.56 * N(cum[i] / (0.035 * H) + ph, 2)) + 0.003 * H * (N(cum[i] / (0.011 * H) + ph + 20, 2) - 0.5);   /* (at 0.85 + 0.3 the two edges ran side by side: a ribbon, a road) */ return [p[0] - sg * tan[i][1] * w, p[1] + sg * tan[i][0] * w]; });
     const A = edge(-1, 100), B = edge(1, 200), F = P[n - 1], leds = [];
@@ -1320,8 +1320,20 @@
     const hostIn = (x) => { raw(x); x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in'; x.drawImage(hm.body, Math.round((hm.ox - ox) * dpr), Math.round((hm.oy - oy) * dpr)); x.globalCompositeOperation = 'source-over'; home(x); };
     // -- the water: bare paper, cut out of the wall. Harder at the rim than a river's: rock, not a bank of earth
     gw.fillStyle = '#000'; gw.beginPath(); gw.moveTo(A[0][0], A[0][1]); for (let i = 1; i < n; i++) gw.lineTo(A[i][0], A[i][1]); for (let i = n - 1; i >= 0; i--) gw.lineTo(B[i][0], B[i][1]); gw.closePath(); gw.fill();
-    { const t = tan[0], gd = gw.createLinearGradient(P[0][0], P[0][1], P[0][0] + t[0] * 0.016 * H, P[0][1] + t[1] * 0.016 * H); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)');   // its upper end fades in over a short way: cut straight across, the band began as a ruled slot
+    let headL = null;   // (v7) the shelf over its head, kept: its rock is laid below
+    if (lip || !FHEAD) { const t = tan[0], gd = gw.createLinearGradient(P[0][0], P[0][1], P[0][0] + t[0] * 0.016 * H, P[0][1] + t[1] * 0.016 * H); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)');   // its upper end fades in over a short way: cut straight across, the band began as a ruled slot
       gw.globalCompositeOperation = 'destination-out'; gw.fillStyle = gd; gw.fillRect(P[0][0] - 3 * W0, P[0][1] - 0.02 * H, 6 * W0, 0.04 * H); gw.globalCompositeOperation = 'source-over'; gw.fillStyle = '#000'; }
+    // (v7) the head of a fall begun ON the wall. Yang 11-20, his hand, a near black wall: "cái điểm bắt đầu đừng cho nó nhọn như này nhé, cho nó kiểu khác đi": it opened from a fifth of its
+    // breadth over 0.07 H and faded in, a white needle (with the halo of the band about it, a candle flame). Now it pours off a LEDGE: the band begins near its full breadth, cut off
+    // aslant (0.25 to 0.5 rad, either way, a little ragged) under a dark shelf of rock, one real sweep (_ms) laid across its head with its hard edge on the water, reaching out past
+    // the band on both sides, farther on one. (Before, v1: broad at once with a ruled level top = a slot; with a round top = a doorway. And first for v7: lumps of the wall hanging into
+    // the head, a cap and one down a side: on a narrow band they made a round-topped white stub under a grey blot, a test tube.)
+    else { const t = tan[0], wh = Math.max(hw[Math.min(n - 1, 8)], 0.0065 * H), Rh = dice(d.seed + 91), s1 = Rh() < 0.5 ? -1 : 1, th = s1 * (0.25 + 0.25 * Rh()), nx = -t[1], ny = t[0], c0 = Math.cos(th), s0 = Math.sin(th),
+        ex = nx * c0 + t[0] * s0, ey = ny * c0 + t[1] * s0, dn = 1.3 * wh * Math.abs(Math.tan(th)), px = P[0][0] + t[0] * dn, py = P[0][1] + t[1] * dn, ux = -ey * (ex * t[1] - ey * t[0] > 0 ? -1 : 1), uy = ex * (ex * t[1] - ey * t[0] > 0 ? -1 : 1);   // e: along the shelf; u: up from it, away from the water
+      headL = { px, py, ex, ey, ux, uy, wh, s1, Rh };
+      gw.globalCompositeOperation = 'destination-out'; gw.fillStyle = '#000'; gw.beginPath(); gw.moveTo(px - ex * 5 * wh + ux * 6 * wh, py - ey * 5 * wh + uy * 6 * wh); gw.lineTo(px - ex * 5 * wh, py - ey * 5 * wh);
+      for (let k = -8; k <= 8; k++) { const a = k / 8 * 2.2 * wh, j = (Rh() - 0.5) * 0.3 * wh; gw.lineTo(px + ex * a - ux * j, py + ey * a - uy * j); }
+      gw.lineTo(px + ex * 5 * wh, py + ey * 5 * wh); gw.lineTo(px + ex * 5 * wh + ux * 6 * wh, py + ey * 5 * wh + uy * 6 * wh); gw.closePath(); gw.fill(); gw.globalCompositeOperation = 'source-over'; }
     // -- the spray at its foot: bare paper too, a soft low heap and a few smaller ones about it
     const puff = (x, y, rx, ry, al) => { gp.save(); gp.translate(x, y); gp.scale(1, ry / rx); const gd = gp.createRadialGradient(0, 0, 0, 0, 0, rx); gd.addColorStop(0, `rgba(0,0,0,${al})`); gd.addColorStop(0.45, `rgba(0,0,0,${(al * 0.75).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)'); gp.fillStyle = gd; gp.beginPath(); gp.arc(0, 0, rx, 0, 6.2832); gp.fill(); gp.restore(); };
     const sa = 0.3 + 0.7 * nq, BL = big > 0.25 ? billows() : [], stampB = (x, b, px, py, w, fl, al) => { const h = w * b.h / b.w; x.save(); x.translate(px, py); x.scale(fl, 1); x.globalAlpha = al; x.drawImage(b.cv, -w / 2, -h * b.ay, w, h); x.restore(); };   // sa: a far fall ends in next to no spray
@@ -1362,6 +1374,10 @@
           gk.setTransform(dpr * tx * fl, dpr * ty * fl, -sg * dpr * ty, sg * dpr * tx, dpr * (E[j][0] - ox), dpr * (E[j][1] - oy)); gk.globalAlpha = ownR ? 0.7 + 0.3 * r3 : 0.5 + 0.4 * r3; gk.drawImage(q.im, -len / 2, -0.04 * hh, len, hh); }
         gk.globalAlpha = 1; home(gk); }
     }
+    // (v7) the shelf it pours off: a sweep across its head, hard edge down on the water, torn upward into the wall
+    if (headL && kitS.length) { const { px, py, ex, ey, ux, uy, wh, s1, Rh } = headL, q = kitS[Math.floor(Rh() * kitS.length) % kitS.length], len = Math.max(5.5 * wh, 0.04 * H) * (0.9 + 0.3 * Rh()), hh = Math.min(len * q.h / q.w, 2.6 * wh + 0.008 * H), fl = Rh() < 0.5 ? 1 : -1, off = s1 * 0.7 * wh;
+      for (let k = 0; k < 2; k++) { gk.setTransform(dpr * ex * fl, dpr * ey * fl, dpr * ux, dpr * uy, dpr * (px + ex * off - ox), dpr * (py + ey * off - oy)); gk.globalAlpha = k ? 0.6 : 0.95; gk.drawImage(q.im, -len / 2, -0.04 * hh, len, hh); }   // twice: once, a sweep is half bare (dry brush) and the water's head showed through it
+      gk.globalAlpha = 1; home(gk); }
     { const [w2, g2] = mk(); raw(g2); g2.filter = `blur(${(0.008 * H * dpr).toFixed(1)}px)`; g2.drawImage(wsh, 0, 0); g2.filter = 'none'; g2.globalCompositeOperation = 'source-in'; g2.fillStyle = `rgb(${INK})`; g2.fillRect(0, 0, cw, chh);
       const rk = FCAP ? 0.55 + 0.45 * nq : 1; raw(g); g.globalAlpha = 0.3 * rk; g.drawImage(w2, 0, 0); g.globalAlpha = 0.9 * rk; g.drawImage(bnk, 0, 0); g.globalAlpha = 1; }
     // none of it in the water or the spray; the mountain's foot mist lies over it as over the mountain; none of it off the mountain
@@ -1970,7 +1986,7 @@
   // 0.63. The wet rock beside the water was the blackest thing on the paper, on a mountain standing far off in the haze: a sticker. What is wanted is the two as ONE picture at t:
   // t (h + f - h f). Got by taking the mountain's ink away under the fall's first (destination-out by the fall's picture at s), then laying the fall at t; s = (1 - t) / (1 - 0.9 t)
   // (exact for f = 0.9; within 0.06 elsewhere). A near mountain (t = 1): s = 0, nothing changes. ?fcap=0 off.
-  const FCAP = !/[?&]fcap=0/.test(location.search), capOf = (d) => { if (!FCAP || !d.m || !d.m.fall) return 0; const t = clamp(toneOf(d), 0, 1); return (1 - t) / (1 - 0.9 * t); };
+  const FHEAD = !/[?&]fhead=0/.test(location.search), FCAP = !/[?&]fcap=0/.test(location.search), capOf = (d) => { if (!FCAP || !d.m || !d.m.fall) return 0; const t = clamp(toneOf(d), 0, 1); return (1 - t) / (1 - 0.9 * t); };
   // How near a mountain stands, 0 far .. 1 near, for what is made of a waterfall on it (v4. Yang 11-20: one may fly a fall anywhere, but "vẽ cảnh đẹp nhất ở đâu": the work goes
   // where it is near). By the ink depth-by-layer leaves it once everything has settled (its own foot's height, and the mountains standing before it): 0.45 and under = far, a
   // thread of white with no spray; 0.9 = near, broad, with rock and spray at its foot. A fall is built again when this has moved by 0.15 (a nearer mountain flown later). ?fnear=0..1 forces it.

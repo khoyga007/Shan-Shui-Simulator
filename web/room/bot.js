@@ -198,7 +198,7 @@
       [[[0.30, 0.66], [0.33, 0.28], [0.52, 0.25], [0.56, 0.66]], [[0.80, 0.64], [0.825, 0.33], [0.94, 0.30], [0.965, 0.64]], [[0.98, 0.69], [1.03, 0.36], [1.10, 0.33], [1.14, 0.16], [1.27, 0.13], [1.33, 0.30], [1.45, 0.32], [1.50, 0.69]]])
         .forEach((V, i) => { const raw = dens(V), q = rnd(raw, 300); Pt.guess('earth', q, 1, raw); Pt.st.done.push({ stroke: q, kind: 'rockmtn', el: 'earth', elb: Pt.guess.elb, t0: D.T, seed: 9901 + i }); });
       Rm.G.draw(0);   // the walls stand before the water is read: a fall is known by the wall under it
-      (two ? [[[0.33, 0.17], [0.332, 0.54]], [[0.73, 0.17], [0.735, 0.42], [0.76, 0.46], [0.765, 0.73]], [[1.30, 0.03], [1.30, 0.46], [1.335, 0.51], [1.34, 0.92]]] :
+      (two ? [[[0.33, 0.17], [0.332, 0.54]], [[0.73, 0.17], [0.735, 0.42], [0.76, 0.46], [0.765, 0.73]], [[1.30, +new URLSearchParams(location.search).get('fy') || 0.03 /* &fy=0.3: the near fall begun ON the wall (its head, v7) */], [1.30, 0.46], [1.335, 0.51], [1.34, 0.92]]] :
       [[[0.42, 0.20], [0.425, 0.36], [0.45, 0.39], [0.455, 0.60]], [[0.885, 0.40], [0.89, 0.57]], [[1.395, 0.26], [1.395, 0.44], [1.41, 0.47], [1.41, 0.61]]])
         .forEach((V, i) => { const q = rnd(dens(V), 30); let L = 0; for (let j = 1; j < q.length; j++) L += Math.hypot(q[j][0] - q[j - 1][0], q[j][1] - q[j - 1][1]); const kind = Pt.guess('water', q, L); fr['f' + i] = kind; Pt.st.done.push({ stroke: q, kind, el: 'water', t0: D.T, seed: 9951 + i }); });
       pr.push({ falls: fr }); }
