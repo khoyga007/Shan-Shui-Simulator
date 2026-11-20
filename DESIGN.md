@@ -270,7 +270,9 @@ BUILT 11-20 (paint.js):
   - Stays a rock's: no forest, no summit, level foot + waterline + image, foot mist, thick near outline.
   - Test: fixture r024 (from report `paint.paths`), bot `&kinds=sea,rockmtn,rockmtn,rock,rock` (new param: kind per stroke).
   - Cost: rock build in bot ~50-110 -> ~70-215 ms. Awaits Yang's hand.
-  - Seen, NOT fixed (older, ridge line, also in his r024 screenshot): a dry stroke end sticks out level beside a rock's top corner; dark and rectangular on some dice (sd=8101).
+  - FIXED same day (Yang: "Sửa luôn"): level black block / dry hairs in the air beside a rock's top corner or horn (older bug, also in his r024 screenshot; solid block on sd=8101). Cause: ridge ribbon's belly lies one brush-breadth to ONE side of the path; where the path stands plumb for a few points (ledge step, horn, wall doubling back from the rock's ledge offsets) that breadth lies level, out in the air. Fix: rock's ribbon (`rib`) cut to the rock's figure before compositing: `top[]` let out 0.007 H up, 0.002 H sideways. Rock only.
+  - TRIED, FAILED: ledge offsets only where the path is level (weight by slope, min over ±3 pts). Block gone, but narrow tops grew a 2-point spike with the same block on it, and rock shapes changed (horns lost). Reverted.
+  - Not touched: same class may exist on rockmtn / mountain tops (hidden under forest); clip is `land === 'rock'` only.
   - Weak: `_ql` 1 (zigzag wedges) and 3 (plumb bars) are separate marks, not a surface: read as scattered Z's / bars on a broad lit slab; lit faces no longer bare (3rd critique had praised bare lit faces: watch for "busy"); v3/v4 chops not thinned; the 7 faults of r022 not looked at again except row steps and the blank wedge.
 - Weak (v1, before textures): body = flat grey wash, not "much bare paper"; no top-light / side-dark face split; ribbed band of even vertical drags on a broad wall; strokes without a mouse path (dragon off / old fixtures) count corners on their own path. Mouse-mode strokes untested. Waterfall not started.
 

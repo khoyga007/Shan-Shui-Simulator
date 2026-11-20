@@ -696,6 +696,14 @@
       streaks(-0.1, 0.6, 0.02, 0.08);
     }
     gr.globalCompositeOperation = 'source-over'; gr.globalAlpha = 1;
+    // A rock's line keeps to the rock. (The stroke's belly lies a brush's breadth to one side of the path, whatever is there. Where the path stands plumb for a few points,
+    // a step between two ledges of its broken top, a horn, a wall that doubles back, that breadth lies level: under the higher ledge if there is one, else out in the air
+    // beside the horn or the wall, a black block with its dry end in the sky. Yang 11-20, r024, the tick beside the left rock's top; bot sd=8101, both rocks. Tried first:
+    // no ledges on a wall. The block went, and a narrow top grew a spike with the same block on it. So the ribbon is cut to the rock's own figure, let out by a hair for
+    // the stroke's rough upper edge: 0.007 H above the top line, 0.002 H to the side of a wall. The rock only: every other kind is built as before.)
+    if (land === 'rock') { const r = Math.max(1, Math.round(0.002 * H / BIN)) /* (as far to the side as above, 0.007 H: a stub of the block stayed on the wall, a square knob) */, td = top.map((_, k) => Math.min(...top.slice(Math.max(0, k - r), k + r + 1)) - 0.007 * H);
+      home(gr); gr.globalCompositeOperation = 'destination-out'; gr.fillStyle = '#000'; gr.filter = `blur(${(0.0012 * H * dpr).toFixed(1)}px)`; gr.beginPath(); gr.moveTo(bx0 - pad - 5, oy - 0.05 * H); gr.lineTo(bx0 - pad - 5, td[0]);
+      for (let k = 0; k < nb; k++) gr.lineTo(bx0 + k * BIN, td[k]); gr.lineTo(bx1 + pad + 5, td[nb - 1]); gr.lineTo(bx1 + pad + 5, oy - 0.05 * H); gr.closePath(); gr.fill(); gr.filter = 'none'; gr.globalCompositeOperation = 'source-over'; }
     raw(g); g.filter = `blur(${(0.0045 * H * dpr).toFixed(1)}px)`; g.globalAlpha = 0.3 + 0.25 * hill; g.drawImage(rib, 0, 0); if (hill > 0.5) g.filter = `blur(${(0.0016 * H * dpr * hill).toFixed(1)}px)`; else g.filter = 'none'; g.globalAlpha = 0.93 - 0.5 * hill; g.drawImage(rib, 0, 0); g.filter = 'none';   // a soft halo first: wet ink creeping off the line
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // -- what grows on the ridge, seen from afar: the bristling edge of the mountains in Yang's reference paintings is trees and
