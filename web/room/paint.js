@@ -461,7 +461,7 @@
       const sow = (kit, stepH, f) => { if (kit.length && dn > 0.05) for (let x = bx0 + stepH * H * R(); x < bx1; x += H * stepH * (0.5 + R()) / dn) { const k = col(x); if (depth[k] > 0.03 * H) f(kit[Math.floor(R() * kit.length) % kit.length], x, k, slAt(k)); } };
       sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
       sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
-      if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), rock * (0.3 + 0.35 * R()), 1));
+      if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), (d.kind === 'rockmtn' ? 0 : 1) * rock * (0.3 + 0.35 * R()), 1));   // none on a rock mountain (Yang 11-20: level hooks floating on the wall). Still thrown, unseen: the dice after it fall as before, and the wooded tops he passed stay as they were
       sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
       // A rock mountain's own marks (sheets AM, AN, Yang's gen 11-20; before, it borrowed the crag's and its body was one flat grey wash). Light falls from the left.
       //  _nw  the light face: wide passes of a half-loaded brush hung down the wall from its top, dark end up, running pale; strips with bare paper left between
@@ -621,6 +621,9 @@
         for (let k = 0; k < nb;) { if (slp[k] <= 2.6) { k++; continue; } let e = k; while (e < nb - 1 && slp[e + 1] > 2.6) e++; if (Math.abs(top[e] - top[k]) < 0.16 * H) for (let i = k; i <= e; i++) slp[i] = 1.4; k = e + 1; }
         // (only a stretch with a face on BOTH sides is a summit to be capped: with a face on one side only, the limit cut a bare wedge into the wooded flank beside it)
         { let dd = 1e9; for (let k = 0; k < nb; k++) { dd = slp[k] > 2.6 ? 0 : dd + BIN; drop[k] = dd; } dd = 1e9; for (let k = nb - 1; k >= 0; k--) { dd = slp[k] > 2.6 ? 0 : dd + BIN; drop[k] = drop[k] < 1e8 && dd < 1e8 ? Math.min(drop[k], dd) * 0.9 : 1e9; } }
+        // (a rock mountain, Yang 11-20: a shoulder with a wall on one side only had no limit, and its wood ran a quarter of a screen down the bare face below it, pines in
+        // the air. There the wood now stops 0.15 of a screen under the line: at 0.1 it also thinned the wood on the shoulder he had passed as right, which lies 0.13 deep)
+        if (d.kind === 'rockmtn') for (let k = 0; k < nb; k++) drop[k] = Math.min(drop[k], 0.15 * H);
         const grow = (k, y) => (1 - sm((slp[k] - 2.1) / 0.6)) * (1 - sm((y - top[k] - drop[k] + 0.02 * H) / (0.03 * H)));
         // (Yang 11-19, of a low hill dotted with separate forest patches: "texture từng mảng rừng như này trông nó hơi giả tạo". A
         // mountain that wears less wood (a hill of wash, a crag) wore it as the same few pieces scattered thin, each an island with
@@ -697,6 +700,7 @@
             g.save(); g.beginPath(); g.moveTo(bx0 - 0.1 * H, yBase + 0.4 * H); g.lineTo(bx0 - 0.1 * H, top[0]); for (let k = 0; k < nb; k++) g.lineTo(bx0 + k * BIN, top[k] + 0.006 * H); g.lineTo(bx1 + 0.1 * H, top[nb - 1]); g.lineTo(bx1 + 0.1 * H, yBase + 0.4 * H); g.closePath(); g.clip();
             for (let q = 0, nq = Math.round((bx1 - bx0) / (0.03 * H)); q < nq; q++) { const x = bx0 + (bx1 - bx0) * Rt(), k = col(x), dp = depthFull[k], t = 0.14 + 0.7 * Rt(), r1 = Rt(), r2 = Rt(), mir = Rt() < 0.5; if (dp < 0.06 * H) continue;
               const y = top[k] + dp * reachY * t, f = N(x / (0.22 * H) + y / (0.16 * H) + chO + 2100, 2), w = w0 * (1.6 + 1.2 * r1);
+              if (d.kind === 'rockmtn' && grow(k, y) < 0.5) continue;   // a rock mountain: masses only where wood grows (its tops and ledges). Laid anywhere down the reach, they hung on the bare wall as patches of forest with pines standing in the air (Yang 11-20, r021)
               /* (taking ink OUT for a lit mass was tried twice and dropped: with forest patches it came out as pale bubbles, with bands of wash as straight grey bars. The parting is by laying dark only: the lit mass is what is left alone) */
               if (f < 0.42) put(pr(kYF), x, y, w, 0.55, 0.5 + 0.3 * r2, 0, mir);
               else if (f > 0.6 && kLS.length && r1 < 0.3) out(() => put(pr(kLS), x, y, 0.8 * w, 0.5, 0.06 + 0.06 * r2, r2 - 0.5 || 0.01, mir)); }   /* (0.16-0.32 at 60% of spots, 1.2w: the scuffs piled on each other and on a pale far hill wore through to blotchy white patches; now a third the strength, half as many, smaller) faint: at half strength and more it punched white holes through to the paper, snow on the flank */   // the lit mass, with sheet AL's dry scuffs: grain and no edge, so neither bubbles nor bars
