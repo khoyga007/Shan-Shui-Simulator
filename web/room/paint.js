@@ -1314,6 +1314,9 @@
     const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
     const [cv, g] = mk(), [body, gb] = mk(), [wat, gw] = mk(), [wsh, gs] = mk(), [bnk, gk] = mk(), [spr, gp] = mk();
     const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
+    // (v6) the mountain's mist lies over ALL of the fall (r029: only its rock went into the mist; the band stayed a ruled white stripe down through it to the waterline and on into the
+    // reflection, and the lines of the falling water hung in it as dark hairs). mistOut: takes out of a layer what the mountain's mist takes.
+    const mistOut = (x) => { if (!hm.mist || !FCAP) return; const [mx, my, mq] = hm.mxy; raw(x); x.globalAlpha = 1; x.filter = 'none'; x.globalCompositeOperation = 'destination-out'; x.drawImage(hm.mist, Math.round((mx - ox) * dpr), Math.round((my - oy) * dpr), hm.mist.width * mq * dpr, hm.mist.height * mq * dpr); x.globalCompositeOperation = 'source-over'; };
     const hostIn = (x) => { raw(x); x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in'; x.drawImage(hm.body, Math.round((hm.ox - ox) * dpr), Math.round((hm.oy - oy) * dpr)); x.globalCompositeOperation = 'source-over'; home(x); };
     // -- the water: bare paper, cut out of the wall. Harder at the rim than a river's: rock, not a bank of earth
     gw.fillStyle = '#000'; gw.beginPath(); gw.moveTo(A[0][0], A[0][1]); for (let i = 1; i < n; i++) gw.lineTo(A[i][0], A[i][1]); for (let i = n - 1; i >= 0; i--) gw.lineTo(B[i][0], B[i][1]); gw.closePath(); gw.fill();
@@ -1331,14 +1334,15 @@
       for (let k = 0; k < 2; k++) { stampB(gp, BL[0], S0[0], S0[1] + 0.9 * sr, 4.2 * sr, f0, Math.min(1, 1.2 * big)); stampB(gp, cr, S0[0] - 1.1 * sr, S0[1] - 0.25 * sr, 2.2 * sr, 1, 0.95 * big); stampB(gp, cr, S0[0] + 1.2 * sr, S0[1] - 0.1 * sr, 2.5 * sr, -1, 0.95 * big); if (BL[1]) stampB(gp, BL[1], S0[0] + f0 * 0.5 * sr, S0[1] + 0.6 * sr, 2.2 * sr, f0, 0.8 * big); } }   // twice over: once, the feathered forms were a haze
     // where the stroke steps aside the water strikes a ledge: foam there too, which breaks the band into falls one under another
     { let led = 0; for (let i = 12; i < n - 12 && led < 3; i++) { const t = Math.abs(tan[i][0]); if (t > 0.26 && t >= Math.abs(tan[i - 6][0]) && t > Math.abs(tan[i + 6][0]) && cum[i] > 0.05 * H && L - cum[i] > 0.05 * H) { puff(P[i][0], P[i][1] + 0.4 * hw[i], 2.3 * hw[i], 1.25 * hw[i], 0.85 * sa); leds.push([P[i][0], P[i][1] + 0.4 * hw[i], 2.3 * hw[i]]); led++; i += 14; } } }
-    raw(gb); gb.filter = `blur(${(0.007 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 0.5; gb.drawImage(wat, 0, 0); gb.filter = `blur(${(0.0022 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 1; gb.drawImage(wat, 0, 0); gb.filter = 'none'; gb.drawImage(spr, 0, 0); hostIn(gb);
+    raw(gb); gb.filter = `blur(${(0.007 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 0.5; gb.drawImage(wat, 0, 0); gb.filter = `blur(${((0.0022 + (FCAP ? 0.0018 * (1 - nq) : 0)) * H * dpr).toFixed(1)}px)`;   /* (v6) far: a softer rim, as the mountain's own marks are there */ gb.globalAlpha = 1; gb.drawImage(wat, 0, 0); gb.filter = 'none'; mistOut(gb);   /* the band, not the spray: that is thrown up where the mist is not yet whole, and must wipe there */ raw(gb); gb.drawImage(spr, 0, 0); hostIn(gb);
+    const [watM, gwm] = mk(); raw(gwm); gwm.drawImage(wat, 0, 0); for (let k = 0; k < 3; k++) mistOut(gwm);   // the band less the mist: what the moving lines are held to. Thrice over: a line is darker than the wall, and where the mist had left a fifth of the wall (white, to the eye) a line still stood in it
     // -- the rock beside it. Where it is drawn at all: in stretches, by noise, more of it on the right (the dark side of a rock mountain)
     const own = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
     const at = (suf) => (S.tex === 'code' ? [] : (STROKES['muse' + suf] || []).concat(STROKES['gemini' + suf] || []).filter((q) => q.im)),   /* its own sheet, AT: Muse's and Gemini's pieces in one pool (as the rock mountain's AQ / AR) */
       ownR = false,   /* v3: the rock beside it as in v1 (river bank line + the rock mountain's shadow sweeps: big dark masses that carry the white). Sheet AT's rock edges (v2: at('_tr').length > 0) came out small and toothed, a comb along the water */
       kitF = own('_f'), kitS = ownR ? ((STROKES.gemini_tr || []).filter((q) => q.im).length ? STROKES.gemini_tr.filter((q) => q.im) : at('_tr')) : own('_ms'),   /* of the rock edges Gemini's (ends torn, chops slanting off); Muse's are square black blocks, and about the head of a narrow fall they stood as a black house */ kitL = (STROKES.gemini_ta || []).filter((q) => q.im).concat(own('_g')),   /* hair-thin lines: Gemini's of sheet AT and the river's. Muse's AT lines are bold dashes: with them (v2) the band filled with grey */ pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
     for (const [E, sg, ph] of [[A, -1, 300], [B, 1, 400]]) {
-      const ga = (i) => N(cum[i] / (0.11 * H) + ph, 2) + (sg < 0 ? 0.12 : 0) + 0.5 * nearS(i),   /* (v4) wet dark rock on both sides above where it strikes: what the white spray stands against */ et = frame(E), ec = [0]; for (let i = 1; i < n; i++) ec.push(ec[i - 1] + Math.hypot(E[i][0] - E[i - 1][0], E[i][1] - E[i - 1][1]));
+      const ga = (i) => N(cum[i] / (0.11 * H) + ph, 2) + (sg < 0 ? 0.12 : 0) + 0.5 * nearS(i) - (FCAP ? 0.16 * (1 - nq) : 0),   /* (v6) far: fewer stretches of rock drawn beside it (detail by distance: on r029's far wall they stood all along it, hatching and the bank line's pebbles) */   /* (v4) wet dark rock on both sides above where it strikes: what the white spray stands against */ et = frame(E), ec = [0]; for (let i = 1; i < n; i++) ec.push(ec[i - 1] + Math.hypot(E[i][0] - E[i - 1][0], E[i][1] - E[i - 1][1]));
       // wet rock: a little wash along the water where the rock is dark
       gs.lineCap = 'round'; gs.strokeStyle = '#000';
       for (let i = 1; i < n; i++) { if (ga(i) < 0.46) continue; gs.lineWidth = 0.012 * H + 1.5 * hw[i]; gs.beginPath(); gs.moveTo(E[i - 1][0], E[i - 1][1]); gs.lineTo(E[i][0], E[i][1]); gs.stroke(); }
@@ -1359,7 +1363,7 @@
         gk.globalAlpha = 1; home(gk); }
     }
     { const [w2, g2] = mk(); raw(g2); g2.filter = `blur(${(0.008 * H * dpr).toFixed(1)}px)`; g2.drawImage(wsh, 0, 0); g2.filter = 'none'; g2.globalCompositeOperation = 'source-in'; g2.fillStyle = `rgb(${INK})`; g2.fillRect(0, 0, cw, chh);
-      raw(g); g.globalAlpha = 0.3; g.drawImage(w2, 0, 0); g.globalAlpha = 0.9; g.drawImage(bnk, 0, 0); g.globalAlpha = 1; }
+      const rk = FCAP ? 0.55 + 0.45 * nq : 1; raw(g); g.globalAlpha = 0.3 * rk; g.drawImage(w2, 0, 0); g.globalAlpha = 0.9 * rk; g.drawImage(bnk, 0, 0); g.globalAlpha = 1; }
     // none of it in the water or the spray; the mountain's foot mist lies over it as over the mountain; none of it off the mountain
     raw(g); g.globalCompositeOperation = 'destination-out'; g.drawImage(wat, 0, 0); g.drawImage(spr, 0, 0);
     if (hm.mist) { const [mx, my, mq] = hm.mxy; g.drawImage(hm.mist, Math.round((mx - ox) * dpr), Math.round((my - oy) * dpr), hm.mist.width * mq * dpr, hm.mist.height * mq * dpr); }
@@ -1402,7 +1406,7 @@
           for (let a = 0; a < lp; a += ds) { while (j < m - 1 && cl[j + 1] < a) j++; const x = (aS - a0 + a) / len, th = ln.wd ? life * ln.wd * 2 * wl[j] * (0.25 + 0.75 * sm(x / 0.2)) /* a band begins narrow: its blunt upper end, where the brush was set down, stood in the fall as a ruled bar */ : th0 * (0.25 + 0.75 * sm(x / 0.5) * sm((1 - x) / 0.14)), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1, f = a - cl[j];   // x: how far along the piece (its left end = its upper end), also while only part of it is on the fall
             gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx / l * f - ox), dpr * (Q[j][1] + dy / l * f - oy)); gl.drawImage(q.im, clamp(us + x * frac * q.w, 0, q.w - 2), 0, Math.max(1, ds / len * frac * q.w), q.h, 0, -th / 2, ds + 0.1, th); } }   // slices edge to edge: the pieces are pale, and every overlap of two showed as a dot, the line as a row of stitches
         // only in the band, paled as its mountain is, and lost in the spray
-        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.globalAlpha = 0.75 * tone; gl.drawImage(wat, 0, 0); gl.globalCompositeOperation = 'destination-out'; gl.globalAlpha = 1; gl.drawImage(spr, 0, 0); gl.globalCompositeOperation = 'source-over'; home(gl);
+        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.globalAlpha = 0.75 * tone; gl.drawImage(watM, 0, 0); gl.globalCompositeOperation = 'destination-out'; gl.globalAlpha = 1; gl.drawImage(spr, 0, 0); gl.globalCompositeOperation = 'source-over'; home(gl);
         // the spray, boiling: heaps of white that swell as they rise and drift
         raw(gx); gx.globalCompositeOperation = 'source-over'; gx.globalAlpha = 1; gx.clearRect(0, 0, cw, chh); home(gx);
         for (const p of puffs) { const s = (T / p.per + p.t0) % 1, a = 0.55 * sm(s / 0.25) * sm((1 - s) / 0.5), rr = p.s * (p.r0 + (p.r1 - p.r0) * s); if (a < 0.02) continue;
@@ -1851,7 +1855,7 @@
   const MIST = 1.0;   // seconds the mist takes to gather over a mountain's body, once its ink has run down
   const REVEAL = 1.6;   // seconds the ink takes to run down from the ridge
   const bake = document.createElement('canvas'); let bakeKey = '';
-  const lay = (x, m, alpha) => { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
+  const lay = (x, m, alpha, cut = 0) => { x.setTransform(1, 0, 0, 1, 0, 0); if (cut > 0) { x.globalCompositeOperation = 'destination-out'; x.globalAlpha = Math.min(1, cut); x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalCompositeOperation = 'source-over'; } x.globalAlpha = alpha; x.drawImage(m.cv, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); x.globalAlpha = 1; };
   // Still water mirrors what stands behind it (Yang 11-19: water drawn with the Thuỷ stroke parts the near from the far and
   // shows the whole mountain upside down; a lake only, a river runs). Taken from the bake as it stands when the lake is
   // laid (all that is farther, mist and all): column by column the picture above the far shore is turned over about the
@@ -1961,6 +1965,12 @@
     far.forEach((d, i) => { let t = d.m.tone; for (let j = 0; j < far.length; j++) { const gap = (ft[j] - ft[i]) / D.H; if (j === i || gap <= 0) continue;
         const c = far[j].m.tone * Math.max(DP.lo, 1 - DP.a * (1 - Math.exp(-gap / DP.tau)) - DP.b * gap); if (c < d.m.tone) t = Math.min(t, d.m.tone + (c - d.m.tone) * w[j]); } tn.set(d, t); }); return tn; }
   let TN = new Map(); const toneOf = (d) => (d.kind === 'fall' && d.hostD && d.hostD.m ? toneOf(d.hostD) : TN.has(d) ? TN.get(d) : d.m.tone);
+  // (v6) A waterfall's ink is OF its mountain, not on it. Yang 11-20, r029, a fall on a far rock mountain (ink 0.63): "để ý cái depth giữa thác nước và núi ... trông thác như là miếng decal".
+  // The fall's picture was laid over the mountain's at the same alpha t: where both had ink the two summed, 1 - (1 - t h)(1 - t f), to 0.83 where nothing of the mountain itself is over
+  // 0.63. The wet rock beside the water was the blackest thing on the paper, on a mountain standing far off in the haze: a sticker. What is wanted is the two as ONE picture at t:
+  // t (h + f - h f). Got by taking the mountain's ink away under the fall's first (destination-out by the fall's picture at s), then laying the fall at t; s = (1 - t) / (1 - 0.9 t)
+  // (exact for f = 0.9; within 0.06 elsewhere). A near mountain (t = 1): s = 0, nothing changes. ?fcap=0 off.
+  const FCAP = !/[?&]fcap=0/.test(location.search), capOf = (d) => { if (!FCAP || !d.m || !d.m.fall) return 0; const t = clamp(toneOf(d), 0, 1); return (1 - t) / (1 - 0.9 * t); };
   // How near a mountain stands, 0 far .. 1 near, for what is made of a waterfall on it (v4. Yang 11-20: one may fly a fall anywhere, but "vẽ cảnh đẹp nhất ở đâu": the work goes
   // where it is near). By the ink depth-by-layer leaves it once everything has settled (its own foot's height, and the mountains standing before it): 0.45 and under = far, a
   // thread of white with no spray; 0.9 = near, broad, with rock and spray at its foot. A fall is built again when this has moved by 0.15 (a nearer mountain flown later). ?fnear=0..1 forces it.
@@ -1994,7 +2004,7 @@
         if (d.m.cv && d.m.clipK !== h.seed + ':' + h.t0) { d.m.clipK = h.seed + ':' + h.t0; const x = d.m.cv.getContext('2d'), kh = clamp(Math.floor((d.root[0] - h.m.bx0) / BIN), 0, h.m.ts.length - 1), dph = h.m.yBase - h.m.ts[kh],   /* on the viewer's ground (left open below, no mist) the plant's ink goes as the ground's does: thinning from where the ground starts to break up, gone well above the foot (Yang 11-19: "rễ vẫn đè lên chỗ để ngỏ này") */ y1 = ((h.m.edge ? h.m.ts[kh] + 0.92 * dph : h.m.yBase) - d.m.oy) * dpr, y0 = h.m.edge ? (h.m.ts[kh] + 0.5 * dph - d.m.oy) * dpr : y1 - 0.035 * H * dpr;
           if (h.m.edge && h.m.brk) { x.save(); x.globalCompositeOperation = 'destination-out'; for (const [q, px, py, rt, fx, mw, mh, al] of h.m.brk) { x.setTransform(dpr, 0, 0, dpr, -d.m.ox * dpr, -d.m.oy * dpr); x.translate(px, py); x.rotate(rt); x.scale(fx, 1); x.globalAlpha = Math.min(1, al * 1.5); x.drawImage(q.im, -mw / 2, -mh / 2, mw, mh); } x.restore(); }   // broken by the ground's own scrapes (a little harder: a root is blacker than the earth), then the last thinning
           if (y0 < d.m.cv.height) { const gd = x.createLinearGradient(0, y0, 0, y1); gd.addColorStop(0, 'rgba(0,0,0,0)'); gd.addColorStop(1, 'rgba(0,0,0,1)'); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'destination-out'; x.fillStyle = gd; x.fillRect(0, y0, d.m.cv.width, d.m.cv.height - y0); x.restore(); } } });
-      old.forEach((d, i) => { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && zk(o) <= zk(d) && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, toneOf(d));
+      old.forEach((d, i) => { b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'destination-out'; b.globalAlpha = 1; b.drawImage(d.m.body, Math.round(d.m.ox * dpr), Math.round(d.m.oy * dpr)); b.globalCompositeOperation = 'source-over'; if (d.m.wat && MIRROR) mirror(b, d.m, old.reduce((y, o) => (o !== d && (!o.m.river || o.m.solid) && zk(o) <= zk(d) && o.m.ox < d.m.ox + d.m.wat.width / dpr && o.m.ox + o.m.cv.width / dpr > d.m.ox ? Math.min(y, o.m.yTop) : y), d.m.yTop)); lay(b, d.m, toneOf(d), capOf(d));
         if (d.m.mist && !lastOf.has(d)) mistOn(d); for (const [h, j] of lastOf) if (j === i) mistOn(h); }); }
     if (old.length) { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake, 0, 0); c.restore(); }
     // moving water: each river's layer of current, redrawn for this instant, cut away where anything nearer stands
@@ -2018,7 +2028,7 @@
     for (const d of st.done) if (d.m && T - d.t0 < REVEAL) {   // the newest: its ink still running down from the ridge
       const a = clamp((T - d.t0) / REVEAL, 0, 1), e = sm(a), m = d.m;
       if (m.river) {   // a river comes up all at once: the water clears, the banks darken
-        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e * toneOf(d)); c.restore(); if (m.flow) flowOf(d, e, -1);
+        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.globalAlpha = e; c.drawImage(m.body, Math.round(m.ox * dpr), Math.round(m.oy * dpr)); c.globalCompositeOperation = 'source-over'; lay(c, m, e * toneOf(d), e * capOf(d)); c.restore(); if (m.flow) flowOf(d, e, -1);
         strokePath(d.stroke, 0.85 * (1 - clamp(a * 3, 0, 1))); continue; }
       const nb = m.ts.length;
       c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.beginPath(); c.moveTo(m.bx0 - 0.05 * H, m.ts[0] - 0.12 * H);
