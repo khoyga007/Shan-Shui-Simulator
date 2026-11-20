@@ -466,8 +466,8 @@
       //       them, their strength rising and falling along the mountain (noise), none where it is low
       //  _ms  the shadow face: on every wall that looks right, one broad dark sweep laid down along it, its hard edge on the wall's line, its torn edge inward
       //       (pieces 3, 4 of the row: 1 ends in slanting hatch, 2 came off the sheet joined to its neighbour)
-      //  _md  long narrow drags down the face; _mt short blunt strokes standing in clusters (horse-tooth). _mc (knots on a thin line) reads as beads: not used
-      if (d.kind === 'rockmtn') { const kNW = kx('nw'), kMS = kx('ms').slice(2), kMD = kx('md').slice(0, 4), kMT = kx('mt'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+      //  _md  long narrow drags down the face (Gemini's, see below); _mt short blunt strokes standing in clusters (horse-tooth). _mc (knots on a thin line) reads as beads: not used
+      if (d.kind === 'rockmtn') { const gx = (suf) => (STROKES['gemini_' + suf] || []).filter((q) => q.im), kNW = kx('nw').concat(gx('nw')), kMS = kx('ms').slice(2).concat(gx('ms')), kMD = gx('md').concat(gx('md2'), gx('md3')), kMT = kx('mt'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
         if (kNW.length) for (let x = bx0 + 0.03 * H * R(); x < bx1; x += H * (0.03 + 0.055 * R())) { const k = col(x), v = N(x / (0.11 * H) + 53, 2), r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (depth[k] < 0.08 * H || v < 0.3) continue;
           stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3), r4 < 0.5 ? 1 : -1); }
         if (kMS.length) { const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN);
@@ -478,7 +478,10 @@
                 g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (xa + (xb - xa) * j / nP - ox), dpr * (ya + (yb - ya) * j / nP - oy)); g.globalAlpha = 0.5 + 0.4 * R(); g.drawImage(q.im, 0, -0.004 * H, l1, wd); } }
             k = e; } }
         sow(kMT, 0.045, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (N(x / (0.06 * H) + 171, 2) < 0.6) return; stamp(q, x, ts[k] + depth[k] * (0.06 + 0.5 * r1 * r1), Math.atan2(1, 0.25 * (r2 - 0.5)), H * (0.014 + 0.02 * r3), 0.2 + 0.35 * r4, r4 < 0.5 ? 1 : -1); });   // fewer, smaller, paler: at 0.35 to 0.8 they stood on the wall as stamped bars with a dot for a head
-        sow(kMD, 0.05, (q, x, k) => stamp(q, x, ts[k] + depth[k] * 0.45 * R(), Math.atan2(1, 0.12 * (R() - 0.5)), Math.min(depth[k] * 0.6, H * (0.07 + 0.14 * R())), 0.3 + 0.4 * R(), R() < 0.5 ? 1 : -1)); }
+        // Gemini's sheets (same day) pooled in: its washes and sweeps beside Muse's. The drags are Gemini's alone, each from behind its clot of ink on (the first third cut
+        // off) and hung from the top line, where the cut end lies under the dark of the edge: Muse's carry two clots each and stood on the wall as knotted stalks
+        sow(kMD, 0.05, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(), u0 = 0.34, len = Math.min(depth[k] * 0.75, H * (0.1 + 0.2 * r1)), hh = clamp(len * q.h / (q.w * (1 - u0)) * (0.8 + 0.8 * r2), 0.008 * H, 0.03 * H), an = Math.atan2(1, 0.12 * (r3 - 0.5)), c0 = Math.cos(an), s0 = Math.sin(an), fl = r4 < 0.5 ? 1 : -1;
+          g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (ts[k] + 0.002 * H - oy)); g.globalAlpha = 0.3 + 0.4 * r2; g.drawImage(q.im, q.w * u0, 0, q.w * (1 - u0), q.h, 0, -hh / 2, len, hh); }); }
       g.globalAlpha = 1; home(g); }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over

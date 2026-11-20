@@ -5657,6 +5657,240 @@
    "tone": 0.54
   }
  ],
+ "muse_nw": [
+  {
+   "f": "muse_nw-1.webp",
+   "w": 1840,
+   "h": 280,
+   "tone": 0.285
+  },
+  {
+   "f": "muse_nw-2.webp",
+   "w": 1872,
+   "h": 227,
+   "tone": 0.163
+  },
+  {
+   "f": "muse_nw-3.webp",
+   "w": 1863,
+   "h": 173,
+   "tone": 0.08
+  },
+  {
+   "f": "muse_nw-4.webp",
+   "w": 1893,
+   "h": 140,
+   "tone": 0.113
+  },
+  {
+   "f": "muse_nw-5.webp",
+   "w": 1897,
+   "h": 181,
+   "tone": 0.248
+  },
+  {
+   "f": "muse_nw-1.webp",
+   "w": 1840,
+   "h": 280,
+   "tone": 0.285
+  },
+  {
+   "f": "muse_nw-2.webp",
+   "w": 1872,
+   "h": 227,
+   "tone": 0.163
+  },
+  {
+   "f": "muse_nw-3.webp",
+   "w": 1863,
+   "h": 173,
+   "tone": 0.08
+  },
+  {
+   "f": "muse_nw-4.webp",
+   "w": 1893,
+   "h": 140,
+   "tone": 0.113
+  },
+  {
+   "f": "muse_nw-5.webp",
+   "w": 1897,
+   "h": 181,
+   "tone": 0.248
+  }
+ ],
+ "gemini_mc": [
+  {
+   "f": "gemini_mc-1.png",
+   "w": 1875,
+   "h": 59,
+   "tone": 0.276
+  }
+ ],
+ "gemini_mc2": [
+  {
+   "f": "gemini_mc2-1.png",
+   "w": 708,
+   "h": 58,
+   "tone": 0.309
+  },
+  {
+   "f": "gemini_mc2-2.png",
+   "w": 1040,
+   "h": 55,
+   "tone": 0.155
+  }
+ ],
+ "gemini_mc3": [
+  {
+   "f": "gemini_mc3-1.png",
+   "w": 1030,
+   "h": 58,
+   "tone": 0.352
+  },
+  {
+   "f": "gemini_mc3-2.png",
+   "w": 773,
+   "h": 56,
+   "tone": 0.15
+  }
+ ],
+ "gemini_ms": [
+  {
+   "f": "gemini_ms-1.png",
+   "w": 353,
+   "h": 175,
+   "tone": 0.7
+  },
+  {
+   "f": "gemini_ms-2.png",
+   "w": 366,
+   "h": 170,
+   "tone": 0.591
+  },
+  {
+   "f": "gemini_ms-3.png",
+   "w": 361,
+   "h": 171,
+   "tone": 0.62
+  },
+  {
+   "f": "gemini_ms-4.png",
+   "w": 355,
+   "h": 173,
+   "tone": 0.613
+  },
+  {
+   "f": "gemini_ms-5.png",
+   "w": 368,
+   "h": 175,
+   "tone": 0.435
+  }
+ ],
+ "gemini_md": [
+  {
+   "f": "gemini_md-1.png",
+   "w": 908,
+   "h": 73,
+   "tone": 0.495
+  },
+  {
+   "f": "gemini_md-2.png",
+   "w": 930,
+   "h": 72,
+   "tone": 0.394
+  }
+ ],
+ "gemini_md2": [
+  {
+   "f": "gemini_md2-1.png",
+   "w": 922,
+   "h": 85,
+   "tone": 0.363
+  },
+  {
+   "f": "gemini_md2-2.png",
+   "w": 907,
+   "h": 76,
+   "tone": 0.278
+  }
+ ],
+ "gemini_md3": [
+  {
+   "f": "gemini_md3-1.png",
+   "w": 923,
+   "h": 76,
+   "tone": 0.307
+  },
+  {
+   "f": "gemini_md3-2.png",
+   "w": 858,
+   "h": 74,
+   "tone": 0.084
+  }
+ ],
+ "gemini_mt": [
+  {
+   "f": "gemini_mt-1.png",
+   "w": 166,
+   "h": 64,
+   "tone": 0.847
+  },
+  {
+   "f": "gemini_mt-2.png",
+   "w": 165,
+   "h": 62,
+   "tone": 0.843
+  },
+  {
+   "f": "gemini_mt-3.png",
+   "w": 170,
+   "h": 65,
+   "tone": 0.735
+  },
+  {
+   "f": "gemini_mt-4.png",
+   "w": 166,
+   "h": 66,
+   "tone": 0.809
+  },
+  {
+   "f": "gemini_mt-5.png",
+   "w": 165,
+   "h": 65,
+   "tone": 0.856
+  },
+  {
+   "f": "gemini_mt-6.png",
+   "w": 167,
+   "h": 66,
+   "tone": 0.857
+  },
+  {
+   "f": "gemini_mt-7.png",
+   "w": 172,
+   "h": 67,
+   "tone": 0.755
+  },
+  {
+   "f": "gemini_mt-8.png",
+   "w": 169,
+   "h": 66,
+   "tone": 0.76
+  },
+  {
+   "f": "gemini_mt-9.png",
+   "w": 159,
+   "h": 70,
+   "tone": 0.691
+  },
+  {
+   "f": "gemini_mt-10.png",
+   "w": 165,
+   "h": 66,
+   "tone": 0.534
+  }
+ ],
  "muse_mc": [
   {
    "f": "muse_mc-1.png",
@@ -5815,36 +6049,36 @@
    "tone": 0.371
   }
  ],
- "muse_nw": [
+ "gemini_nw": [
   {
-   "f": "muse_nw-1.webp",
-   "w": 1840,
-   "h": 280,
-   "tone": 0.285
+   "f": "gemini_nw-1.webp",
+   "w": 1890,
+   "h": 157,
+   "tone": 0.433
   },
   {
-   "f": "muse_nw-2.webp",
+   "f": "gemini_nw-2.webp",
+   "w": 1842,
+   "h": 152,
+   "tone": 0.243
+  },
+  {
+   "f": "gemini_nw-3.webp",
+   "w": 1694,
+   "h": 162,
+   "tone": 0.048
+  },
+  {
+   "f": "gemini_nw-4.webp",
+   "w": 1874,
+   "h": 154,
+   "tone": 0.225
+  },
+  {
+   "f": "gemini_nw-5.webp",
    "w": 1872,
-   "h": 227,
-   "tone": 0.163
-  },
-  {
-   "f": "muse_nw-3.webp",
-   "w": 1863,
-   "h": 173,
-   "tone": 0.08
-  },
-  {
-   "f": "muse_nw-4.webp",
-   "w": 1893,
-   "h": 140,
-   "tone": 0.113
-  },
-  {
-   "f": "muse_nw-5.webp",
-   "w": 1897,
-   "h": 181,
-   "tone": 0.248
+   "h": 179,
+   "tone": 0.189
   }
  ]
 }
