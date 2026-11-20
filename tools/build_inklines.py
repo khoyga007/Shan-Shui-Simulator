@@ -321,8 +321,8 @@ for name in sorted(os.listdir(SRC)):
         dark = np.clip(float(np.percentile(L, 97)) - L, 0, None)
         (mist_bands if kind == 'd' else mist_patches)(src + ('_m' if kind == 'd' else '_e'), dark)
         print(name, L.shape[::-1]); continue
-    bg = float(np.percentile(L, 75 if kind != 'c' else 97))      # the paper (Gemini's is off-white with shading)
-    bgmap = ndi.gaussian_filter(ndi.maximum_filter(L, size=61 if kind != 'c' else 301), 40)   # its slow shading, taken off
+    bg = float(np.percentile(L, 75 if kind not in ('c', 'an') else 97))      # the paper (Gemini's is off-white with shading)
+    bgmap = ndi.gaussian_filter(ndi.maximum_filter(L, size=61 if kind not in ('c', 'an') else 301), 40)   # its slow shading, taken off
     ink = np.clip((np.minimum(bgmap, bg + 20) - 10 - L) / (bg - 40), 0, 1)
     if kind == '': level(src, ink, 0.3, 0.35, 0.2)
     elif kind == 'a': level(src + '_a', ink, 0.3, 0.35, 0.2)
@@ -352,6 +352,8 @@ for name in sorted(os.listdir(SRC)):
     elif kind == 'ai': rowsheet(src, ink, ('_il', '_is', '_ig', '_in', '_if'), thr=0.05, blob=(5, 21, 31, 9, 25), join=65)   # still water: long single lines, short ones, loose groups of two to four, net-pattern patches, fish-scale patches
     elif kind == 'ak': rowsheet(src, ink, ('_kw', '_kg', '_kd', '_km', '_kl'), thr=0.05, blob=(23, 15, 21, 21, 9), heads=(0,), soft=(0, 1))   # dark near ground: broad sweeps of thick ink (solid top, lower edge breaking into dry streaks and flecks), grey wet washes (darker rim below), dry broken bands, clusters of wet moss dots, short level dabs
     elif kind == 'al': rowsheet(src, ink, ('_la', '_lx', '_ls', '_lk'), thr=0.05, blob=(9, 9, 31, 15), join=7)   # bold marks to lie over a mountain's wood: split-brush strokes (a band of dry streaks from one solid head), large chops, dry scuffs (grain, no edge: used as erasers), pressed knots of wet ink
+    elif kind == 'am': rowsheet(src, ink, ('_mc', '_ms', '_md', '_mt'), thr=0.05)   # a rock mountain's wall: contour strokes (knots on a thin line: beads, not used), shadow-face sweeps (hard upper edge = the arris, lower edge torn), long wall drags, short blunt strokes
+    elif kind == 'an': level(src + '_nw', ink, 0.04, 0.05, 0.03, 'webp', gain=0.85)   # a rock mountain's light face: wide passes of a half-loaded brush, streaks with slivers of bare paper, dark end left; all brought to one strength (their tone is given when laid)
     elif kind == 'b': loose(src, ink)
     print(name, L.shape[::-1], 'paper', round(bg))
 for k in man: print(k, len(man[k]), [(p['w'], p['h'], p['tone']) for p in man[k]][:10])

@@ -233,6 +233,7 @@
       for (let j = 0; j < n; j++) P[j][0] += H * of[j] * wl[j]; }
     if (d.kind === 'rockmtn') { hill = 0; rock = Math.max(rock, 0.85); }   // a rock mountain: the crag's walls and broken top, whatever the stroke's proportions
     const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.55 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 0.6 : 0.3), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
+    if (d.kind === 'rockmtn') S.body *= 0.4;   // a wall of rock is mostly bare paper: its tone comes from the passes hung down it (sheet AN), not from an even wash
     if (land === 'rock') { let ya = 1e9, yb = -1e9; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } const hgt = Math.max(0.02 * H, yb - ya), Rc = dice(d.seed ^ 0x3d71); let of = new Array(n).fill(0);
       for (let i = 0; i < n;) { const m = Math.max(3, Math.round(n * (0.08 + 0.2 * Rc()))), off = (Rc() - 0.5) * 0.3, tilt = (Rc() - 0.5) * 0.3; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
       of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
@@ -439,6 +440,7 @@
       // face, lengths from short to long, and wider, so the dry hairs of the sample are no longer ruled hairlines.
       if (tx > 0.05 && kitCF.length) { for (let x = bx0 + 0.01 * H * R(); x < bx1; x += H * (0.008 + 0.022 * R()) / (0.5 + 0.5 * tx)) { const k = col(x), q = kitCF[Math.floor(R() * kitCF.length) % kitCF.length], lo = 1 - rock, r1 = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R();
           if (r5 > lo + rock * (0.22 + 0.78 * sm((N(x / (0.075 * H) + 311, 2) - 0.4) / 0.16))) continue;
+          if (d.kind === 'rockmtn' && r2 > 0.4) continue;   // a rock mountain has drags of its own (below): of the crag's only the narrow ones, fewer (all of them on a broad wall stood as one ribbed band)
           const swc = q.w * (1 - 0.35 * rock * r4),   // the dark, solid end and most of the dry run: cut shorter than that, a streak was a black bar
              // (on a slope, begun up to half way down and up to 0.6 of the depth long, a drag ran out below the foot of the wood: a fan
              // of ruled dry hairs standing in the mist, some down past the end of the mist mask. It now ends by 0.45 of the depth)
@@ -459,6 +461,24 @@
       sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
       if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), rock * (0.3 + 0.35 * R()), 1));
       sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
+      // A rock mountain's own marks (sheets AM, AN, Yang's gen 11-20; before, it borrowed the crag's and its body was one flat grey wash). Light falls from the left.
+      //  _nw  the light face: wide passes of a half-loaded brush hung down the wall from its top, dark end up, running pale; strips with bare paper left between
+      //       them, their strength rising and falling along the mountain (noise), none where it is low
+      //  _ms  the shadow face: on every wall that looks right, one broad dark sweep laid down along it, its hard edge on the wall's line, its torn edge inward
+      //       (pieces 3, 4 of the row: 1 ends in slanting hatch, 2 came off the sheet joined to its neighbour)
+      //  _md  long narrow drags down the face; _mt short blunt strokes standing in clusters (horse-tooth). _mc (knots on a thin line) reads as beads: not used
+      if (d.kind === 'rockmtn') { const kNW = kx('nw'), kMS = kx('ms').slice(2), kMD = kx('md').slice(0, 4), kMT = kx('mt'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+        if (kNW.length) for (let x = bx0 + 0.03 * H * R(); x < bx1; x += H * (0.03 + 0.055 * R())) { const k = col(x), v = N(x / (0.11 * H) + 53, 2), r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (depth[k] < 0.08 * H || v < 0.3) continue;
+          stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3), r4 < 0.5 ? 1 : -1); }
+        if (kMS.length) { const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN);
+          for (let k = 2; k < nb - 2; k++) { if (s2(k) < 0.9) continue; let e = k; while (e < nb - 3 && s2(e + 1) > 0.6) e++;
+            const xa = bx0 + k * BIN, xb = bx0 + e * BIN, ya = ts[k], yb = ts[e], len = Math.hypot(xb - xa, yb - ya);
+            if (len > 0.05 * H) { const an = Math.atan2(yb - ya, xb - xa), c0 = Math.cos(an), s0 = Math.sin(an), nP = Math.max(1, Math.round(len / (0.3 * H)));
+              for (let j = 0; j < nP; j++) { const q = pick(kMS), l1 = len / nP * (1.05 + 0.2 * R()), wd = clamp(len * (0.14 + 0.12 * R()), 0.018 * H, 0.07 * H);
+                g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (xa + (xb - xa) * j / nP - ox), dpr * (ya + (yb - ya) * j / nP - oy)); g.globalAlpha = 0.5 + 0.4 * R(); g.drawImage(q.im, 0, -0.004 * H, l1, wd); } }
+            k = e; } }
+        sow(kMT, 0.045, (q, x, k) => { const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (N(x / (0.06 * H) + 171, 2) < 0.6) return; stamp(q, x, ts[k] + depth[k] * (0.06 + 0.5 * r1 * r1), Math.atan2(1, 0.25 * (r2 - 0.5)), H * (0.014 + 0.02 * r3), 0.2 + 0.35 * r4, r4 < 0.5 ? 1 : -1); });   // fewer, smaller, paler: at 0.35 to 0.8 they stood on the wall as stamped bars with a dot for a head
+        sow(kMD, 0.05, (q, x, k) => stamp(q, x, ts[k] + depth[k] * 0.45 * R(), Math.atan2(1, 0.12 * (R() - 0.5)), Math.min(depth[k] * 0.6, H * (0.07 + 0.14 * R())), 0.3 + 0.4 * R(), R() < 0.5 ? 1 : -1)); }
       g.globalAlpha = 1; home(g); }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
