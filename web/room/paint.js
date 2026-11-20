@@ -33,7 +33,7 @@
   // (wood: trees, grass). The element is chosen; what the stroke becomes within it is read from how it was flown (guess).
   // A fourth, Thiên (sky: sun flown clockwise, moon counter-clockwise, clouds, birds), is to come.
   const KINDS = [['earth', 'Địa', 'núi, bờ đất, đá'], ['water', 'Thuỷ', 'sông, hồ, mặt nước'], ['wood', 'Mộc', 'cây, cỏ']];
-  const SUBS = { earth: ['mountain', 'rockmtn', 'bank', 'rock'], water: ['river', 'lake', 'sea'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', rockmtn: 'núi đá', bank: 'bờ đất', rock: 'mỏm đá', river: 'sông', lake: 'hồ', sea: 'mặt nước', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
+  const SUBS = { earth: ['mountain', 'rockmtn', 'bank', 'rock'], water: ['river', 'lake', 'sea', 'fall'], wood: ['tree', 'grass'] }, SUBN = { mountain: 'núi', rockmtn: 'núi đá', bank: 'bờ đất', rock: 'mỏm đá', river: 'sông', lake: 'hồ', sea: 'mặt nước', fall: 'thác', tree: 'cây', grass: 'cỏ' }, ELN = { earth: 'Địa', water: 'Thuỷ', wood: 'Mộc' };
   // water: a loop that comes back to its start (its last quarter passing near its first; flown past the start counts) is
   // a lake, else a river. wood: a stroke that stands is a tree (the stroke its trunk), one that lies is grass (its ground);
   // the slope is the one `tree` uses for a branch seen close, which is now reached by turning a lying stroke into a tree
@@ -55,6 +55,7 @@
     let xa = 1e9, xb = -1e9, ya = 1e9, yb = -1e9; for (const p of q) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
     // water flown level across most of the paper is no river: it is the waterline, the far shore above it, the near one below
     if (el === 'water' && xb - xa >= 0.7 * freeW() && yb - ya < 0.08 * (xb - xa)) return 'sea';
+    if (el === 'water' && fallHost(q)) return 'fall';   // flown steeply down the wall of a rock mountain: a waterfall
     if (el === 'water') { const k = Math.max(1, n >> 2); let g = 1e9; for (let i = 0; i < k; i++) for (let j = n - k; j < n; j++) g = Math.min(g, Math.hypot(q[i][0] - q[j][0], q[i][1] - q[j][1])); return L > 0.3 * D.H && g < Math.max(SNAP * D.H, 0.15 * L) ? 'lake' : 'river'; }
     if (el === 'wood') return Math.abs(b[1] - a[1]) > 0.58 * Math.abs(b[0] - a[0]) ? 'tree' : 'grass';
     // earth (Yang 11-19: "dùng chính đường thuỷ ngăn cách phản chiếu để phân biệt"): water parts the far shore from the near.
@@ -85,7 +86,7 @@
   function turn() { const d = st.done[st.done.length - 1], subs = d && SUBS[d.el]; if (!subs || subs.length < 2 || d.el !== st.kind) return false; const nk = subs[(subs.indexOf(d.kind) + 1) % subs.length]; if (d.el === 'wood') { const pl = plant(d.stroke, nk); if (pl.kind !== nk) { say(pl.kind ? 'Nét này không nằm trên đất nên không đổi thành ' + SUBN[nk] + ' được' : pl.msg); return true; } d.stroke = pl.q; d.root = pl.root; } d.kind = nk; d.m = null; bakeKey = ''; say(ELN[d.el] + ': đổi nét cuối thành ' + SUBN[d.kind]); return true; }
   const say = (s) => { st.msg = s; st.msgT = D.T; };
   function reset() { st.pen = false; st.stroke = []; st.done = []; bakeKey = ''; if (typeof throwGrove === 'function') throwGrove(); sync(); }
-  function undo() { if (st.done.pop()) { bakeKey = ''; sync(); } }
+  function undo() { const o = st.done.pop(); if (o) { st.done = st.done.filter((d) => d.hostD !== o);   /* a waterfall goes with its mountain */ bakeKey = ''; sync(); } }
   function penDown() { if (st.pen) return; st.pen = true; st.stroke = []; }
   // Wood grows on land only (Yang 11-19: "cây chỉ có thể vẽ ở trên đất, cỏ cũng vậy"). ground: the land under a point: a bank
   // or a rock whose top is near it (from 10% of a screen above its top down to its foot; the nearest top wins), else the
@@ -1258,6 +1259,110 @@
     return { river: true, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: y1, yTop: y0, tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
   }
 
+  // One stroke -> one waterfall (Yang 11-20: "giờ bắt đầu phần thác nước"). A Thuỷ stroke flown steeply down the wall of a
+  // rock mountain. As it is painted: the falling water is the paper left bare, a white band cut out of the wall; what is
+  // drawn is the wet dark rock on both sides of it (in stretches, heavier on one side: all along both it is an outline),
+  // a few thin lines running down in it (they move: a layer of their own, as a river's current), and at its foot the
+  // spray, which is bare paper again and wipes out the foot of the band and the rock about it.
+  //   host    the rock mountain it falls down: it lies just before that mountain and behind everything nearer, takes
+  //           that mountain's ink (depth) and its foot mist, and nothing of it leaves that mountain's body
+  //   path    the stroke from top to bottom, only the part on the wall. Flown in from above the top line, the water
+  //           comes over the lip at full breadth; begun on the wall, it starts thin, out of a cleft
+  //   width   by the breadth of the mountain; spreading a little as it falls, narrower where the stroke runs aslant (a ledge)
+  // Until its own sheet (AT: _ta lines, _tr rock edges) is cut it borrows: _f bank lines and _ms shadow sweeps for the
+  // rock, _g hair lines for the water.
+  function fallHost(q) {
+    const H = D.H, n = q.length, a = q[0][1] <= q[n - 1][1] ? q[0] : q[n - 1], b = a === q[0] ? q[n - 1] : q[0], dy = b[1] - a[1], dx = Math.abs(b[0] - a[0]);
+    if (dy < 0.1 * H || dy < 1.4 * dx) return null;   // it falls: a drop of a tenth of a screen and more, steeper than 55 degrees from end to end
+    let best = null;
+    for (const o of st.done) { const m = o.m; if (o.kind !== 'rockmtn' || !m || !m.ts) continue; let c = 0;
+      for (const p of q) { const k = Math.floor((p[0] - m.bx0) / BIN); if (k >= 0 && k < m.ts.length && p[1] > m.ts[k] - 0.02 * H && p[1] < m.yBase) c++; }
+      if (c >= 0.5 * n && (!best || zk(o) > zk(best))) best = o; }   // most of it on the wall; of several such walls, the nearest
+    return best;
+  }
+  function fall(d) {
+    const host = d.hostD && d.hostD.m && st.done.includes(d.hostD) ? d.hostD : fallHost(d.stroke);
+    if (!host) return river(d);   // turned into a fall by its key with no wall under it: a river still
+    d.hostD = host;
+    const tB = performance.now(), H = D.H, R = dice(d.seed), N = noise1(R), hm = host.m, nb = hm.ts.length;
+    let P = calm(d.stroke, STEP, 10); if (P[0][1] > P[P.length - 1][1]) P.reverse();
+    const on = (p) => { const k = Math.floor((p[0] - hm.bx0) / BIN); return k >= 0 && k < nb && p[1] >= hm.ts[k] + 0.002 * H && p[1] <= hm.yBase - 0.012 * H; };
+    const i0 = P.findIndex(on); let i1 = -1; for (let i = P.length - 1; i >= 0 && i1 < 0; i--) if (on(P[i])) i1 = i;
+    if (i0 < 0 || i1 - i0 < 8) return null;
+    const lip = i0 > 0; P = P.slice(i0, i1 + 1);
+    const n = P.length, cum = [0]; for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const L = cum[n - 1], seg = L / (n - 1), frame = (Q) => Q.map((_, i) => { const a = Q[Math.max(0, i - 4)], b = Q[Math.min(Q.length - 1, i + 4)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }), tan = frame(P);
+    const W0 = clamp(0.032 * nb * BIN, 0.005 * H, 0.013 * H) * (0.85 + 0.3 * R());   // (at 0.045 of the mountain's breadth, to 0.022 H, the band was a quarter of a pillar: a white slab, a doorway)
+    const hw = P.map((p, i) => W0 * (0.8 + 0.45 * cum[i] / L) * (0.82 + 0.36 * N(cum[i] / (0.09 * H) + 3, 2)) * (0.45 + 0.55 * tan[i][1] * tan[i][1]) * (lip ? 0.6 + 0.4 * sm(cum[i] / (0.035 * H)) : 0.22 + 0.78 * sm(cum[i] / (0.07 * H))));   // over the lip it comes a little gathered and spreads below it; out of a cleft it begins thin and opens over a stretch (from a point over 0.05 H: a white needle; at once and broad: a doorway)
+    // its two edges (sg -1: on the right of water falling down the paper, +1: on its left), each ragged in its own way
+    const edge = (sg, ph) => P.map((p, i) => { const w = hw[i] * (0.72 + 0.56 * N(cum[i] / (0.035 * H) + ph, 2)) + 0.003 * H * (N(cum[i] / (0.011 * H) + ph + 20, 2) - 0.5);   /* (at 0.85 + 0.3 the two edges ran side by side: a ribbon, a road) */ return [p[0] - sg * tan[i][1] * w, p[1] + sg * tan[i][0] * w]; });
+    const A = edge(-1, 100), B = edge(1, 200), F = P[n - 1], sr = Math.max(3.4 * hw[n - 1], 0.034 * H);   // sr: how far the spray reaches about the foot
+    let x0 = F[0] - 1.5 * sr, x1 = F[0] + 1.5 * sr, y0 = 1e9, y1 = F[1] + sr; for (const Q of [A, B]) for (const p of Q) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+    const pad = Math.round(0.09 * H), ox = Math.floor(x0) - pad, oy = Math.floor(y0) - pad, cw = Math.ceil((x1 - x0 + 2 * pad + 2) * dpr), chh = Math.ceil((y1 - y0 + 2 * pad + 2) * dpr);
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cw; cv.height = chh; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr); return [cv, g]; };
+    const [cv, g] = mk(), [body, gb] = mk(), [wat, gw] = mk(), [wsh, gs] = mk(), [bnk, gk] = mk(), [spr, gp] = mk();
+    const home = (x) => x.setTransform(dpr, 0, 0, dpr, -ox * dpr, -oy * dpr), raw = (x) => x.setTransform(1, 0, 0, 1, 0, 0);
+    const hostIn = (x) => { raw(x); x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in'; x.drawImage(hm.body, Math.round((hm.ox - ox) * dpr), Math.round((hm.oy - oy) * dpr)); x.globalCompositeOperation = 'source-over'; home(x); };
+    // -- the water: bare paper, cut out of the wall. Harder at the rim than a river's: rock, not a bank of earth
+    gw.fillStyle = '#000'; gw.beginPath(); gw.moveTo(A[0][0], A[0][1]); for (let i = 1; i < n; i++) gw.lineTo(A[i][0], A[i][1]); for (let i = n - 1; i >= 0; i--) gw.lineTo(B[i][0], B[i][1]); gw.closePath(); gw.fill();
+    { const t = tan[0], gd = gw.createLinearGradient(P[0][0], P[0][1], P[0][0] + t[0] * 0.016 * H, P[0][1] + t[1] * 0.016 * H); gd.addColorStop(0, 'rgba(0,0,0,1)'); gd.addColorStop(1, 'rgba(0,0,0,0)');   // its upper end fades in over a short way: cut straight across, the band began as a ruled slot
+      gw.globalCompositeOperation = 'destination-out'; gw.fillStyle = gd; gw.fillRect(P[0][0] - 3 * W0, P[0][1] - 0.02 * H, 6 * W0, 0.04 * H); gw.globalCompositeOperation = 'source-over'; gw.fillStyle = '#000'; }
+    // -- the spray at its foot: bare paper too, a soft low heap and a few smaller ones about it
+    const puff = (x, y, rx, ry, al) => { gp.save(); gp.translate(x, y); gp.scale(1, ry / rx); const gd = gp.createRadialGradient(0, 0, 0, 0, 0, rx); gd.addColorStop(0, `rgba(0,0,0,${al})`); gd.addColorStop(0.45, `rgba(0,0,0,${(al * 0.75).toFixed(3)})`); gd.addColorStop(1, 'rgba(0,0,0,0)'); gp.fillStyle = gd; gp.beginPath(); gp.arc(0, 0, rx, 0, 6.2832); gp.fill(); gp.restore(); };
+    puff(F[0], F[1] + 0.2 * sr, sr, 0.62 * sr, 0.95);
+    for (let k = 0; k < 4; k++) { const an = R() * 6.2832, rr = sr * (0.35 + 0.35 * R()); puff(F[0] + Math.cos(an) * sr * 0.7, F[1] + 0.2 * sr + Math.sin(an) * sr * 0.3, rr, rr * (0.5 + 0.3 * R()), 0.7); }
+    // where the stroke steps aside the water strikes a ledge: foam there too, which breaks the band into falls one under another
+    { let led = 0; for (let i = 12; i < n - 12 && led < 3; i++) { const t = Math.abs(tan[i][0]); if (t > 0.26 && t >= Math.abs(tan[i - 6][0]) && t > Math.abs(tan[i + 6][0]) && cum[i] > 0.05 * H && L - cum[i] > 0.05 * H) { puff(P[i][0], P[i][1] + 0.4 * hw[i], 2.3 * hw[i], 1.25 * hw[i], 0.85); led++; i += 14; } } }
+    raw(gb); gb.filter = `blur(${(0.007 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 0.5; gb.drawImage(wat, 0, 0); gb.filter = `blur(${(0.0022 * H * dpr).toFixed(1)}px)`; gb.globalAlpha = 1; gb.drawImage(wat, 0, 0); gb.filter = 'none'; gb.drawImage(spr, 0, 0); hostIn(gb);
+    // -- the rock beside it. Where it is drawn at all: in stretches, by noise, more of it on the right (the dark side of a rock mountain)
+    const own = (suf) => { if (S.tex === 'code') return []; const a = (STROKES[S.tex + suf] || []).filter((q) => q.im); return a.length ? a : (STROKES['muse' + suf] || []).filter((q) => q.im); };
+    const kitF = own('_f'), kitS = own('_tr').length ? own('_tr') : own('_ms'), kitL = own('_ta').length ? own('_ta') : own('_g'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+    for (const [E, sg, ph] of [[A, -1, 300], [B, 1, 400]]) {
+      const ga = (i) => N(cum[i] / (0.11 * H) + ph, 2) + (sg < 0 ? 0.12 : 0), et = frame(E), ec = [0]; for (let i = 1; i < n; i++) ec.push(ec[i - 1] + Math.hypot(E[i][0] - E[i - 1][0], E[i][1] - E[i - 1][1]));
+      // wet rock: a little wash along the water where the rock is dark
+      gs.lineCap = 'round'; gs.strokeStyle = '#000';
+      for (let i = 1; i < n; i++) { if (ga(i) < 0.46) continue; gs.lineWidth = 0.012 * H + 1.5 * hw[i]; gs.beginPath(); gs.moveTo(E[i - 1][0], E[i - 1][1]); gs.lineTo(E[i][0], E[i][1]); gs.stroke(); }
+      // the line of the rock on the water: a real stroke in thin slices, its dark edge on the water, the rest on the rock (as a river's bank)
+      if (kitF.length) { const q = pick(kitF), ds = 2, per = 0.6 * H, off = R() * 2; let j = 0;
+        for (let a = 0; a < ec[n - 1]; a += ds) { while (j < n - 2 && ec[j + 1] < a) j++;
+          const al = sm((ga(j) - 0.36) / 0.14); if (al < 0.05) continue;
+          const f = clamp((a - ec[j]) / Math.max(1e-6, ec[j + 1] - ec[j]), 0, 1), px = E[j][0] + (E[j + 1][0] - E[j][0]) * f, py = E[j][1] + (E[j + 1][1] - E[j][1]) * f, tx = et[j][0], ty = et[j][1];
+          const th = 1.9 * al * (0.007 * H + 0.8 * W0) * (0.7 + 0.6 * N(a / (0.05 * H) + ph + 60, 2)); let v = (a / per + off) % 2; if (v > 1) v = 2 - v;
+          gk.setTransform(dpr * tx, dpr * ty, -sg * dpr * ty, sg * dpr * tx, dpr * (px - ox), dpr * (py - oy));
+          gk.drawImage(q.im, clamp(v * (q.w - 2), 0, q.w - 2), 0, Math.max(1, (ds + 0.8) / per * q.w), q.h, 0, -0.03 * th, ds + 0.8, th); }
+        home(gk); }
+      // dark wet masses: sweeps whose hard edge lies on the water, torn away from it into the rock
+      if (kitS.length) { let j = 0;
+        for (let a = R() * 0.04 * H; a < ec[n - 1]; a += H * (0.03 + 0.045 * R())) { while (j < n - 2 && ec[j + 1] < a) j++; const r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (ga(j) < 0.5) continue;
+          const q = kitS[Math.floor(r1 * kitS.length) % kitS.length], len = H * (0.045 + 0.06 * r2) * clamp(W0 / (0.014 * H), 0.6, 1.4), hh = Math.min(len * q.h / q.w, 0.012 * H + 2.4 * W0) * (0.7 + 0.5 * r3), fl = r4 < 0.5 ? 1 : -1, tx = et[j][0], ty = et[j][1];
+          gk.setTransform(dpr * tx * fl, dpr * ty * fl, -sg * dpr * ty, sg * dpr * tx, dpr * (E[j][0] - ox), dpr * (E[j][1] - oy)); gk.globalAlpha = 0.5 + 0.4 * r3; gk.drawImage(q.im, -len / 2, -0.04 * hh, len, hh); }
+        gk.globalAlpha = 1; home(gk); }
+    }
+    { const [w2, g2] = mk(); raw(g2); g2.filter = `blur(${(0.008 * H * dpr).toFixed(1)}px)`; g2.drawImage(wsh, 0, 0); g2.filter = 'none'; g2.globalCompositeOperation = 'source-in'; g2.fillStyle = `rgb(${INK})`; g2.fillRect(0, 0, cw, chh);
+      raw(g); g.globalAlpha = 0.3; g.drawImage(w2, 0, 0); g.globalAlpha = 0.9; g.drawImage(bnk, 0, 0); g.globalAlpha = 1; }
+    // none of it in the water or the spray; the mountain's foot mist lies over it as over the mountain; none of it off the mountain
+    raw(g); g.globalCompositeOperation = 'destination-out'; g.drawImage(wat, 0, 0); g.drawImage(spr, 0, 0);
+    if (hm.mist) { const [mx, my, mq] = hm.mxy; g.drawImage(hm.mist, Math.round((mx - ox) * dpr), Math.round((my - oy) * dpr), hm.mist.width * mq * dpr, hm.mist.height * mq * dpr); }
+    g.globalAlpha = 0.11; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; hostIn(g);
+    // -- the falling water: thin lines running down the band, each on its own lane, faster as it falls; near the edges
+    //    more than down the middle, which stays bare. Redrawn each frame (flow), as a river's current
+    let live = null, flow = null;
+    if (kitL.length) { const [lv, gl] = mk(), lines = []; live = lv;
+      for (let k = 0, cnt = clamp(Math.round(8 + L / (0.03 * H)), 8, 30); k < cnt; k++) lines.push({ u0: (R() < 0.5 ? -1 : 1) * (0.2 + 0.7 * Math.pow(R(), 0.6)), len: H * (0.05 + 0.13 * R()), ph: R() * 90, q: pick(kitL), fr: R(), per: (1.3 + 1.1 * R()) * Math.sqrt(Math.max(0.3, L / (0.3 * H))), t0: R() });
+      flow = (T) => { raw(gl); gl.globalCompositeOperation = 'source-over'; gl.globalAlpha = 1; gl.clearRect(0, 0, cw, chh);
+        for (const ln of lines) { const s = (T / ln.per + ln.t0) % 1, len = Math.min(ln.len, 0.7 * L), a0 = Math.pow(s, 1.4) * (L + len) - len, aS = Math.max(0, a0), a1 = Math.min(L, a0 + len); if (a1 - aS < 6) continue;
+          const life = sm(s / 0.1) * sm((1 - s) / 0.15), m = Math.max(3, Math.round((a1 - aS) / 8)), Q = [], cl = [0];
+          for (let j = 0; j <= m; j++) { const fi = Math.min(n - 1.001, (aS + (a1 - aS) * j / m) / seg), i = fi | 0, f = fi - i, tx = tan[i][0] + (tan[i + 1][0] - tan[i][0]) * f, ty = tan[i][1] + (tan[i + 1][1] - tan[i][1]) * f,
+            w = (hw[i] + (hw[i + 1] - hw[i]) * f) * clamp(ln.u0 + 0.16 * (N(fi * seg / (0.06 * H) + ln.ph + 9000, 2) - 0.5), -0.9, 0.9); Q.push([P[i][0] + (P[i + 1][0] - P[i][0]) * f - ty * w, P[i][1] + (P[i + 1][1] - P[i][1]) * f + tx * w]);
+            if (j) cl.push(cl[j - 1] + Math.hypot(Q[j][0] - Q[j - 1][0], Q[j][1] - Q[j - 1][1])); }
+          const q = ln.q, lp = cl[m], frac = clamp(lp / (0.5 * H), 0.15, 0.9), us = ln.fr * (1 - frac) * q.w, th0 = life * H * (0.0032 + 0.003 * ln.fr), ds = 5; let j = 0;
+          for (let a = 0; a < lp; a += ds) { while (j < m - 1 && cl[j + 1] < a) j++; const x = a / lp, th = th0 * (0.1 + 0.9 * sm(x / 0.65) * sm((1 - x) / 0.14)), dx = Q[j + 1][0] - Q[j][0], dy = Q[j + 1][1] - Q[j][1], l = Math.hypot(dx, dy) || 1, f = a - cl[j];
+            gl.setTransform(dpr * dx / l, dpr * dy / l, -dpr * dy / l, dpr * dx / l, dpr * (Q[j][0] + dx / l * f - ox), dpr * (Q[j][1] + dy / l * f - oy)); gl.drawImage(q.im, clamp(us + a / lp * frac * q.w, 0, q.w - 2), 0, Math.max(1, ds / lp * frac * q.w), q.h, 0, -th / 2, ds + 0.1, th); } }   // slices edge to edge: the pieces are pale, and every overlap of two showed as a dot, the line as a row of stitches
+        // only in the band, paled as its mountain is, and lost in the spray
+        raw(gl); gl.globalCompositeOperation = 'destination-in'; gl.globalAlpha = 0.75 * clamp(toneOf(host), 0.3, 1); gl.drawImage(wat, 0, 0); gl.globalCompositeOperation = 'destination-out'; gl.globalAlpha = 1; gl.drawImage(spr, 0, 0); gl.globalCompositeOperation = 'source-over'; home(gl); }; }
+    return { river: true, fall: true, live, flow, cv, body, mist: null, mxy: [0, 0, 1], ox, oy, yBase: F[1], yTop: P[0][1], tone: 1, peaks: 0, ms: Math.round(performance.now() - tB), mistMs: 0 };
+  }
+
   // One stroke -> one lake (Yang 11-19, key 3). The stroke is the shore: flown round, its ends joined if left open. Still
   // water is bare paper, as the river's. What tells it from a river:
   //   shape   seen from the side a lake lies flat: a round loop is pressed down to about 0.42 of its breadth (SQ)
@@ -1765,7 +1870,8 @@
   // its foot alone it lay behind the lake's near shore, and the water wiped it out)
   // A mountain most of which was flown above a waterline stands beyond that water, though its ends dip below the line (by
   // its foot alone it stood before the water, unmirrored, and painted over it).
-  const zk = (d) => { if (d.m.solid) return st.done.reduce((z, o) => (o.m && o.m.wat && d.m.yBase > o.m.yTop && d.m.yBase <= o.m.yBase && d.m.cx > o.m.ox && d.m.cx < o.m.ox + o.m.wat.width / dpr ? Math.max(z, o.m.yBase + 0.5) : z), d.m.yBase);
+  const zk = (d) => { if (d.kind === 'fall' && d.hostD && d.hostD.m && d.hostD !== d) return zk(d.hostD) + 0.05;   /* a waterfall: just before the mountain it falls down */
+    if (d.m.solid) return st.done.reduce((z, o) => (o.m && o.m.wat && d.m.yBase > o.m.yTop && d.m.yBase <= o.m.yBase && d.m.cx > o.m.ox && d.m.cx < o.m.ox + o.m.wat.width / dpr ? Math.max(z, o.m.yBase + 0.5) : z), d.m.yBase);
     // A tree or grass rooted on a bank or a rock stands on it, before it (Yang 11-19: "sao cây luôn tự snap ra đằng sau đất thế?
     // mất cả gốc rồi": by its root alone it lay behind the land, whose foot is lower on the paper, and the land's body wiped its trunk out)
     if (d.kind === 'tree' || d.kind === 'grass') { if (!d.root) d.root = d.stroke.reduce((r, p) => (p[1] > r[1] ? p : r), d.stroke[0]); let z = d.m.yBase;
@@ -1791,16 +1897,16 @@
   function tones() { const far = st.done.filter((d) => d.m && !d.m.river && !d.m.solid), ft = far.map(footOf), w = far.map((d) => Math.round(12 * sm((D.T - d.t0) / (REVEAL + MIST))) / 12 /* in twelve steps: every step is a bake of the whole picture */), tn = new Map();
     far.forEach((d, i) => { let t = d.m.tone; for (let j = 0; j < far.length; j++) { const gap = (ft[j] - ft[i]) / D.H; if (j === i || gap <= 0) continue;
         const c = far[j].m.tone * Math.max(DP.lo, 1 - DP.a * (1 - Math.exp(-gap / DP.tau)) - DP.b * gap); if (c < d.m.tone) t = Math.min(t, d.m.tone + (c - d.m.tone) * w[j]); } tn.set(d, t); }); return tn; }
-  let TN = new Map(); const toneOf = (d) => (TN.has(d) ? TN.get(d) : d.m.tone);
+  let TN = new Map(); const toneOf = (d) => (d.kind === 'fall' && d.hostD && d.hostD.m ? toneOf(d.hostD) : TN.has(d) ? TN.get(d) : d.m.tone);
   // Near land begun or ended close to a side of the paper runs off that side (Yang 11-19: "nét đất mà bắt đầu từ sát cạnh
   // thì nó tự snap"): flown by hand the stroke starts a little inside the edge, and the bank ended there in a faded stump with
   // bare paper beside it. The end is carried on, level, to beyond the edge. Once a stroke. The right side: the paper's, under the panel.
-  function snapEdge(d) { if (d.snapped || ['river', 'lake', 'sea', 'tree', 'grass'].includes(d.kind)) return;   /* all of stroke Địa, mountains too (Yang: "có, cả núi"): a range runs off the paper at the height it had there */ d.snapped = true; const q = d.stroke, H = D.H, near = 0.07 * H, out = 0.08 * H;
+  function snapEdge(d) { if (d.snapped || ['river', 'lake', 'sea', 'fall', 'tree', 'grass'].includes(d.kind)) return;   /* all of stroke Địa, mountains too (Yang: "có, cả núi"): a range runs off the paper at the height it had there */ d.snapped = true; const q = d.stroke, H = D.H, near = 0.07 * H, out = 0.08 * H;
     for (const end of [0, 1]) { const p = end ? q[q.length - 1] : q[0], x = p[0] < near ? -out : p[0] > freeW() - near ? D.W + out : null; if (x === null) continue;
       const add = []; for (let k = 1; k <= 6; k++) add.push([p[0] + (x - p[0]) * k / 6, p[1], p[2]]); if (end) q.push(...add); else q.unshift(...add.reverse()); } d.my = undefined; }
   function render() {
     const W = D.W, H = D.H, T = D.T; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) { snapEdge(d); d.m = ({ river, lake, sea, tree, grass }[d.kind] || mountain)(d) || false; }
+    for (const d of st.done) if (d.m === undefined || d.m === null && d.m !== false) { snapEdge(d); d.m = ({ river, lake, sea, fall, tree, grass }[d.kind] || mountain)(d) || false; }
     // finished mountains do not change: baked once, far ones first, each hiding what stands behind its body
     TN = tones(); const old = st.done.filter((d) => d.m && T - d.t0 >= REVEAL).sort((p, q) => zk(p) - zk(q)), mistA = (d) => sm((T - d.t0 - REVEAL) / MIST), key = old.map((d) => d.seed + ':' + d.t0 + ':' + Math.round(mistA(d) * 24) + ':' + Math.round(toneOf(d) * 256)).join() + '|' + ink.width + 'x' + ink.height;
     if (key !== bakeKey) { bakeKey = key; bake.width = ink.width; bake.height = ink.height; const b = bake.getContext('2d');
