@@ -198,7 +198,7 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Roots under the foot (Yang shot: bamboo roots hanging out below the bank, past its mist): a plant's cv is faded out over the last 3.5% H above its land's foot (once, m.clipK), nothing of it below. Case not reproduced in bot.
 - Depth of mountains (r018, Yang: "depth đang bị vô lý": pale washed hill lay BEFORE a dark peak, both feet on the waterline): order was by yBase only, a tie for all that stand on a waterline. zk now: mountains with foot within 4% H of / below a waterline are ordered mainly by darkOf(m) (mean alpha of cv x tone, cached m.dark), darker in front; elsewhere yBase +- 3% H by darkness. Bot `r7=1&m7=9&sea=0.34&depth=1`, reports/depth.jpg.
 
-## Dia stroke rule = shape decides material (agreed 11-19 night; v1 BUILT 11-20, bot-only, awaits Yang hands-on)
+## Dia stroke rule = shape decides material (agreed 11-19 night; BUILT 11-20; rock mountain "tạm xong" by Yang's hand 11-20, wall v5b + d67a125)
 
 BUILT 11-20 (paint.js):
 - `st.raw` = mouse-point path (`Rm.aim()`) recorded beside the dragon stroke; `elbows(q)`: resample 0.01 H, heading change over +-0.03 H arm > 50 deg, corners >= 0.06 H apart. `ANG`, URL `?ang=<deg>,<count>`.
@@ -263,6 +263,7 @@ BUILT 11-20 (paint.js):
   - fix (this commit): run ends at `f` = last bin with ts <= yBase; nothing if it starts under yBase; dice burnt for the pieces not laid (4 R() each) so the rest of the mountain is unchanged (bot: same seed, identical but for the streak). Fixture r023 (from `paint.paths`).
   - NOT reproduced: a second fainter streak in his screenshot, left of the first, leaning the other way. Seeds differ. Ask him to look again.
   - r023 buildMs on HIS machine: 141 (r022, before the swatches: 75 / 36). Swatches cost; not profiled. Watch for a hitch on pen-up.
+- Yang 11-20, his hand, 3 rock mountains side by side on d67a125: "ok, tạm xong phần núi đá". Rock mountain PARKED as good enough for now; do not rework unasked. Open list below stays open. Next by the earlier agreement = waterfall (Thuy stroke down a rock mountain), on his word only.
   - Weak: `_ql` 1 (zigzag wedges) and 3 (plumb bars) are separate marks, not a surface: read as scattered Z's / bars on a broad lit slab; lit faces no longer bare (3rd critique had praised bare lit faces: watch for "busy"); v3/v4 chops not thinned; the 7 faults of r022 not looked at again except row steps and the blank wedge.
 - Weak (v1, before textures): body = flat grey wash, not "much bare paper"; no top-light / side-dark face split; ribbed band of even vertical drags on a broad wall; strokes without a mouse path (dragon off / old fixtures) count corners on their own path. Mouse-mode strokes untested. Waterfall not started.
 
