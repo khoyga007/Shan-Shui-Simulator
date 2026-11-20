@@ -243,7 +243,13 @@
     if (land === 'rock') { let ya = 1e9, yb = -1e9; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } const hgt = Math.max(0.02 * H, yb - ya), Rc = dice(d.seed ^ 0x3d71); let of = new Array(n).fill(0);
       for (let i = 0; i < n;) { const m = Math.max(3, Math.round(n * (0.08 + 0.2 * Rc()))), off = (Rc() - 0.5) * 0.3, tilt = (Rc() - 0.5) * 0.3; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
       of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
-      for (let j = 0; j < n; j++) P[j][1] += hgt * of[j] * sm((ya + 0.45 * hgt - P[j][1]) / (0.3 * hgt)); }
+      // (Yang 11-20, r025, a rock half a screen high with plumb walls. The steps were a share of the rock's HEIGHT: on a low rock a hand's breadth, on this one 0.08 H, and
+      // the last points of its top, lifted that much, stood on its corner as an aerial. Now of its height up to 0.12 H. And on a wall a step up or down turned the path back
+      // on itself for a few points; the ridge stroke laid along that leg fell outside the wall (the knob left by the cut below). Where the line stood steep before the
+      // steps, it still goes the one way after them: a point that would go back stays level with the one before it.)
+      const y0 = P.map((p) => p[1]), hA = Math.min(hgt, 0.12 * H);
+      for (let j = 0; j < n; j++) P[j][1] += hA * of[j] * sm((ya + 0.45 * hgt - P[j][1]) / (0.3 * hgt));
+      for (let j = 1; j < n; j++) { const dy = y0[j] - y0[j - 1]; if (Math.abs(dy) > 1.5 * Math.abs(P[j][0] - P[j - 1][0]) && (P[j][1] - P[j - 1][1]) * dy < 0) P[j][1] = P[j - 1][1]; } }
     // a rock: both ends come down to the water: left as flown, the level foot cut them off plumb, a slab.
     // A bank keeps the line it was flown, as a mountain does (Yang 11-19, of a stroke whose ends the game had bent down into
     // a closed mound, its foot pushed below the paper: "bờ đất phải hoạt động như nét vẽ núi ấy nhé, không được tự crop")
@@ -301,7 +307,10 @@
       if (E) { let kA = 0, kB = m - 1; while (kA < m - 1 && top[kA] > 1e8) kA++; while (kB > kA && top[kB] > 1e8) kB--;
         const q = Math.min(8, kB - kA), gA = clamp((top[kA] - top[kA + q]) / Math.max(1, q * BIN), 0.55, 2.5), gB = clamp((top[kB] - top[kB - q]) / Math.max(1, q * BIN), 0.55, 2.5);   // falling at least a little, whatever way the stroke ended
         const fall = (g0, d) => g0 * d * (1 + 0.9 * d / E) + (N(d / (0.03 * H) + 77, 2) - 0.5) * 0.02 * H * Math.min(1, d / (0.02 * H));   // bending down and uneven, not ruled
-        for (let k = 0; k < kA; k++) top[k] = top[kA] + fall(gA, (kA - k) * BIN); for (let k = kB + 1; k < m; k++) top[k] = top[kB] + fall(gB, (k - kB) * BIN); }
+        // (a rock stands on its foot, its two ends at the water: past them there is no rock. A wall that stands plumb has its whole height over the stroke's outermost
+        // column, and the fall-away began up there: a pale fan of rock outside the wall, down to the foot, with the rock's edge dots hung in the air on it. Yang 11-20, r025)
+        const tA = land === 'rock' ? Math.max(top[kA], yBase) : top[kA], tB = land === 'rock' ? Math.max(top[kB], yBase) : top[kB];
+        for (let k = 0; k < kA; k++) top[k] = tA + fall(gA, (kA - k) * BIN); for (let k = kB + 1; k < m; k++) top[k] = tB + fall(gB, (k - kB) * BIN); }
       for (let k = 0, last = P[i0][1]; k < m; k++) { if (top[k] > 1e8) top[k] = last; else last = top[k]; }
       const ts = blur(top, 5), wide = blur(top, 40), slope = (k) => (wide[Math.min(m - 1, k + 4)] - wide[Math.max(0, k - 4)]) / (8 * BIN);
       // lit side / shaded side, turning over gently across a summit: spread over about a sixth of a screen (three box
@@ -483,8 +492,8 @@
             // ends where the wall does: f = the last bin not under the foot. Dice thrown for the pieces it would have had, so every later mark falls where it fell)
             let f = e; while (f > k && ts[f] > yBase) f--; const len0 = Math.hypot((e - k) * BIN, ts[e] - ts[k]), nP0 = len0 > 0.05 * H ? Math.max(1, Math.round(len0 / (0.3 * H))) : 0; let nD = 0;
             const xa = bx0 + k * BIN, xb = bx0 + f * BIN, ya = ts[k], yb = ts[f], len = Math.hypot(xb - xa, yb - ya);
-            if (len > 0.05 * H && ya < yBase) { const an = Math.atan2(yb - ya, xb - xa), c0 = Math.cos(an), s0 = Math.sin(an), nP = nD = Math.max(1, Math.round(len / (0.3 * H)));
-              for (let j = 0; j < nP; j++) { const q = pick(kMS), l1 = len / nP * (1.05 + 0.2 * R()), wd = clamp(len * (0.14 + 0.12 * R()), 0.018 * H, 0.07 * H);
+            if (len > 0.05 * H && ya < yBase) { const an = Math.atan2(yb - ya, xb - xa), c0 = Math.cos(an), s0 = Math.sin(an), nP = nD = land ? 1 : Math.max(1, Math.round(len / (0.3 * H)));   // (a rock: one sweep, from the wall's top, a third of a screen at most. On a plumb wall half a screen high the second piece set in half way down, its blunt set-down end a ruled level edge across the face: a box. bot, r025)
+              for (let j = 0; j < nP; j++) { const q = pick(kMS), l1 = (land ? Math.min(len, 0.36 * H) : len / nP) * (1.05 + 0.2 * R()), wd = clamp(len * (0.14 + 0.12 * R()), 0.018 * H, 0.07 * H);
                 g.setTransform(dpr * c0, dpr * s0, -dpr * s0, dpr * c0, dpr * (xa + (xb - xa) * j / nP - ox), dpr * (ya + (yb - ya) * j / nP - oy)); g.globalAlpha = 0.5 + 0.4 * R(); g.drawImage(q.im, 0, -0.004 * H, l1, wd); } }
             for (let j = nD; j < nP0; j++) { R(); R(); R(); R(); }
             k = e; } }
