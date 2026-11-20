@@ -234,7 +234,12 @@
     if (d.kind === 'rockmtn') { const Rw = dice(d.seed ^ 0x51a7), wl = P.map((_, j) => { const a = P[Math.max(0, j - 3)], b = P[Math.min(n - 1, j + 3)]; return sm((Math.abs(b[1] - a[1]) / (Math.hypot(b[0] - a[0], b[1] - a[1]) || 1) - 0.6) / 0.25); }); let of = new Array(n).fill(0);
       for (let i = 0; i < n;) { const m = Math.max(4, Math.round(H * (0.025 + 0.09 * Rw() * Rw()) / STEP)), off = (Rw() - 0.5) * 0.028, tilt = (Rw() - 0.5) * 0.03; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
       for (let q = 0; q < 3; q++) of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
-      for (let j = 0; j < n; j++) P[j][0] += H * of[j] * wl[j]; }
+      for (let j = 0; j < n; j++) P[j][0] += H * of[j] * wl[j];
+      // (Yang 11-20, r026, three rock mountains flown as upright rectangles: "tràn cả nét ra ngoài". On a wall that leans, a stretch set in or out is a facet. On a plumb
+      // wall every stretch set OUT above one set in is an overhang, and the mountain is its top line with everything under it: the body filled the hollow under each
+      // bulge, outside the wall's own line, and the line ran down the wall as a snake. A wall now only widens downward: where the line stands steep, a point never
+      // goes back across the paper behind the one before it. What is left of the stretches is ledges.)
+      const fw = P[n - 1][0] >= P[0][0] ? 1 : -1; for (let j = 1; j < n; j++) if (wl[j] > 0.5 && fw * (P[j][0] - P[j - 1][0]) < 0) P[j][0] = P[j - 1][0]; }
     // (Yang 11-20, of r021 replayed, the forest lying dense and black over top and shoulder: "đỉnh phải có cây mọc rậm rạp như thế là đúng". A rock mountain keeps the
     // wooded mountain's forest on its tops. Thinned to a fringe for bare rock (a7efb60), he rejected it at once: reverted. Do not strip the wood from a rock mountain.)
     if (d.kind === 'rockmtn') { hill = 0; rock = Math.max(rock, 0.85); }   // a rock mountain: the crag's walls and broken top, whatever the stroke's proportions
@@ -309,7 +314,11 @@
         const fall = (g0, d) => g0 * d * (1 + 0.9 * d / E) + (N(d / (0.03 * H) + 77, 2) - 0.5) * 0.02 * H * Math.min(1, d / (0.02 * H));   // bending down and uneven, not ruled
         // (a rock stands on its foot, its two ends at the water: past them there is no rock. A wall that stands plumb has its whole height over the stroke's outermost
         // column, and the fall-away began up there: a pale fan of rock outside the wall, down to the foot, with the rock's edge dots hung in the air on it. Yang 11-20, r025)
-        const tA = land === 'rock' ? Math.max(top[kA], yBase) : top[kA], tB = land === 'rock' ? Math.max(top[kB], yBase) : top[kB];
+        // (a rock mountain the same, by its own two ends, r026: its wall stood plumb over the stroke's end, the fall-away left from the wall's TOP, and wash, cun
+        // and wall marks were laid on it, outside the wall: a grey patch beside the top corner, a fan of hatching and black chops in the air beside the wall. The
+        // fall-away leaves from where the stroke itself ends on that side. An end that comes down a slope lies at the top of its column: as before.)
+        const eL = P[i0][0] <= P[i1][0] ? P[i0] : P[i1], eR = eL === P[i0] ? P[i1] : P[i0], endY = (e, k) => (d.kind === 'rockmtn' && Math.abs(e[0] - (x0 + k * BIN)) < 0.03 * H && e[1] - top[k] > 0.06 * H ? yBase + 0.25 * H : top[k]);
+        const tA = land === 'rock' ? Math.max(top[kA], yBase) : endY(eL, kA), tB = land === 'rock' ? Math.max(top[kB], yBase) : endY(eR, kB);
         for (let k = 0; k < kA; k++) top[k] = tA + fall(gA, (kA - k) * BIN); for (let k = kB + 1; k < m; k++) top[k] = tB + fall(gB, (k - kB) * BIN); }
       for (let k = 0, last = P[i0][1]; k < m; k++) { if (top[k] > 1e8) top[k] = last; else last = top[k]; }
       const ts = blur(top, 5), wide = blur(top, 40), slope = (k) => (wide[Math.min(m - 1, k + 4)] - wide[Math.max(0, k - 4)]) / (8 * BIN);
@@ -713,6 +722,9 @@
     if (land === 'rock') { const r = Math.max(1, Math.round(0.002 * H / BIN)) /* (as far to the side as above, 0.007 H: a stub of the block stayed on the wall, a square knob) */, td = top.map((_, k) => Math.min(...top.slice(Math.max(0, k - r), k + r + 1)) - 0.007 * H);
       home(gr); gr.globalCompositeOperation = 'destination-out'; gr.fillStyle = '#000'; gr.filter = `blur(${(0.0012 * H * dpr).toFixed(1)}px)`; gr.beginPath(); gr.moveTo(bx0 - pad - 5, oy - 0.05 * H); gr.lineTo(bx0 - pad - 5, td[0]);
       for (let k = 0; k < nb; k++) gr.lineTo(bx0 + k * BIN, td[k]); gr.lineTo(bx1 + pad + 5, td[nb - 1]); gr.lineTo(bx1 + pad + 5, oy - 0.05 * H); gr.closePath(); gr.fill(); gr.filter = 'none'; gr.globalCompositeOperation = 'source-over'; }
+    const figCut = (x, up) => { const td = top.map((_, k) => Math.min(top[Math.max(0, k - 1)], top[k], top[Math.min(nb - 1, k + 1)]) - up); home(x); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000'; x.filter = `blur(${(0.0012 * H * dpr).toFixed(1)}px)`; x.beginPath(); x.moveTo(bx0 - pad - extL - 5, oy - 0.05 * H); x.lineTo(bx0 - pad - extL - 5, td[0]);
+      for (let k = 0; k < nb; k++) x.lineTo(bx0 + k * BIN, td[k]); x.lineTo(bx1 + pad + extR + 5, td[nb - 1]); x.lineTo(bx1 + pad + extR + 5, oy - 0.05 * H); x.closePath(); x.fill(); x.filter = 'none'; x.globalCompositeOperation = 'source-over'; };
+    if (d.kind === 'rockmtn') figCut(gr, 0.007 * H);
     raw(g); g.filter = `blur(${(0.0045 * H * dpr).toFixed(1)}px)`; g.globalAlpha = 0.3 + 0.25 * hill; g.drawImage(rib, 0, 0); if (hill > 0.5) g.filter = `blur(${(0.0016 * H * dpr * hill).toFixed(1)}px)`; else g.filter = 'none'; g.globalAlpha = 0.93 - 0.5 * hill; g.drawImage(rib, 0, 0); g.filter = 'none';   // a soft halo first: wet ink creeping off the line
     g.globalAlpha = 0.11; g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, cw, chh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; home(g);
     // -- what grows on the ridge, seen from afar: the bristling edge of the mountains in Yang's reference paintings is trees and
@@ -878,6 +890,7 @@
           if (Rf() < 0.7) g.ellipse(x, y, sz * (0.3 + 0.25 * Rf()), sz * (0.75 + 0.6 * Rf()), (Rf() - 0.5) * 0.5, 0, 6.2832); else g.ellipse(x, y, sz * (0.45 + 0.3 * Rf()), sz * (0.4 + 0.25 * Rf()), Rf() * 3, 0, 6.2832);
           g.fill(); } } }
       g.globalAlpha = 1; woodEnd(); }
+    if (d.kind === 'rockmtn') figCut(g, 0.06 * H);
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
     // -- mist (Yang 11-18: a mask of bare paper laid over the body, so the mountain stands out of mist as in a painting
