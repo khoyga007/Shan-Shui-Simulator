@@ -231,6 +231,11 @@
       for (let i = 0; i < n;) { const m = Math.max(4, Math.round(H * (0.025 + 0.09 * Rw() * Rw()) / STEP)), off = (Rw() - 0.5) * 0.028, tilt = (Rw() - 0.5) * 0.03; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
       for (let q = 0; q < 3; q++) of = of.map((v, k) => (of[Math.max(0, k - 1)] + 2 * v + of[Math.min(n - 1, k + 1)]) / 4);
       for (let j = 0; j < n; j++) P[j][0] += H * of[j] * wl[j]; }
+    // (Yang 11-20, r021, two rock mountains drawn large with their feet at the bottom of the paper: "trông nó cứ sao á". A rock mountain was still dressed as a wooded
+    // one: the forest's wet masses lay over shoulder and top as black slabs, patches of wood hung on the bare wall, tree lines turned to the slope stuck out past the
+    // corners as claws, and the earth mountain's axe cuts, moss clusters and folded-belt hooks floated on the face. isRM: wood only as a thin fringe on what is level,
+    // none of those marks, a thinner wash under the top line.)
+    const isRM = d.kind === 'rockmtn';
     if (d.kind === 'rockmtn') { hill = 0; rock = Math.max(rock, 0.85); }   // a rock mountain: the crag's walls and broken top, whatever the stroke's proportions
     const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.55 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 0.6 : 0.3), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
     if (d.kind === 'rockmtn') S.body *= 0.4;   // a wall of rock is mostly bare paper: its tone comes from the passes hung down it (sheet AN), not from an even wash
@@ -344,7 +349,7 @@
        pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
     const qc = kitC.length ? pick(kitC) : null, qc2 = kitC.length ? pick(kitC) : null, sc1 = qc ? qc.h / (0.085 * H) : 1, sc2 = qc2 ? qc2.h / (0.2 * H) : 1, uo1 = R() * 4000, uo2 = R() * 4000;
     const pp = (v, w) => { const a = 0.07 * w, m = 2 * (w - 2 * a); v = ((v % m) + m) % m; return a + (v < m / 2 ? v : m - v); };   // over its middle only: a band thins at both ends, and turning there cut a white notch into the body   // there and back along a band: no seam where it runs out
-    const bm = 0.6 + 2.4 * S.body, mid = 0.4 * S.body;   // body: how much ink the mountain's flank holds, and how far down it stays dark
+    const bm = (0.6 + 2.4 * S.body) * (isRM ? 0.55 : 1), mid = 0.4 * S.body;   // body: how much ink the mountain's flank holds, and how far down it stays dark
     for (const f of fields) {
       // how deep the two real bands of wash hang under the ridge, column by column
       const hB = f.ts.map((t, k) => { const x = f.x0 + k * BIN, dw = depthAt(t, x) * wedge(x); return [Math.min(dw * 0.5, 0.11 * H) * (0.75 + 0.5 * N(x / (0.2 * H) + 40, 2)), Math.min(dw * 0.45, 0.2 * H) * (0.8 + 0.4 * N(x / (0.3 * H) + 61, 2))]; });
@@ -406,7 +411,7 @@
     const stamp = (q, x, y, ang, len, a0, fat = 1) => { const c0 = Math.cos(ang), s0 = Math.sin(ang), hh = len * q.h / q.w * fat, fl = R() < 0.5 ? -1 : 1;   // mirrored across at random
       g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = a0; g.drawImage(q.im, 0, -hh / 2, len, hh); g.globalAlpha = 1; home(g); };
     // axe cuts: short broad strokes hanging on the slope under the ridge, mostly on the shaded side
-    if (kitB.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.02 + 0.05 * R())) {
+    if (kitB.length && !isRM) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.02 + 0.05 * R())) {
       const k = col(x), sh = shAt(k), r1 = R(), r2 = R(), r3 = R(), r4 = R(), r5 = R();
       if (r1 > S.cun * (sh > 0 ? 0.9 : 0.35)) continue;
       const big = r5 * r5, an = 1.5708 - sh * 0.8 + (r4 - 0.5) * 0.7, ln = H * (0.014 + 0.026 * big), y = ts[k] + H * 0.012 + depth[k] * 0.32 * r3 * r3, cnt = 1 + Math.floor(R() * 4);   // a few large, many small; cut in ones to fours, side by side, each shorter than the last
@@ -458,9 +463,9 @@
       const stamp = (q, x, y, an, len, al, fl = 1) => { const c0 = Math.cos(an), s0 = Math.sin(an), hh = len * q.h / q.w; g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = Math.min(1, al); g.drawImage(q.im, 0, -hh / 2, len, hh); };
       const sow = (kit, stepH, f) => { if (kit.length && dn > 0.05) for (let x = bx0 + stepH * H * R(); x < bx1; x += H * stepH * (0.5 + R()) / dn) { const k = col(x); if (depth[k] > 0.03 * H) f(kit[Math.floor(R() * kit.length) % kit.length], x, k, slAt(k)); } };
       sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
-      sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
-      if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), rock * (0.3 + 0.35 * R()), 1));
-      sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
+      if (!isRM) sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
+      if (rock > 0.3 && !isRM) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), rock * (0.3 + 0.35 * R()), 1));
+      if (!isRM) sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
       // A rock mountain's own marks (sheets AM, AN, Yang's gen 11-20; before, it borrowed the crag's and its body was one flat grey wash). Light falls from the left.
       //  _nw  the light face: wide passes of a half-loaded brush hung down the wall from its top, dark end up, running pale; strips with bare paper left between
       //       them, their strength rising and falling along the mountain (noise), none where it is low
@@ -491,7 +496,7 @@
     // moss dots: a few clusters set on the ridge, just inside it
     if (kitD.length) for (let sd = (0.08 + 0.3 * R()) * H, i = 0; sd < L - 0.06 * H; sd += H * (0.12 + 0.5 * R()) / Math.max(0.2, S.cun / 0.6)) {
       while (i < n - 1 && cum[i] < sd) i++;
-      for (let j = 0, c2 = R() < 0.4 ? 2 : 1; j < c2; j++) { const r = R(), sz = H * (0.01 + 0.03 * r * r), an = R() * 6.2832, off = sz * (0.7 + 0.8 * R()), al = (R() - 0.5) * 0.05 * H * j, cx = P[i][0] + nrm[i][0] * off + nrm[i][1] * al, cy = P[i][1] + nrm[i][1] * off - nrm[i][0] * al;
+      for (let j = 0, c2 = isRM && nrm[i][1] < 0.5 ? 0 : R() < 0.4 ? 2 : 1; j < c2; j++) { const r = R(), sz = H * (0.01 + 0.03 * r * r), an = R() * 6.2832, off = sz * (0.7 + 0.8 * R()),   /* (a rock mountain: on its tops and ledges only, none on a wall) */ al = (R() - 0.5) * 0.05 * H * j, cx = P[i][0] + nrm[i][0] * off + nrm[i][1] * al, cy = P[i][1] + nrm[i][1] * off - nrm[i][0] * al;
         stamp(pick(kitD), cx - Math.cos(an) * sz / 2, cy - Math.sin(an) * sz / 2, an, sz, 0.35 + 0.55 * R(), 0.7 + 0.5 * R()); } }
     // -- a rock face: ink running sideways from the stroke into the body, row by row, widening from the top into a
     //    shoulder and thinning toward the foot; texture strokes leaning down off the face
@@ -600,7 +605,7 @@
         // wet ink the trees stand in), over it real brush dabs (sheet X's moss clusters, small, upright), and only then the grains.
         const at = (pw) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depth[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t,
             patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.3 - 0.32 * t) / 0.14), hi = 0.35 + 0.65 * sm((yBase - top[k]) / span / 0.5); return Rf() > patch * hi * (1 - 0.75 * t) ? null : [x, y, t]; };
-        for (let q = 0; q < cnt / 14; q++) { const a = at(1.6); if (!a) continue; const [x, y, t] = a, r = H * (0.012 + 0.016 * Rf()), gd = g.createRadialGradient(x, y, 0, x, y, r); gd.addColorStop(0, `rgba(${INK},${(0.16 * (0.5 + 0.5 * near) * (1 - 0.6 * t)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
+        for (let q = 0; q < (isRM ? 0 : cnt / 14); q++) { const a = at(1.6); if (!a) continue; const [x, y, t] = a, r = H * (0.012 + 0.016 * Rf()), gd = g.createRadialGradient(x, y, 0, x, y, r); gd.addColorStop(0, `rgba(${INK},${(0.16 * (0.5 + 0.5 * near) * (1 - 0.6 * t)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
         g.fillStyle = `rgb(${INK})`;
         // Sheet Y (11-19): the wood as real brushwork. Code dabs, however layered, stayed a pattern of dot clusters. Now forest
         // patches (a wet mass with tree tops standing out of its upper edge) lie down the flank, each lower one over the foot of
@@ -619,7 +624,8 @@
         for (let k = 0; k < nb;) { if (slp[k] <= 2.6) { k++; continue; } let e = k; while (e < nb - 1 && slp[e + 1] > 2.6) e++; if (Math.abs(top[e] - top[k]) < 0.16 * H) for (let i = k; i <= e; i++) slp[i] = 1.4; k = e + 1; }
         // (only a stretch with a face on BOTH sides is a summit to be capped: with a face on one side only, the limit cut a bare wedge into the wooded flank beside it)
         { let dd = 1e9; for (let k = 0; k < nb; k++) { dd = slp[k] > 2.6 ? 0 : dd + BIN; drop[k] = dd; } dd = 1e9; for (let k = nb - 1; k >= 0; k--) { dd = slp[k] > 2.6 ? 0 : dd + BIN; drop[k] = drop[k] < 1e8 && dd < 1e8 ? Math.min(drop[k], dd) * 0.9 : 1e9; } }
-        const grow = (k, y) => (1 - sm((slp[k] - 2.1) / 0.6)) * (1 - sm((y - top[k] - drop[k] + 0.02 * H) / (0.03 * H)));
+        if (isRM) for (let k = 0; k < nb; k++) drop[k] = Math.min(drop[k], 0.022 * H);   // a rock mountain: a fringe on what is level, whatever lies beside it
+        const grow = (k, y) => (1 - sm((slp[k] - (isRM ? 0.9 : 2.1)) / 0.6)) * (1 - sm((y - top[k] - drop[k] + 0.02 * H) / (0.03 * H)));
         // (Yang 11-19, of a low hill dotted with separate forest patches: "texture từng mảng rừng như này trông nó hơi giả tạo". A
         // mountain that wears less wood (a hill of wash, a crag) wore it as the same few pieces scattered thin, each an island with
         // its own halo of dabs: stamps. Less wood is now a shallower wood: one whole band under the ridge, as dense as any, that
@@ -679,7 +685,7 @@
             else put(m, x, y, w0 * (0.7 + 0.8 * r1) * (1 - 0.3 * t), 0.55, kind ? 0.6 + 0.4 * r2 : (0.55 + 0.4 * r2) * (0.65 + 0.35 * near) * (1 - 0.12 * t), 0); }
           if (kYL.length && !land) for (let x = bx0 + 0.04 * H; x < bx1 - 0.04 * H;) { const m = pk(kYL), w = H * (0.045 + 0.05 * Rf()) * (0.7 + 0.5 * near) * Math.min(1.6, m.w / m.h / 2.6), k = col(x), k1 = col(x - w / 2), k2 = col(x + w / 2), ang = Math.atan2(top[k2] - top[k1], w),
               stand = sm((N(x / (0.05 * H) + 500, 2) - 0.4) / 0.14), hi = 0.3 + 0.7 * sm((yBase - top[k]) / span / 0.6);
-            if (Math.abs(ang) > 0.7 || depthFull[k] < 0.06 * H || Rf() > fa * hi * (0.2 + 0.8 * stand)) { x += w * 0.45; continue; }
+            if (Math.abs(ang) > (isRM ? 0.25 : 0.7) || depthFull[k] < 0.06 * H || Rf() > fa * hi * (0.2 + 0.8 * stand)) { x += w * 0.45; continue; }
             put(m, x, (top[k1] + top[k2] + 2 * top[k]) / 4, w, 0.6, (0.6 + 0.35 * Rf()) * (0.65 + 0.35 * near), ang); x += w * (0.55 + 0.5 * Rf()); }
           // (Yang 11-19, of low wooded hills: "núi giờ đang hơi mượt". Wooded whole, patch on patch of one tone, the flank was an even grey
           // sheet: the texture strokes lie under the wood, the ridge is one clean curve. Three things laid over the finished wood:
@@ -693,7 +699,7 @@
               kL = (sf, bad) => ['muse', 'gemini'].flatMap((src) => (STROKES[src + sf] || []).filter((q) => q.im && !(bad && bad.test(q.f)))), kLA = kL('_la', /muse_la-[456]\./), kLX = kL('_lx'), kLS = kL('_ls'), kLK = kL('_lk', /muse_lk-[1-4]\./),
               slA = (k) => clamp((top[Math.min(nb - 1, k + 6)] - top[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), out = (f) => { g.globalCompositeOperation = 'destination-out'; f(); g.globalCompositeOperation = 'source-over'; };
             g.save(); g.beginPath(); g.moveTo(bx0 - 0.1 * H, yBase + 0.4 * H); g.lineTo(bx0 - 0.1 * H, top[0]); for (let k = 0; k < nb; k++) g.lineTo(bx0 + k * BIN, top[k] + 0.006 * H); g.lineTo(bx1 + 0.1 * H, top[nb - 1]); g.lineTo(bx1 + 0.1 * H, yBase + 0.4 * H); g.closePath(); g.clip();
-            for (let q = 0, nq = Math.round((bx1 - bx0) / (0.03 * H)); q < nq; q++) { const x = bx0 + (bx1 - bx0) * Rt(), k = col(x), dp = depthFull[k], t = 0.14 + 0.7 * Rt(), r1 = Rt(), r2 = Rt(), mir = Rt() < 0.5; if (dp < 0.06 * H) continue;
+            for (let q = 0, nq = isRM ? 0 : Math.round((bx1 - bx0) / (0.03 * H)); q < nq; q++) { const x = bx0 + (bx1 - bx0) * Rt(), k = col(x), dp = depthFull[k], t = 0.14 + 0.7 * Rt(), r1 = Rt(), r2 = Rt(), mir = Rt() < 0.5; if (dp < 0.06 * H) continue;
               const y = top[k] + dp * reachY * t, f = N(x / (0.22 * H) + y / (0.16 * H) + chO + 2100, 2), w = w0 * (1.6 + 1.2 * r1);
               /* (taking ink OUT for a lit mass was tried twice and dropped: with forest patches it came out as pale bubbles, with bands of wash as straight grey bars. The parting is by laying dark only: the lit mass is what is left alone) */
               if (f < 0.42) put(pr(kYF), x, y, w, 0.55, 0.5 + 0.3 * r2, 0, mir);
