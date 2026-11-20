@@ -294,7 +294,7 @@
     const n = ++st.nRep; try { localStorage.setItem('room.rep', n); } catch { /* ok */ }
     const id = 'r' + String(n).padStart(3, '0'), dg = D.dg, wv = dg.wv;
     const m = document.createElement('canvas'); m.width = ov.width; m.height = ov.height;
-    const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, m.width, m.height); if (!st.mouse) x.drawImage(cv, 0, 0, m.width, m.height);
+    const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, m.width, m.height); if (window.__paper) window.__paper.draw(x, m.width, m.height); x.globalCompositeOperation = 'multiply'; if (!st.mouse) x.drawImage(cv, 0, 0, m.width, m.height); x.globalCompositeOperation = 'source-over';
     if ($('ink')) { x.globalCompositeOperation = 'multiply'; x.drawImage($('ink'), 0, 0, m.width, m.height); x.globalCompositeOperation = 'source-over'; }
     x.drawImage(ov, 0, 0);
     const info = {

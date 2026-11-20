@@ -204,6 +204,16 @@ Water as layer divider + whole-mountain mirror image = modern ink style (classic
 - Roots under the foot (Yang shot: bamboo roots hanging out below the bank, past its mist): a plant's cv is faded out over the last 3.5% H above its land's foot (once, m.clipK), nothing of it below. Case not reproduced in bot.
 - Depth of mountains (r018, Yang: "depth đang bị vô lý": pale washed hill lay BEFORE a dark peak, both feet on the waterline): order was by yBase only, a tie for all that stand on a waterline. zk now: mountains with foot within 4% H of / below a waterline are ordered mainly by darkOf(m) (mean alpha of cv x tone, cached m.dark), darker in front; elsewhere yBase +- 3% H by darkness. Bot `r7=1&m7=9&sea=0.34&depth=1`, reports/depth.jpg.
 
+## Paper (Yang 11-20: "mình cần nền giấy, cái này quan trọng lắm"; BUILT 11-20, bot + own browser only, Yang's hand not yet)
+- `web/room/paper.js` + `<canvas id="paper">` under everything. Dragon canvas (opaque, `alpha:false`) and `#ink` both `mix-blend-mode: multiply` onto it -> ink soaks in, mist (= erased ink) shows paper, dragon flies on paper. No repaint of mountains.
+- Sheet AS = `web/assets/paper/Gemini AS.webp` (Yang's pasted Gemini image, crop 1750x984 at x100: watermark bottom-right cut). Cover-fit, not tiled (no seams; fibres 1.1x at 1920).
+- Sheet gives detail only: per channel `src / wide blur of src` (blur = drawn 1/24 small and back, twice), so sheet's own tint / uneven light drop out. Colour set in code: `TINT` = dragon.js `PAPER` (0.95, 0.935, 0.905).
+- `S.k` (slider "Nền giấy", `localStorage paper.v1`, URL `?paper=`): 0 = white room as before (canvas hidden, dragon blend off, zero cost); 0.5 default = PAPER tint, fibre gain 2.4; 1 = twice both.
+- Bark flecks: at fibre gain = brown blots, read as brush slips near ink. Dark side held to 0.10, light to 0.07 (tanh).
+- F8 report, bot `snap` / `bot-scene*.jpg` lay the paper too (`__paper.draw`, dragon canvas now multiplied there); bot waits `__paper.ready()`. Old/new compare: `&paper=0`.
+- Muse AS REJECTED (Yang: "bị sao ấy"): unryu / mulberry sheet, thick fibres wall to wall, grey; would fight the brushwork. Not wired.
+- Not done: paper tooth and dry-brush tooth unrelated (paint.js "paper tooth" still code noise); same sheet, same place every painting (no flip per picture); fps cost of 2 blended full-screen layers NOT measured on Yang's machine (48 fps before); sheet = lossy paste, 90 KB.
+
 ## Dia stroke rule = shape decides material (agreed 11-19 night; BUILT 11-20; rock mountain "tạm xong" by Yang's hand 11-20, wall v5b + d67a125)
 
 BUILT 11-20 (paint.js):

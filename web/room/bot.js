@@ -16,7 +16,7 @@
   Rm.st.paused = true;
   // the paintings load on their own time; this script never yields once it starts, so wait for them here (without this the
   // pictures were there on some runs and missing on others)
-  for (let i = 0; i < 200 && window.__paint && !window.__paint.ready(); i++) await new Promise((r) => setTimeout(r, 50));
+  for (let i = 0; i < 200 && ((window.__paint && !window.__paint.ready()) || (window.__paper && !window.__paper.ready())); i++) await new Promise((r) => setTimeout(r, 50));
   Object.assign(Rm.S, { cap: 2.5, follow: 30, leash: 0.35, sens: 1, turn: 16, hold: 1.6, rho: 1.8, accel: 6 }, JSON.parse(new URLSearchParams(location.search).get('set') || '{}'));
   const H = D.H, W = D.W, R = D.rad(), dt = 1 / 60, N = D.N, wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   let T = [0, 0];
@@ -190,8 +190,8 @@
     if (new URLSearchParams(location.search).has('twin')) { const pl = (pts, seed) => { const q = []; for (let i = 1; i < pts.length; i++) for (let u = 0; u < 30; u++) q.push([(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u / 30) * H, (pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u / 30) * H, 0.6]); Pt.st.done.push({ stroke: q, t0: D.T, seed }); };
       pl([[0.05, 0.62], [0.42, 0.14], [0.78, 0.66]], 9701); pl([[0.8, 0.66], [1.15, 0.1], [1.5, 0.68]], 9702); }
     Rm.S.cap = cap0;
-    const snap =() => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720);
-      x.drawImage(D.canvas, 0, 0, 1280, 720); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };
+    const snap =() => { const m = document.createElement('canvas'); m.width = 1280; m.height = 720; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720); if (window.__paper) window.__paper.draw(x, 1280, 720);
+      x.globalCompositeOperation = 'multiply'; x.drawImage(D.canvas, 0, 0, 1280, 720); x.drawImage(ink, 0, 0, 1280, 720); x.globalCompositeOperation = 'source-over'; x.drawImage(document.getElementById('ov'), 0, 0, 1280, 720); return m.toDataURL('image/jpeg', 0.88); };
     for (let k = 0; k < 320; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 319 && k !== 30, noSnap: true }); if (k === 30) { Rm.G.draw(0); post('bot-paint-mid.jpg', snap()); } }   // the last stroke's ink runs down (1.6 s)
     const t0 = performance.now(); Rm.G.draw(0); const bakeMs = +(performance.now() - t0).toFixed(1);
     { // what each element makes of a stroke (keys 1 to 3: the kind is read from how the stroke was flown)
@@ -213,12 +213,12 @@
       ms.sort((p, q) => p - q); out.wave = { frameMsMedian: +ms[35].toFixed(2), frameMsWorst: +ms[69].toFixed(2), wavMs: Pt.wavMs().filter((v) => v) }; }
     out.paint = { ...Pt.info(), flown: pr, bakeMs };
     post('bot-paint.jpg', snap());
-    { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);
+    { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); if (window.__paper) window.__paper.draw(x, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);
       post('bot-scene.jpg', m.toDataURL('image/jpeg', 0.92));
       // the same two seconds on: what moves (a river's current) shows as the difference between the two
       // (bot-flow-1..6.jpg: every third of a second on the way there, to follow a line of current by eye)
       for (let s = 1; s <= 6; s++) { for (let k = 0; k < 20; k++) { Rm.tick(dt); dbg.step(1, { dt, noRender: k !== 19, noSnap: true }); } Rm.G.draw(0);
-        x.globalCompositeOperation = 'source-over'; x.fillRect(0, 0, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080); post(s < 6 ? `bot-flow-${s}.jpg` : 'bot-scene2.jpg', m.toDataURL('image/jpeg', 0.92)); } }
+        x.globalCompositeOperation = 'source-over'; x.fillRect(0, 0, 1920, 1080); if (window.__paper) window.__paper.draw(x, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080); post(s < 6 ? `bot-flow-${s}.jpg` : 'bot-scene2.jpg', m.toDataURL('image/jpeg', 0.92)); } }
   }
   post('bot-uturn.jpg', strip.toDataURL('image/jpeg', 0.85)).then(() => post('bot.json', json(out)));
 })();

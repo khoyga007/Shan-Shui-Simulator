@@ -6,7 +6,10 @@
   <title>InkDragon — phòng test</title>
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; user-select: none; }
-    #dragon-canvas { display: block; width: 100%; height: 100%; }
+    #paper { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: none; }   /* paper.js */
+    body.paper #paper { display: block; }
+    #dragon-canvas { display: block; position: relative; width: 100%; height: 100%; }
+    body.paper #dragon-canvas { mix-blend-mode: multiply; }
     #ov { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     #ink { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: multiply; }
     #panel { position: fixed; top: 42px; right: 10px; width: 270px; max-height: calc(100% - 52px); overflow: auto; box-sizing: border-box;
@@ -35,6 +38,7 @@
   </style>
 </head>
 <body>
+  <canvas id="paper"></canvas>
   <canvas id="dragon-canvas"></canvas>
   <canvas id="ink"></canvas>
   <canvas id="ov"></canvas>
@@ -45,5 +49,6 @@
   <script src="dragon.js"></script>
   <script src="room.js"></script>
   <script src="paint.js"></script>
+  <script src="paper.js"></script>
 </body>
 </html>
