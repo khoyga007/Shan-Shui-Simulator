@@ -493,7 +493,7 @@
         // v1 of this (876c407) read as glass, the critique Yang passed on 11-20: flat translucent grey with no lit / dark face; neat grey boxes (_pf, and
         // _pd laid plumb with its level set-down end showing); plumb streaks ("water on glass"); cracks thin, even, wavy (crazing); marks strewn any
         // way. So: no _pf, no _pr (round spatter), no _of (lashes), nothing laid plumb but the crack itself. Dice of its own (Rk).
-        { const Rk = dice(d.seed ^ 0x0c4a), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], kOC = kx('oc').filter((_, i) => i !== 2), kOA = kx('oa'), kON = kx('on').slice(8), kPD = kx('pd'), kPM = kx('pm'), DIR = Math.PI - 0.95;
+        { const Rk = dice(d.seed ^ 0x0c4a), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], kOC = kx('oc').filter((_, i) => i !== 2), kOA = kx('oa'), kON = kx('on').slice(8), kPD = kx('pd'), kPM = kx('pm');
           g.save(); home(g); g.beginPath(); g.rect(bx0, oy - 0.1 * H, bx1 - bx0, 4 * H); g.clip();   // marks reaching left of the first crack ran out past the mountain's left end at its foot, to the edge of its canvas: a ruled upright edge in the mist
           // a piece laid from (x, y) along an; its body to the side sd of that line (1 = right of a line going down), off = -hh / 2: astride it
           const lay = (q, x, y, an, len, hh, al, sd, off = 0) => { const c0 = Math.cos(an), s0 = Math.sin(an); g.setTransform(dpr * c0, dpr * s0, dpr * s0 * sd, -dpr * c0 * sd, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = clamp(al, 0, 1); g.drawImage(q.im, 0, off, len, hh); };
@@ -504,19 +504,47 @@
             const f = s > 0 ? e + 2 : k - 2, x = bx0 + f * BIN; if (Math.abs(ts[e] - ts[k]) > 0.025 * H && x > bx0 + 0.05 * H && x < bx1 - 0.05 * H) cr.push([x, 1]); k = e; }
           cr.sort((a, b) => a[0] - b[0]); { const all = [bx0 + 0.02 * H].concat(cr.map((c) => c[0]), [bx1 - 0.02 * H]), add = []; for (let i = 0; i + 1 < all.length; i++) for (let x = all[i] + H * (0.09 + 0.08 * Rk()); x < all[i + 1] - 0.07 * H; x += H * (0.11 + 0.1 * Rk())) add.push([x, 0]); cr = cr.concat(add).sort((a, b) => a[0] - b[0]); }
           cr = cr.filter((c, i) => depth[col(c[0])] > 0.12 * H && (i === 0 || c[0] - cr[i - 1][0] > 0.04 * H));
-          const C = cr.map(([x0, main], i) => { const k = col(x0), dp = depth[k]; return { x0, k, main, y0: ts[k] + 0.004 * H, dp, L: Math.min(0.62 * H, dp * (main ? 0.5 + 0.4 * Rk() : 0.22 + 0.33 * Rk())), lean: 0.16 * (Rk() - 0.5), wdL: x0 - (i ? cr[i - 1][0] : bx0),
-            sh: (main ? 1 : 0.6) * (0.6 + 0.4 * Rk()) * (0.7 + 0.5 * (x0 - bx0) / (bx1 - bx0)) }; });
-          const at = (c, y) => c.x0 + c.lean * (y - c.y0), fd = (c, y) => 1 - 0.7 * (y - c.y0) / c.L;
-          for (const c of C) { const reach = Math.min(0.62 * c.wdL, H * (0.035 + 0.05 * Rk()));   // the dark of the column's right flank: pale touches first
-            if (kPD.length) for (let y = c.y0 - 0.01 * H; y < c.y0 + 0.92 * c.L; ) { const q = pk(kPD), hh = H * (0.05 + 0.06 * Rk()), an = DIR + 0.24 * (Rk() - 0.5); shr(q, at(c, y), y, an, reach * (1.3 + 0.9 * Rk()) / -Math.cos(an), hh, c.sh * (0.24 + 0.2 * Rk()) * fd(c, y)); y += hh * (0.5 + 0.3 * Rk()); } }
-          for (const c of C) { const reach = Math.min(0.55 * c.wdL, H * (0.03 + 0.045 * Rk()));
-            // the rank of chops: each with its crisp edge up the crack (begun at its lower end), its torn tails away down-left
-            if (kOA.length) for (let y = c.y0 + 0.03 * H; y < c.y0 + 0.95 * c.L; ) { const q = pk(kOA), len = H * (0.028 + 0.04 * Rk()), r1 = Rk(), r2 = Rk(), r3 = Rk();
-                if (N(y / (0.06 * H) + 17 * c.k, 2) > 0.36) lay(q, at(c, y), y, -Math.PI / 2 + 0.12 * (r3 - 0.5), len, Math.min(1.5 * len, reach * (0.6 + 0.7 * r1)), c.sh * (0.75 + 0.35 * r2) * (0.35 + 0.65 * fd(c, y)), 1); y += len * (0.4 + 0.4 * r1); }
-            if (kOC.length) { let x = c.x0, y = c.y0, run = 0; while (run < c.L) { const q = pk(kOC), l = Math.min(c.L - run + 0.02 * H, H * (0.07 + 0.07 * Rk())), an = Math.atan2(1, c.lean + 0.08 * (Rk() - 0.5)), hh = clamp(l * q.h / q.w * (c.main ? 1.7 : 1) * (1 - 0.6 * run / c.L), 0.004 * H, 0.02 * H);
-                lay(q, x, y, an, l, hh, (c.main ? 0.75 : 0.5) * (0.8 + 0.3 * Rk()) * (1 - 0.6 * run / c.L), Rk() < 0.5 ? 1 : -1, -hh / 2); x += Math.cos(an) * l * 0.9; y += Math.sin(an) * l * 0.9; run += l * 0.9; } }
-            if (kON.length) for (let j = 0, nN = Math.floor(2.2 * Rk()); j < nN; j++) { const q = pk(kON), y = c.y0 + c.L * 0.8 * Rk(), len = H * (0.02 + 0.025 * Rk()), hh = Math.max(0.003 * H, len * q.h / q.w); lay(q, at(c, y), y, DIR + 0.2 * (Rk() - 0.5), len, hh, c.sh * (0.4 + 0.3 * Rk()) * fd(c, y), 1, -hh / 2); }
-            if (kPM.length && Rk() < 0.3) { const q = pk(kPM), y = c.y0 + c.L * 0.6 * Rk(), len = H * (0.02 + 0.02 * Rk()), hh = len * q.h / q.w; lay(q, at(c, y), y, Math.atan2(1, c.lean), len, hh, (0.5 + 0.3 * Rk()) * fd(c, y), 1, -hh / 2); } } g.restore(); } }
+          const span = bx1 - bx0, slC = (xa, xb) => { const a = clamp(col(xa) + 2, 0, nb - 1), b = clamp(col(xb) - 2, 0, nb - 1); return b > a ? clamp((ts[b] - ts[a]) / ((b - a) * BIN), -1.1, 1.1) : 0; };
+          const C = cr.map(([x0, main], i) => { const k = col(x0), dp = depth[k], xl = i ? cr[i - 1][0] : bx0; return { x0, k, main, y0: ts[k] + 0.004 * H, dp, xl, L: Math.min(0.62 * H, dp * (main ? 0.5 + 0.4 * Rk() : 0.22 + 0.33 * Rk())), lean: 0.16 * (Rk() - 0.5), wdL: x0 - xl, sl: slC(xl, x0), sh: (main ? 1 : 0.6) * (0.6 + 0.4 * Rk()) }; });
+          // (the line between two slabs ran straight from top to foot: beside the dark slab a ruled plumb edge half a screen long, bot still 11-20. A crack goes in straight pieces with a small turn at each joint: jt = its joints [y, x]; the tone, the touches and the brushed crack all go by them. Dice of its own, Rc)
+          C.forEach((c, i) => { const Rc = c.Rc = dice(d.seed ^ 0x3c17 ^ (i * 7919)); c.jt = [[c.y0, c.x0]];   // (joints set a little off the straight line, first: the edge still read as ruled, off by 3 px. So each piece has a slant of its own and ends in a short step sideways, back toward the line once it has strayed 0.012 H)
+            for (let y = c.y0, x = c.x0; y < c.y0 + 0.85 * H; ) { const l = H * (0.045 + 0.075 * Rc()), sl = c.lean + 0.3 * (Rc() - 0.5), r = Rc(), jg = H * (0.005 + 0.011 * Rc()); y += l; x += sl * l; c.jt.push([y, x]); const dev = x - (c.x0 + c.lean * (y - c.y0)); y += 0.5 * jg; x += (Math.abs(dev) > 0.012 * H ? -Math.sign(dev) : r < 0.5 ? -1 : 1) * jg; c.jt.push([y, x]); } });
+          const at = (c, y) => { const J = c.jt; if (y <= J[0][0]) return c.x0 + c.lean * (y - c.y0); let j = 1; while (j < J.length - 1 && J[j][0] < y) j++; const a = J[j - 1], b = J[j]; return a[1] + (b[1] - a[1]) * clamp((y - a[0]) / (b[0] - a[0]), 0, 1); }, fd = (c, y) => 1 - 0.7 * (y - c.y0) / c.L;
+          // v2 (2b9b07e) read as slanting rain, the second critique Yang passed on 11-20: every touch at the one angle, one length, evenly spaced, over both
+          // mountains and out over the lit faces; all columns one grey. So each column (the rock left of a crack) is a slab of its own:
+          //  tone  light, middle or dark, never its neighbour's; one of them (broad, on the mountain's shadow side) dark right across
+          //  th    the way its strokes leave the crack, from steep to nearly level: by the fall of its top, and not its neighbour's way
+          //  mode  bare (tone and crack, hardly a mark) / chops ranked up the crack / chops splayed off it along th;  sz  how large its marks
+          { let dk = -1, best = 0, pv = 0.5, pth = 9; C.forEach((c, i) => { const u = (c.x0 - 0.5 * c.wdL - bx0) / span, sc = Math.min(c.wdL, 0.2 * H) * Math.min(c.dp, 0.5 * H) * (u > 0.4 ? 1 : 0.3); if (i > 0 && sc > best) { best = sc; dk = i; } });
+            C.forEach((c, i) => { const r = Rk(), r2 = Rk(), r3 = Rk(); let t = i === dk ? 0.8 + 0.1 * r2 : r < 0.4 ? 0.04 + 0.06 * r2 : r < 0.8 ? 0.28 + 0.1 * r2 : 0.48 + 0.1 * r2; if (i !== dk && Math.abs(t - pv) < 0.15) t = pv > 0.25 ? 0.06 : 0.42; if (i === dk - 1) t = 0.05 + 0.08 * r2;   /* (at 0.05 to 0.4, the dark one 0.6, and all run out a third of the way down: one grey again. The slab before the dark one is left light: the crack between them is the hardest edge on the wall) */ c.tone = pv = t; c.full = i === dk;
+              let th = clamp(0.75 - 0.45 * c.sl + 0.8 * (r3 - 0.5), 0.4, 1.2); if (Math.abs(th - pth) < 0.28) th = th > 0.8 ? th - 0.38 : th + 0.38; c.th = pth = th; c.dir = Math.PI / 2 + th; c.mode = Rk(); c.sz = 0.65 + 0.9 * Rk(); }); }
+          // the tone, row by row between the column's two cracks: none at its lit left, deepening to the crack on its right; running out down the wall, unevenly.
+          // (its top is the mountain's line, its sides two brushed cracks, its foot lost: no box.) Right of the last crack, the flank that looks away from the light
+          { raw(g); g.globalAlpha = 1; const RH = Math.max(2, Math.round(0.007 * H * dpr)), ink = (a) => `rgba(${INK},${clamp(a, 0, 1).toFixed(3)})`;
+            const cols = C.map((c, i) => ({ xL: (y) => i ? at(C[i - 1], y) : bx0, xR: (y) => at(c, y), tone: c.tone, lo: c.full ? 0.7 : c.tone > 0.25 ? 0.3 : 0, df: c.full ? 1 : 0.3 + 0.3 * Rk(), Lt: Math.min(0.75 * H, (c.main ? 1.25 : 1.7) * c.L /* not far past the foot of its crack: below it the tone's edge ran on plumb and ruled, a pane of glass */, c.dp * (0.65 + 0.3 * Rk())), y0: c.y0, ka: col(c.xl), kb: c.k, yfL: i ? C[i - 1].y0 + C[i - 1].L : 1e9 }));
+            if (C.length) { const c = C[C.length - 1]; if (bx1 - c.x0 > 0.03 * H) cols.push({ xL: (y) => at(c, y), xR: () => bx1, tone: (C.some((e) => e.full) ? 0.26 : 0.5) + 0.1 * Rk(), lo: 0.15, df: 0.7, Lt: Math.min(0.6 * H, c.dp * 0.6), y0: c.y0, ka: c.k, kb: nb - 1, yfL: c.y0 + c.L }); }
+            for (const o of cols) { let yT = 1e9; for (let k = o.ka; k <= o.kb; k++) yT = Math.min(yT, ts[k]); const ph = 50 * Rk(), Y1 = Math.round((o.y0 + o.Lt - oy) * dpr);
+              for (let Y = Math.round((yT - oy) * dpr); Y < Y1; Y += RH) { const y = Y / dpr + oy, wb = 0.003 * H * (2 * N(y / (0.018 * H) + ph, 2) - 1), X0 = (o.xL(y) - wb - ox) * dpr, X1 = (o.xR(y) + wb - ox) * dpr, lo = o.lo * (1 - sm((y - o.yfL) / (0.1 * H))); if (X1 - X0 < 3) continue;   // lo: below the foot of the crack on its left a slab has no hard left edge (it ran on down, ruled, with no crack to be the edge of)
+                const a = o.tone * Math.pow(1 - clamp((y - o.y0) / o.Lt, 0, 1), 0.9) * (0.72 + 0.56 * N(y / (0.08 * H) + ph, 2)); if (a < 0.01) continue;
+                const gd = g.createLinearGradient(X0, 0, X1, 0); gd.addColorStop(0, ink(a * lo)); gd.addColorStop(Math.max(0.01, 1 - o.df), ink(a * (lo + 0.06))); gd.addColorStop(1 - 0.35 * o.df, ink(a * (lo + 0.55 * (1 - lo)))); gd.addColorStop(1, ink(a));
+                g.fillStyle = gd; g.fillRect(X0, Y, X1 - X0, RH); } }
+            home(g); }
+          // the dark flank against the crack, and only there (no further than 0.5 of the column): pale touches sheared along the column's th, in clusters, thick under the corner the crack leaves, thinning out down the wall
+          for (const c of C) { const rr = Rk(), reach = c.full ? 0.8 * c.wdL : Math.min(0.4 * c.wdL, H * (0.02 + 0.035 * rr) * c.sz), bare = c.mode < 0.15 && !c.full;   // (the dark slab: touched right across, or its tone is an even film)
+            if (kPD.length) for (let y = c.y0 - 0.01 * H; y < c.y0 + 0.9 * c.L; ) { const q = pk(kPD), hh = H * (0.028 + 0.05 * Rk()) * c.sz, an = c.dir + 0.3 * (Rk() - 0.5), r1 = Rk(), r2 = Rk(), f = (y - c.y0) / c.L;
+                if (N(y / (0.09 * H) + 31 * c.k, 2) > 0.3 + (c.full ? 0.08 : 0.38) * f + (bare ? 0.2 : 0)) shr(q, at(c, y), y, an, Math.min(0.2 * H, Math.min((c.full ? 0.95 : 0.5) * c.wdL, reach * (0.6 + 1.2 * r1)) / -Math.cos(an)), hh, (0.2 + 0.5 * c.tone) * (0.7 + 0.5 * r2) * fd(c, y) * (c.main ? 1 : 0.75));
+                y += hh * (0.45 + 0.5 * r1); } }
+          for (const c of C) { const reach = Math.min(0.45 * c.wdL, H * (0.025 + 0.04 * Rk()) * c.sz), bare = c.mode < 0.15 && !c.full;
+            // the chops, in clusters with bare crack between: ranked up the crack (crisp edge on it, torn tails away to the left), or splayed off it along th (head on the crack)
+            if (kOA.length) for (let y = c.y0 + 0.02 * H; y < c.y0 + 0.95 * c.L; ) { const q = pk(kOA), len = H * (0.02 + 0.04 * Rk()) * c.sz, r1 = Rk(), r2 = Rk(), r3 = Rk(), f = (y - c.y0) / c.L, al = (0.5 + 0.5 * c.tone) * (0.75 + 0.35 * r2) * (0.35 + 0.65 * fd(c, y));
+                if (N(y / (0.07 * H) + 17 * c.k, 2) > 0.28 + 0.4 * f + (bare ? 0.25 : 0)) { if (c.mode > 0.6) lay(q, at(c, y), y, c.dir + 0.35 * (r3 - 0.5), Math.min(1.3 * len, 0.6 * c.wdL), Math.min(0.55 * len, reach * (0.5 + 0.5 * r1)), al, -1); else lay(q, at(c, y), y, -Math.PI / 2 + 0.12 * (r3 - 0.5), len, Math.min(1.5 * len, reach * (0.6 + 0.7 * r1)), al, 1); }
+                y += len * (0.35 + 0.6 * r1); }
+            if (kON.length) for (let j = 0, nN = Math.floor(2.2 * Rk()); j < nN; j++) { const q = pk(kON), y = c.y0 + c.L * 0.8 * Rk(), len = H * (0.02 + 0.025 * Rk()), hh = Math.max(0.003 * H, len * q.h / q.w); lay(q, at(c, y), y, c.dir + 0.2 * (Rk() - 0.5), len, hh, c.sh * (0.4 + 0.3 * Rk()) * fd(c, y), 1, -hh / 2); }
+            if (kPM.length && Rk() < 0.3) { const q = pk(kPM), y = c.y0 + c.L * 0.6 * Rk(), len = H * (0.02 + 0.02 * Rk()), hh = len * q.h / q.w; lay(q, at(c, y), y, Math.atan2(1, c.lean), len, hh, (0.5 + 0.3 * Rk()) * fd(c, y), 1, -hh / 2); } }
+          // the cracks last, over the touches rooted on them: a piece of brushed line from joint to joint
+          if (kOC.length) for (const c of C) { const Rc = c.Rc, J = c.jt; for (let j = 1, run = 0; j < J.length && run < c.L; j++) { const a = J[j - 1], b = J[j], dx = b[1] - a[1], dy = b[0] - a[0], q = kOC[Math.floor(Rc() * kOC.length) % kOC.length], l = Math.min(Math.hypot(dx, dy) * 1.08, c.L - run + 0.02 * H), hh = clamp(l * q.h / q.w * (c.main ? 1.7 : 1) * (1 - 0.6 * run / c.L), 0.004 * H, 0.02 * H);
+              lay(q, a[1], a[0], Math.atan2(dy, dx), l, hh, (c.main ? 0.75 : 0.5) * (0.8 + 0.3 * Rc()) * (1 - 0.6 * run / c.L), Rc() < 0.5 ? 1 : -1, -hh / 2); run += dy; } }
+          g.restore(); } }
       g.globalAlpha = 1; home(g); }
     // -- nothing above the ridge
     // a folded stroke: ink only inside the figure the stroke itself bounds (a point is inside when the path passes over
@@ -615,6 +643,16 @@
     //    grain of rice), clusters of moss dots and of leaf dots sitting on them. In stands with bare stretches between, thick on
     //    the tops, thinning down the shoulders; a crag wears the most, a peak less, a hill of wash a few.
     { const kM = (STROKES.muse_xm || []).filter((q) => q.im), amt = land ? 0 : (0.5 + 0.5 * rock) * (1 - 0.55 * hill), Rv = dice(d.seed ^ 0x77e1), span = Math.max(1, yBase - yTop);
+      // (a rock mountain ends in walls. Its wood, set by the line above, hung out past the wall under a low shoulder: pines in the air beside it, and the wet ground they stand in as a grey film whose top was cut level
+      // at the height of the stroke's end. White above a ruled line, grey below: the "vệt sáng lóa" of r021's right mountain, critique 11-20 twice. Nothing of the wood now lies outside the walls)
+      // (kept between two plumb lines at the mountain's ends, first: where the wall leans in under its outermost point the wood still filled the pocket beside it, now with a ruled plumb edge.
+      // Then inside the figure, or above the line as the bins have it: down a steep wall that line is a staircase, and the wet ground of a ledge's wood was cut off plumb beside the wall, bin by bin.)
+      // Wood lies inside the figure the stroke bounds (B), or up to 0.06 H above it, where trees stand up out of the line: the same figure raised (wound the same way, so one clip of both). Beside a wall that
+      // leaves a strip as narrow as the wall is steep, its edge the wall's own slant.
+      // Only the wood: the brush marks laid over it (below) stand out past the line as they did (clipped too, the chops and split-brush strokes on a wall were cut short: white wedges)
+      let wc = false; const woodEnd = () => { if (wc) { wc = false; g.restore(); g.strokeStyle = g.fillStyle = `rgb(${INK})`; g.lineCap = 'round'; g.globalAlpha = 1; } };
+      if (d.kind === 'rockmtn') { wc = true; const B = [[P[0][0], yBase + 0.4 * H]]; for (let i = 0; i < n; i++) B.push([P[i][0], P[i][1]]); B.push([P[n - 1][0], yBase + 0.4 * H]);
+        g.save(); g.beginPath(); for (const up of [0, 0.06 * H]) { g.moveTo(B[0][0], B[0][1] - up); for (let i = 1; i < B.length; i++) g.lineTo(B[i][0], B[i][1] - up); g.closePath(); } g.clip('nonzero'); }
       g.strokeStyle = g.fillStyle = `rgb(${INK})`; g.lineCap = 'round';
       // First try (bot still): few, large, far apart, clusters of leaf dots as tall as a tree: bubbles and matchsticks. A stand is
       // many small dabs crowding each other, each one press of the brush tip: upright grains, round dots, a small moss cluster.
@@ -635,7 +673,7 @@
         // wet ink the trees stand in), over it real brush dabs (sheet X's moss clusters, small, upright), and only then the grains.
         const at = (pw) => { const x = bx0 + (bx1 - bx0) * Rf(), k = col(x), t = Math.pow(Rf(), pw), dp = depth[k]; if (dp < 0.05 * H) return null; const y = top[k] + dp * reach * t,
             patch = sm((N(x / (0.07 * H) + y / (0.11 * H) + 900, 2) - 0.3 - 0.32 * t) / 0.14), hi = 0.35 + 0.65 * sm((yBase - top[k]) / span / 0.5); return Rf() > patch * hi * (1 - 0.75 * t) ? null : [x, y, t]; };
-        for (let q = 0; q < cnt / 14; q++) { const a = at(1.6); if (!a) continue; const [x, y, t] = a, r = H * (0.012 + 0.016 * Rf()), gd = g.createRadialGradient(x, y, 0, x, y, r); gd.addColorStop(0, `rgba(${INK},${(0.16 * (0.5 + 0.5 * near) * (1 - 0.6 * t)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
+        for (let q = 0; q < cnt / 14; q++) { const a = at(1.6); if (!a) continue; const [x, y, t] = a, r = H * (0.012 + 0.016 * Rf()), gd = g.createRadialGradient(x, y, 0, x, y, r); gd.addColorStop(0, `rgba(${INK},${(0.16 * (0.5 + 0.5 * near) * (1 - 0.6 * t)).toFixed(3)})`); gd.addColorStop(1, `rgba(${INK},0)`); if (d.kind === 'rockmtn' && y > top[col(x)] + 0.17 * H) continue;   /* a rock mountain: no wet ground of a wood down the bare wall (soft round blots floating on the rock, bot still 11-20) */ g.globalAlpha = 1; g.fillStyle = gd; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
         g.fillStyle = `rgb(${INK})`;
         // Sheet Y (11-19): the wood as real brushwork. Code dabs, however layered, stayed a pattern of dot clusters. Now forest
         // patches (a wet mass with tree tops standing out of its upper edge) lie down the flank, each lower one over the foot of
@@ -738,6 +776,7 @@
               if (f < 0.42) put(pr(kYF), x, y, w, 0.55, 0.5 + 0.3 * r2, 0, mir);
               else if (f > 0.6 && kLS.length && r1 < 0.3) out(() => put(pr(kLS), x, y, 0.8 * w, 0.5, 0.06 + 0.06 * r2, r2 - 0.5 || 0.01, mir)); }   /* (0.16-0.32 at 60% of spots, 1.2w: the scuffs piled on each other and on a pale far hill wore through to blotchy white patches; now a third the strength, half as many, smaller) faint: at half strength and more it punched white holes through to the paper, snow on the flank */   // the lit mass, with sheet AL's dry scuffs: grain and no edge, so neither bubbles nor bars
             g.restore(); g.globalAlpha = 1;
+            woodEnd();
             if (kLA.length || kXA.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.012 + 0.03 * Rt())) { const k = col(x), dp = depthFull[k], r1 = Rt(), r2 = Rt(), r3 = Rt(), r4 = Rt(); if (dp < 0.04 * H || N(x / (0.12 * H) + chO + 3300, 2) < 0.45) continue;
               // (first laid plumb down the fall line, long: ruled hairs hanging off the hill into the mist, rain. They lie along the form: the slope's own angle and a little steeper, toward its downhill side, short, ending well inside the wood)
               const sl = slA(k), sg = Math.abs(sl) > 0.08 ? (sl < 0 ? -1 : 1) : chSide, rc = Math.max(reachY, 0.6) /* a hill of wash wears little wood, its reach is short: the strokes are the bare flank's texture too and go by the body, not by the wood */, y = top[k] + 0.01 * H + dp * rc * 0.45 * r1, an0 = Math.min(1.05, Math.atan(Math.abs(sl)) + 0.3 + 0.35 * r3), len = Math.min((top[k] + dp * rc * 0.75 - y) / Math.sin(an0), H * (0.045 + 0.08 * r2)), an = sg > 0 ? an0 : Math.PI - an0; if (len < 0.015 * H) continue;
@@ -761,7 +800,7 @@
         for (let q = 0; q < cnt / 2.5; q++) { const a = at(1.35); if (!a) continue; const [x, y, t] = a, sz = s0 * (0.4 + 0.8 * Rf() * Rf()) * (1 - 0.3 * t); g.globalAlpha = (0.3 + 0.5 * Rf()) * (0.6 + 0.4 * near) * (1 - 0.5 * t); g.beginPath();
           if (Rf() < 0.7) g.ellipse(x, y, sz * (0.3 + 0.25 * Rf()), sz * (0.75 + 0.6 * Rf()), (Rf() - 0.5) * 0.5, 0, 6.2832); else g.ellipse(x, y, sz * (0.45 + 0.3 * Rf()), sz * (0.4 + 0.25 * Rf()), Rf() * 3, 0, 6.2832);
           g.fill(); } } }
-      g.globalAlpha = 1; }
+      g.globalAlpha = 1; woodEnd(); }
     // far (high on the paper) pale, near dark
     const tone = 0.42 + 0.58 * clamp((yBase / H - 0.3) / 0.5, 0, 1);
     // -- mist (Yang 11-18: a mask of bare paper laid over the body, so the mountain stands out of mist as in a painting
@@ -798,6 +837,12 @@
       const cT = new Float32Array(mw), cM = new Float32Array(mw), cE = new Float32Array(mw), cE2 = new Float32Array(mw), cS = new Float32Array(mw), cD = new Float32Array(mw), short = tb && kitE.length ? 0.45 : 1;   // cE2: the plain bank at the very end, short where a real bank does the rest
       for (let i = 0; i < mw; i++) { const x = mx + (i + 0.5) * MQ, k = clamp(Math.round((x - bx0) / BIN), 0, nb - 1), t = rock ? yTop : Math.min(top[k], ts[k]), lvl = lv0 + 0.07 * H * (2 * N(x / (0.45 * H) + 600, 2) - 1);
         cT[i] = t; cE[i] = rock ? 1 : sm((x - xaE) / dlL) * sm((xbE - x) / dlR); cE2[i] = rock ? 1 : sm((x - xaE) / (short * dlL)) * sm((xbE - x) / (short * dlR)); cM[i] = rock ? lvl : Math.max(lvl, t + cMin); cD[i] = t + depthFull[k] + 0.05 * H; cS[i] = H * (0.045 + 0.09 * N(x / (0.3 * H) + 640, 2)) * (rock ? 2 : 1); }   // cS: how soft the top of the mist is there
+      // (a rock mountain's sea stood at one level whatever the line did: across the wood of a low ledge it lay as a white band through the black, "vệt sáng lóa", critique 11-20
+      // twice. Under a ledge, not a wall, the sea now begins below what the wood reaches, 0.15 H under the line, and its own band above its level; eased over 0.05 H each way)
+      if (d.kind === 'rockmtn') { const rI = Math.max(1, Math.round(0.08 * H / MQ)), nd = new Float32Array(mw), dl = new Float32Array(mw);   // (a ledge = under 2.2 of slope: at 1.2 the shoulder of r021's right mountain, which climbs at about 1.5, was passed over as a wall)
+        for (let i = 0; i < mw; i++) { const x = mx + (i + 0.5) * MQ, k = clamp(Math.round((x - bx0) / BIN), 5, nb - 6); nd[i] = x > bx0 && x < bx1 && Math.abs(ts[k + 5] - ts[k - 5]) / (10 * BIN) < 2.2 ? Math.min(Math.min(top[k], ts[k]) + 0.17 * H + tUp, yBase - 0.02 * H) : -1e9; }
+        for (let i = 0; i < mw; i++) { let v = cM[i]; for (let j = Math.max(0, i - rI); j <= Math.min(mw - 1, i + rI); j++) v = Math.max(v, nd[j]); dl[i] = v; }
+        for (let i = 0; i < mw; i++) { let s = 0, c = 0; for (let j = Math.max(0, i - rI); j <= Math.min(mw - 1, i + rI); j++) { s += dl[j]; c++; } cM[i] = s / c; } }
       const im = new ImageData(mw, mh), px = im.data, su = 1 / (0.2 * H), sv = 1 / (0.11 * H);   // banks lie longer than they are tall
       const banks = []; if (tb && kitE.length && !rock) for (const [endX, dl, sd] of [[xaE, dlL, 'l'], [xbE, dlR, 'r']]) { const p = kitE[Math.floor(R() * kitE.length)], pw = 1.8 * dl, ph = pw * p.h / p.w, i0 = clamp(Math.round((endX - mx) / MQ), 0, mw - 1);
         banks.push({ p, sd, pw, ph, flip: p.side !== sd, x0: sd === 'l' ? endX - 0.25 * pw : endX - 0.75 * pw, y0: cT[i0] + 0.03 * H - p.c * ph }); }   // the side the mist came in by lies on the end of the ridge
