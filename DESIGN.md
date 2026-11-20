@@ -278,7 +278,7 @@ BUILT 11-20 (paint.js):
     - aerial on the top corner / top lifted into a tower: ledge steps were a share of the rock's HEIGHT (±0.15 hgt). Now of `min(hgt, 0.12 H)`. Changes r024 rocks too: horns gone, top follows the stroke.
     - knobs on walls: ledge steps turned the path back on a wall (ribbon leg outside, cut to a stub by the clip). Now: where the line stood steep before the steps, a point that would go back stays level with the one before.
     - ruled box half way down a tall wall: `_ms` sweep laid in pieces of 0.3 H, 2nd piece's blunt head mid-wall. Rock: one piece, <= 0.36 H. (rockmtn still in pieces: walls shorter / heads under forest. Same fault possible there.)
-    - NOT touched: top block of his screenshot near solid black (near outline 0.03-0.06 H thick on a block 0.11 H wide). Ask if it bothers him.
+    - NOT touched: top block of his screenshot near solid black (near outline 0.03-0.06 H thick on a block 0.11 H wide). Asked: Yang "Để vậy" -> near rock's thick outline STAYS, do not thin unasked.
   - Weak: `_ql` 1 (zigzag wedges) and 3 (plumb bars) are separate marks, not a surface: read as scattered Z's / bars on a broad lit slab; lit faces no longer bare (3rd critique had praised bare lit faces: watch for "busy"); v3/v4 chops not thinned; the 7 faults of r022 not looked at again except row steps and the blank wedge.
 - Weak (v1, before textures): body = flat grey wash, not "much bare paper"; no top-light / side-dark face split; ribbed band of even vertical drags on a broad wall; strokes without a mouse path (dragon off / old fixtures) count corners on their own path. Mouse-mode strokes untested. Waterfall not started.
 
