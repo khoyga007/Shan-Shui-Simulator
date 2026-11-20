@@ -866,6 +866,11 @@
               else if (f > 0.6 && kLS.length && r1 < 0.3) out(() => put(pr(kLS), x, y, 0.8 * w, 0.5, 0.06 + 0.06 * r2, r2 - 0.5 || 0.01, mir)); }   /* (0.16-0.32 at 60% of spots, 1.2w: the scuffs piled on each other and on a pale far hill wore through to blotchy white patches; now a third the strength, half as many, smaller) faint: at half strength and more it punched white holes through to the paper, snow on the flank */   // the lit mass, with sheet AL's dry scuffs: grain and no edge, so neither bubbles nor bars
             g.restore(); g.globalAlpha = 1;
             woodEnd();
+            // (Yang 11-20, r028, three wooded mountains: "vẫn có vài nét vô lý nó chìa ra khỏi mép". The marks from here on were laid with no figure to keep to: a split-brush
+            // stroke up to 0.14 H long, set just under the line and turned to the slope it stands on, ran on straight where the ridge turned down past a shoulder, its band of dry
+            // streaks a flag in the sky beside the mountain; chops the same, smaller. They keep to the mountain now: nothing of them above the ridge line but a hair, the head
+            // of a chop set on it.)
+            home(g); g.save(); g.beginPath(); g.moveTo(bx0 - 0.1 * H, yBase + 0.4 * H); g.lineTo(bx0 - 0.1 * H, top[0]); for (let k = 0; k < nb; k++) g.lineTo(bx0 + k * BIN, top[k] - 0.004 * H); g.lineTo(bx1 + 0.1 * H, top[nb - 1]); g.lineTo(bx1 + 0.1 * H, yBase + 0.4 * H); g.closePath(); g.clip();
             if (kLA.length || kXA.length) for (let x = bx0 + 0.02 * H; x < bx1 - 0.02 * H; x += H * (0.012 + 0.03 * Rt())) { const k = col(x), dp = depthFull[k], r1 = Rt(), r2 = Rt(), r3 = Rt(), r4 = Rt(); if (dp < 0.04 * H || N(x / (0.12 * H) + chO + 3300, 2) < 0.45) continue;
               // (first laid plumb down the fall line, long: ruled hairs hanging off the hill into the mist, rain. They lie along the form: the slope's own angle and a little steeper, toward its downhill side, short, ending well inside the wood)
               const sl = slA(k), sg = Math.abs(sl) > 0.08 ? (sl < 0 ? -1 : 1) : chSide, rc = Math.max(reachY, 0.6) /* a hill of wash wears little wood, its reach is short: the strokes are the bare flank's texture too and go by the body, not by the wood */, y = top[k] + 0.01 * H + dp * rc * 0.45 * r1, an0 = Math.min(1.05, Math.atan(Math.abs(sl)) + 0.3 + 0.35 * r3), len = Math.min((top[k] + dp * rc * 0.75 - y) / Math.sin(an0), H * (0.045 + 0.08 * r2)), an = sg > 0 ? an0 : Math.PI - an0; if (len < 0.015 * H) continue;
@@ -882,7 +887,7 @@
               const sl = slA(k), sg = sl < 0 ? -1 : 1; stamp(pr(kXA), x, top[k] - 0.002 * H, Math.atan2(Math.abs(sl) + 0.35 + 0.3 * r1, sg), H * (0.03 + 0.04 * r2) * (0.7 + 0.5 * near), 0.85 + 0.15 * Rt()); }
             if (kLK.length || kXM.length) for (let x = bx0 + 0.03 * H; x < bx1 - 0.03 * H; x += H * (0.03 + 0.06 * Rt())) { const k = col(x), r1 = Rt(); if (depthFull[k] < 0.05 * H || N(x / (0.09 * H) + chO + 5500, 2) < 0.5) continue;
               if (kLK.length) put(pr(kLK), x, top[k] + 0.002 * H, H * (0.01 + 0.012 * Rt()) * (0.7 + 0.5 * near), 0.5, 0.9, 6.283 * r1 || 0.01, r1 < 0.5); else stamp(pr(kXM), x, top[k] + 0.003 * H, 6.283 * r1, H * (0.012 + 0.014 * Rt()), 0.8); }
-            g.globalAlpha = 1; home(g); }
+            g.restore(); g.globalAlpha = 1; home(g); }
           g.globalAlpha = 1; }
         else {
         if (kM.length) for (let q = 0; q < cnt / 5; q++) { const a = at(1.35); if (!a) continue; const [x, y, t] = a, m = kM[Math.floor(Rf() * kM.length) % kM.length], w = s0 * (2.2 + 2.6 * Rf()) * (1 - 0.3 * t), h = w * m.h / m.w * (1 + 0.5 * Rf()); g.globalAlpha = (0.3 + 0.5 * Rf()) * (0.6 + 0.4 * near) * (1 - 0.5 * t); g.drawImage(m.im, x - w / 2, y - h / 2, w, h); }
