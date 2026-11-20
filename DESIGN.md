@@ -264,6 +264,13 @@ BUILT 11-20 (paint.js):
   - NOT reproduced: a second fainter streak in his screenshot, left of the first, leaning the other way. Seeds differ. Ask him to look again.
   - r023 buildMs on HIS machine: 141 (r022, before the swatches: 75 / 36). Swatches cost; not profiled. Watch for a hitch on pen-up.
 - Yang 11-20, his hand, 3 rock mountains side by side on d67a125: "ok, tạm xong phần núi đá". Rock mountain PARKED as good enough for now; do not rework unasked. Open list below stays open. Next by the earlier agreement = waterfall (Thuy stroke down a rock mountain), on his word only.
+- NEAR ROCK = SAME WALL (Yang 11-20, r024, 2 rocks in water before 2 rock mountains: "làm lại texture cho mỏm đá giống với núi đá"). Was: grey body + sheet AG marks (large `_ga` axe-cuts read as black glass shards beside the mountain's wall).
+  - `wallK = rockmtn || land === 'rock'` in `mountain()`: rock runs the whole rockmtn wall block (`_nw`, `_ms`, cracks, slabs, `_qd`/`_ql` swatches, chops). AG `_ga/_gs/_gd` off for rock (bank still uses `_gs/_gm/_gd`); `_gm` edge dots kept. Body wash 0.55 -> 0.3 (= rockmtn).
+  - Scale: inside the block `H` and `depth` are shadowed by `HWALL` (unit = H * clamp(height / 0.3H, 0.3, 1): low rock -> closer cracks, smaller marks) and `DWALL` (1.3 x wall height to the water; mountain: its own `depth`). rockmtn: HWALL = H, DWALL = depth -> output unchanged (checked: old/new diff = run-to-run noise).
+  - Stays a rock's: no forest, no summit, level foot + waterline + image, foot mist, thick near outline.
+  - Test: fixture r024 (from report `paint.paths`), bot `&kinds=sea,rockmtn,rockmtn,rock,rock` (new param: kind per stroke).
+  - Cost: rock build in bot ~50-110 -> ~70-215 ms. Awaits Yang's hand.
+  - Seen, NOT fixed (older, ridge line, also in his r024 screenshot): a dry stroke end sticks out level beside a rock's top corner; dark and rectangular on some dice (sd=8101).
   - Weak: `_ql` 1 (zigzag wedges) and 3 (plumb bars) are separate marks, not a surface: read as scattered Z's / bars on a broad lit slab; lit faces no longer bare (3rd critique had praised bare lit faces: watch for "busy"); v3/v4 chops not thinned; the 7 faults of r022 not looked at again except row steps and the blank wedge.
 - Weak (v1, before textures): body = flat grey wash, not "much bare paper"; no top-light / side-dark face split; ribbed band of even vertical drags on a broad wall; strokes without a mouse path (dragon off / old fixtures) count corners on their own path. Mouse-mode strokes untested. Waterfall not started.
 

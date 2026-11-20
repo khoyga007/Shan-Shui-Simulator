@@ -224,6 +224,10 @@
     // off on a dead-level foot, the water's edge, with the thing's own image under it. A bank: soft, washed, few strokes.
     // A rock: its top broken into short ledges, dry line, many strokes.
     const land = d.kind === 'bank' || d.kind === 'rock' ? d.kind : null;
+    // (Yang 11-20, of two rocks standing in the water before two rock mountains, r024: "làm lại texture cho mỏm đá giống với núi đá". A rock had marks of its own, sheet AG:
+    // an even grey body with large black axe-cuts lying on it, shards of glass beside the mountain's wall. It now wears that wall: cracks, slabs lit and dark, the stone's
+    // surface. What stays a rock's: no wood, no summit, the level foot in the water. wallK = this piece is painted as a wall of rock)
+    const wallK = d.kind === 'rockmtn' || land === 'rock';
     if (land) { hill = land === 'bank' ? 0.5 : 0; rock = 0; }
     // Its walls are no ruled lines (first bot still: trapezoids, a factory's outline): each wall is broken into stretches of uneven length, every one set a little in or
     // out and leaning its own way, with a step between two. Only where the line stands steep; top and foot stay as flown.
@@ -234,7 +238,7 @@
     // (Yang 11-20, of r021 replayed, the forest lying dense and black over top and shoulder: "đỉnh phải có cây mọc rậm rạp như thế là đúng". A rock mountain keeps the
     // wooded mountain's forest on its tops. Thinned to a fringe for bare rock (a7efb60), he rejected it at once: reverted. Do not strip the wood from a rock mountain.)
     if (d.kind === 'rockmtn') { hill = 0; rock = Math.max(rock, 0.85); }   // a rock mountain: the crag's walls and broken top, whatever the stroke's proportions
-    const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.55 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 0.6 : 0.3), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
+    const S = land ? Object.assign({}, hillS(0, 0), { peak: 0, mist: 0, body: hillS(0, 0).body * (land === 'rock' ? 0.3 : 0.4), cun: clamp(hillS(0, 0).cun * (land === 'rock' ? 0.6 : 0.3), 0, 1), dry: hillS(0, 0).dry * (land === 'rock' ? 1 : 0.65) }) : hillS(hill, rock);
     if (d.kind === 'rockmtn') S.body *= 0.3;   // a wall of rock is mostly bare paper: its tone comes from the passes hung down it (sheet AN), not from an even wash
     if (land === 'rock') { let ya = 1e9, yb = -1e9; for (const p of P) { ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); } const hgt = Math.max(0.02 * H, yb - ya), Rc = dice(d.seed ^ 0x3d71); let of = new Array(n).fill(0);
       for (let i = 0; i < n;) { const m = Math.max(3, Math.round(n * (0.08 + 0.2 * Rc()))), off = (Rc() - 0.5) * 0.3, tilt = (Rc() - 0.5) * 0.3; for (let j = i; j < Math.min(n, i + m); j++) of[j] = off + tilt * ((j - i) / m - 0.5); i += m; }
@@ -450,7 +454,7 @@
             sl = clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1), an = Math.atan2(1, lo * (0.75 * sl + 0.25 * (R() - 0.5)) + rock * ((N(x / (0.2 * H) + 97, 1) - 0.5) * 0.5 + 0.14 * (R() - 0.5))), c0 = Math.cos(an), s0 = Math.sin(an), fl = R() < 0.5 ? 1 : -1,
             y = ts[k] - 0.006 * H + depth[k] * (lo * 0.5 * r3 * r3 + rock * (r3 < 0.45 ? 0 : 0.65 * (r3 - 0.45) / 0.55));
           g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); const low = rock * (r3 < 0.45 ? 0 : 1);   // begun down the face, away from the dark of the top: pale and narrow, or its solid end stood on the wall as a black slab
-          g.globalAlpha = (d.kind === 'rockmtn' ? 0 : 1) * tx * (0.25 + 0.6 * R()) * (1 - 0.6 * lo) * (1 - 0.55 * low); g.drawImage(q.im, 0, 0, swc, q.h, 0, -wd * (0.5 - 0.22 * low), len, wd * (1 - 0.44 * low)); }
+          g.globalAlpha = (wallK ? 0 : 1) * tx * (0.25 + 0.6 * R()) * (1 - 0.6 * lo) * (1 - 0.55 * low); g.drawImage(q.im, 0, 0, swc, q.h, 0, -wd * (0.5 - 0.22 * low), len, wd * (1 - 0.44 * low)); }
         g.globalAlpha = 1; home(g); }
       // Sheet X, the cun proper (Yang's gen 11-19), mixed in with the drags: hemp-fibre lines (_xh, pale, many, down the slope),
       // axe-cut chops (_xa, few, dark, slanting with the slope, high on the flank), folded-belt strokes (_xf, on a crag's
@@ -459,7 +463,7 @@
       const slAt = (k) => clamp((ts[Math.min(nb - 1, k + 6)] - ts[Math.max(0, k - 6)]) / (12 * BIN), -1.1, 1.1);
       const stamp = (q, x, y, an, len, al, fl = 1) => { const c0 = Math.cos(an), s0 = Math.sin(an), hh = len * q.h / q.w; g.setTransform(dpr * c0, dpr * s0, -dpr * s0 * fl, dpr * c0 * fl, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = Math.min(1, al); g.drawImage(q.im, 0, -hh / 2, len, hh); };
       const sow = (kit, stepH, f) => { if (kit.length && dn > 0.05) for (let x = bx0 + stepH * H * R(); x < bx1; x += H * stepH * (0.5 + R()) / dn) { const k = col(x); if (depth[k] > 0.03 * H) f(kit[Math.floor(R() * kit.length) % kit.length], x, k, slAt(k)); } };
-      sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (d.kind === 'rockmtn' ? 0 : 1) * (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
+      sow(kXH, 0.011, (q, x, k, sl) => stamp(q, x, ts[k] + 0.004 * H + depth[k] * 0.6 * R() * R(), Math.atan2(1, 0.85 * sl + 0.3 * (R() - 0.5)), Math.min(depth[k] * 0.5, H * (0.035 + 0.07 * R())), (wallK ? 0 : 1) * (0.55 + 0.45 * R()) * 1.6, R() < 0.5 ? 1 : -1));
       sow(kXA, 0.05, (q, x, k, sl) => { const sg = sl < 0 ? -1 : 1; stamp(q, x, ts[k] + 0.012 * H + depth[k] * 0.3 * R() * R(), Math.atan2(Math.abs(sl) + 0.35 + 0.3 * R(), sg), Math.min(depth[k] * 0.3, H * (0.022 + 0.035 * R())), 0.3 + 0.4 * R(), sg); });
       if (rock > 0.3) sow(kXF, 0.07, (q, x, k) => stamp(q, x, ts[k] + depth[k] * (0.08 + 0.5 * R()), 0.15 * (R() - 0.5), H * (0.03 + 0.04 * R()), (d.kind === 'rockmtn' ? 0 : 1) * rock * (0.3 + 0.35 * R()), 1));   // none on a rock mountain (Yang 11-20: level hooks floating on the wall). Still thrown, unseen: the dice after it fall as before, and the wooded tops he passed stay as they were
       sow(kXM, 0.08, (q, x, k) => stamp(q, x, ts[k] + 0.006 * H + depth[k] * 0.25 * R() * R(), 6.28 * R(), H * (0.012 + 0.012 * R()), 0.5 + 0.4 * R()));
@@ -469,7 +473,7 @@
       //  _ms  the shadow face: on every wall that looks right, one broad dark sweep laid down along it, its hard edge on the wall's line, its torn edge inward
       //       (pieces 3, 4 of the row: 1 ends in slanting hatch, 2 came off the sheet joined to its neighbour)
       //  _md  long narrow drags down the face (Gemini's, see below); _mt short blunt strokes standing in clusters (horse-tooth). _mc (knots on a thin line) reads as beads: not used
-      if (d.kind === 'rockmtn') { const gx = (suf) => (STROKES['gemini_' + suf] || []).filter((q) => q.im), kNW = kx('nw').concat(gx('nw')), kMS = kx('ms').slice(2).concat(gx('ms')), kMD = gx('md').concat(gx('md2'), gx('md3')), kMT = kx('mt'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
+      if (wallK) { const gx = (suf) => (STROKES['gemini_' + suf] || []).filter((q) => q.im), kNW = kx('nw').concat(gx('nw')), kMS = kx('ms').slice(2).concat(gx('ms')), kMD = gx('md').concat(gx('md2'), gx('md3')), kMT = kx('mt'), pick = (kit) => kit[Math.floor(R() * kit.length) % kit.length];
         if (kNW.length) for (let x = bx0 + 0.03 * H * R(); x < bx1; x += H * (0.03 + 0.055 * R())) { const k = col(x), v = N(x / (0.11 * H) + 53, 2), r1 = R(), r2 = R(), r3 = R(), r4 = R(); if (depth[k] < 0.08 * H || v < 0.3) continue;
           stamp(pick(kNW), x, ts[k] + 0.003 * H, Math.atan2(1, 0.1 * (r1 - 0.5)), 0.4 * Math.min(0.75 * H, depth[k] * (0.6 + 0.5 * r2)), 0.3 * (0.22 + 0.55 * sm((v - 0.3) / 0.4) * (0.6 + 0.4 * r3)), r4 < 0.5 ? 1 : -1); }
         if (kMS.length) { const s2 = (k) => (ts[Math.min(nb - 1, k + 2)] - ts[Math.max(0, k - 2)]) / (4 * BIN);
@@ -498,7 +502,11 @@
         // v1 of this (876c407) read as glass, the critique Yang passed on 11-20: flat translucent grey with no lit / dark face; neat grey boxes (_pf, and
         // _pd laid plumb with its level set-down end showing); plumb streaks ("water on glass"); cracks thin, even, wavy (crazing); marks strewn any
         // way. So: no _pf, no _pr (round spatter), no _of (lashes), nothing laid plumb but the crack itself. Dice of its own (Rk).
-        { const Rk = dice(d.seed ^ 0x0c4a), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], kOC = kx('oc').filter((_, i) => i !== 2), kOA = kx('oa'), kON = kx('on').slice(8), kPD = kx('pd'), kPM = kx('pm');
+        // On a rock the same wall, measured by the rock: HWALL = the unit every size below is given in (the screen's height on a mountain; a rock a third of a screen
+        // high or more the same, a lower one in proportion, down to 0.3: its cracks closer, its marks smaller), DWALL = how deep the wall is under its top line (a
+        // mountain's runs on into its mist; a rock's ends at the water, and tone and cracks reach it)
+        const HWALL = land ? H * clamp((yBase - yTop) / (0.3 * H), 0.3, 1) : H, DWALL = land ? ts.map((t) => 1.3 * Math.max(0, yBase - t)) : depth;
+        { const H = HWALL, depth = DWALL, Rk = dice(d.seed ^ 0x0c4a), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], kOC = kx('oc').filter((_, i) => i !== 2), kOA = kx('oa'), kON = kx('on').slice(8), kPD = kx('pd'), kPM = kx('pm');
           g.save(); home(g); g.beginPath(); g.rect(bx0, oy - 0.1 * H, bx1 - bx0, 4 * H); g.clip();   // marks reaching left of the first crack ran out past the mountain's left end at its foot, to the edge of its canvas: a ruled upright edge in the mist
           // a piece laid from (x, y) along an; its body to the side sd of that line (1 = right of a line going down), off = -hh / 2: astride it
           const lay = (q, x, y, an, len, hh, al, sd, off = 0) => { const c0 = Math.cos(an), s0 = Math.sin(an); g.setTransform(dpr * c0, dpr * s0, dpr * s0 * sd, -dpr * c0 * sd, dpr * (x - ox), dpr * (y - oy)); g.globalAlpha = clamp(al, 0, 1); g.drawImage(q.im, 0, off, len, hh); };
@@ -996,7 +1004,7 @@
       const fy = Math.round((foot - oy) * dpr), cw2 = cv.width, ch2 = cv.height, hl = Math.max(0.02 * H, foot - ya), ground = edge || onLand || H - foot < 0.07 * H, fdG = Math.round(clamp(0.3 * hl, 0.035 * H, 0.11 * H) * dpr);
       // Marks of its own kind (Yang 11-19: rock and earth were built from the same kits, differing only in amounts: "hao hao nhau,
       // khó phân biệt"). Sheets AG and AH, Muse's and Gemini's both: brush MARKS laid over the built body, never a whole shape.
-      //   rock   black, dry, angular: large axe-cuts slanting down its face, small chops, dry scrapes low down, blunt dots on its edge
+      //   rock   (11-20: its face is the rock mountain's wall, laid with the body, see wallK. Of sheet AG it keeps the blunt dots on its edge; earth still uses AG's chops and dots)
       //   earth  grey, soft, lying: hemp-fibre bundles along the slope, a soft fold or two, rice dots under the upper line, grass on it
       // The shared cun of the mountain builder is turned down for both (S.cun above). Laid inside the body only; dots and grass stand on the edge.
       { const K = (sf) => (STROKES['muse' + sf] || []).concat(STROKES['gemini' + sf] || []).filter((q) => q.im && q.tone > 0.02 && q.w > 60), Rk = dice(d.seed ^ 0x6a2d), pk = (kit) => kit[Math.floor(Rk() * kit.length) % kit.length], w = bx1 - bx0,
@@ -1005,10 +1013,7 @@
         tm.width = cw2; tm.height = ch2; const xm = tm.getContext('2d'), gc = cv.getContext('2d'), each = (n, f) => { for (let i = 0; i < n; i++) { const x = bx0 + (0.06 + 0.88 * (i + Rk()) / n) * w, top = topAt(x), dep = foot - top; if (dep > 0.008 * H) f(x, top, dep); } };
         if (ts.length > 3 && aux('_f').length) {
           if (land === 'rock') { const kA = K('_ga'), kS = K('_gs'), kD = K('_gd'), kM = K('_gm'), nA = clamp(Math.round(w / (0.45 * hl)), 2, 8);
-            if (kD.length) each(1 + Math.floor(w / (0.2 * H)), (x, top, dep) => mark(xm, pk(kD), x, top + dep * (0.45 + 0.4 * Rk()), clamp(w * (0.25 + 0.3 * Rk()), 0.03 * H, 0.25 * H), (Rk() - 0.5) * 0.3, 0.35 + 0.25 * Rk(), Rk() < 0.5 ? -1 : 1, 0.5, 0.5));
-            if (kA.length) each(nA, (x, top, dep) => { const fx = Rk() < 0.5 ? -1 : 1; mark(xm, pk(kA), x, top + dep * (0.2 + 0.45 * Rk()), clamp(dep * (0.5 + 0.6 * Rk()), 0.02 * H, 0.22 * H), fx * (0.5 + 0.5 * Rk()), 0.5 + 0.4 * Rk(), fx, 0.3, 0.5); });
-            if (kS.length) each(2 * nA + 2, (x, top, dep) => { const fx = Rk() < 0.5 ? -1 : 1; mark(xm, pk(kS), x, top + dep * (0.1 + 0.75 * Rk()), clamp(dep * (0.15 + 0.2 * Rk()), 0.01 * H, 0.06 * H), fx * (0.3 + 0.7 * Rk()), 0.6 + 0.35 * Rk(), fx, 0.3, 0.5); });
-            xm.setTransform(1, 0, 0, 1, 0, 0); xm.globalCompositeOperation = 'destination-in'; xm.drawImage(body, 0, 0); gc.save(); gc.setTransform(1, 0, 0, 1, 0, 0); gc.globalAlpha = 1; gc.drawImage(tm, 0, 0); gc.restore();
+            // (its scrapes _gd, large axe-cuts _ga and small chops _gs: gone, with kD, kA, kS unused. Its face is the wall's now, laid with the body above)
             if (kM.length) each(1 + Math.floor(Rk() * 3), (x, top) => { const mw = clamp(0.2 * hl, 0.012 * H, 0.035 * H); mark(gc, pk(kM), x, top + 0.15 * mw, mw, Rk() * 6.283, 0.85, 1, 0.5, 0.5); }); }
           else { const kH = K('_eh'), kC = K('_ec'), kR = K('_ed'), kG = K('_eg');
             // Near earth is the darkest thing on the paper (Yang 11-19: grey and full of thin lines it read as weak; "tô đậm nó đen lại và chỉ để lại 1 chút chỗ mờ"):
