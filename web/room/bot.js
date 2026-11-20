@@ -192,10 +192,14 @@
     if (new URLSearchParams(location.search).has('falls')) {
       const dens = (V) => { const o = []; for (let i = 1; i < V.length; i++) { const a = V[i - 1], b = V[i], m = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) * 200)); for (let j = 0; j < m; j++) o.push([(a[0] + (b[0] - a[0]) * j / m) * H, (a[1] + (b[1] - a[1]) * j / m) * H, 0.8]); } const e = V[V.length - 1]; o.push([e[0] * H, e[1] * H, 0.8]); return o; };
       const rnd = (q, n) => { let o = q; for (let k = 0; k < n; k++) o = o.map((p, i) => (i === 0 || i === o.length - 1 ? p : [(o[i - 1][0] + 2 * p[0] + o[i + 1][0]) / 4, (o[i - 1][1] + 2 * p[1] + o[i + 1][1]) / 4, p[2]])); return o; }, fr = {};
-      [[[0.30, 0.66], [0.33, 0.28], [0.52, 0.25], [0.56, 0.66]], [[0.80, 0.64], [0.825, 0.33], [0.94, 0.30], [0.965, 0.64]], [[0.98, 0.69], [1.03, 0.36], [1.10, 0.33], [1.14, 0.16], [1.27, 0.13], [1.33, 0.30], [1.45, 0.32], [1.50, 0.69]]]
+      // &falls=2 (no sea): three rock mountains at three depths, feet at 0.56 / 0.74 / 0.93 H, a fall down each: what nearness makes of a fall (v4: far = a thread, near = broad, rock and spray at its foot)
+      const two = new URLSearchParams(location.search).get('falls') === '2';
+      (two ? [[[0.22, 0.56], [0.25, 0.24], [0.40, 0.21], [0.44, 0.56]], [[0.58, 0.74], [0.62, 0.25], [0.84, 0.21], [0.88, 0.74]], [[1.00, 0.93], [1.05, 0.32], [1.12, 0.28], [1.17, 0.11], [1.42, 0.08], [1.50, 0.30], [1.60, 0.93]]] :
+      [[[0.30, 0.66], [0.33, 0.28], [0.52, 0.25], [0.56, 0.66]], [[0.80, 0.64], [0.825, 0.33], [0.94, 0.30], [0.965, 0.64]], [[0.98, 0.69], [1.03, 0.36], [1.10, 0.33], [1.14, 0.16], [1.27, 0.13], [1.33, 0.30], [1.45, 0.32], [1.50, 0.69]]])
         .forEach((V, i) => { const raw = dens(V), q = rnd(raw, 300); Pt.guess('earth', q, 1, raw); Pt.st.done.push({ stroke: q, kind: 'rockmtn', el: 'earth', elb: Pt.guess.elb, t0: D.T, seed: 9901 + i }); });
       Rm.G.draw(0);   // the walls stand before the water is read: a fall is known by the wall under it
-      [[[0.42, 0.20], [0.425, 0.36], [0.45, 0.39], [0.455, 0.60]], [[0.885, 0.40], [0.89, 0.57]], [[1.395, 0.26], [1.395, 0.44], [1.41, 0.47], [1.41, 0.61]]]
+      (two ? [[[0.33, 0.17], [0.332, 0.54]], [[0.73, 0.17], [0.735, 0.42], [0.76, 0.46], [0.765, 0.73]], [[1.30, 0.03], [1.30, 0.46], [1.335, 0.51], [1.34, 0.92]]] :
+      [[[0.42, 0.20], [0.425, 0.36], [0.45, 0.39], [0.455, 0.60]], [[0.885, 0.40], [0.89, 0.57]], [[1.395, 0.26], [1.395, 0.44], [1.41, 0.47], [1.41, 0.61]]])
         .forEach((V, i) => { const q = rnd(dens(V), 30); let L = 0; for (let j = 1; j < q.length; j++) L += Math.hypot(q[j][0] - q[j - 1][0], q[j][1] - q[j - 1][1]); const kind = Pt.guess('water', q, L); fr['f' + i] = kind; Pt.st.done.push({ stroke: q, kind, el: 'water', t0: D.T, seed: 9951 + i }); });
       pr.push({ falls: fr }); }
     if (new URLSearchParams(location.search).has('twin')) { const pl = (pts, seed) => { const q = []; for (let i = 1; i < pts.length; i++) for (let u = 0; u < 30; u++) q.push([(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u / 30) * H, (pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u / 30) * H, 0.6]); Pt.st.done.push({ stroke: q, t0: D.T, seed }); };
@@ -222,6 +226,7 @@
       out.waterMovedShare = +(ch / (f0.length / 4)).toFixed(4);
       const ms = []; for (let k = 0; k < 70; k++) { Pt.ripAt({ x: (0.35 + 0.012 * k) * H, y: (0.76 + 0.03 * Math.sin(k / 9)) * H }); Rm.tick(dt); dbg.step(1, { dt, noRender: true, noSnap: true }); const t1 = performance.now(); Rm.G.draw(0); ms.push(performance.now() - t1); }
       ms.sort((p, q) => p - q); out.wave = { frameMsMedian: +ms[35].toFixed(2), frameMsWorst: +ms[69].toFixed(2), wavMs: Pt.wavMs().filter((v) => v) }; }
+    if (new URLSearchParams(location.search).has('falls')) out.fallFlowMs = Pt.st.done.filter((d) => d.m && d.m.fall && d.m.flow).map((d) => { const t1 = performance.now(); for (let k = 0; k < 60; k++) d.m.flow(D.T + k / 60); return [+(d.m.nr || 0).toFixed(2), +((performance.now() - t1) / 60).toFixed(2)]; });   // each fall: how near it stands, what a frame of its moving water costs
     out.paint = { ...Pt.info(), flown: pr, bakeMs };
     post('bot-paint.jpg', snap());
     { const m = document.createElement('canvas'); m.width = 1920; m.height = 1080; const x = m.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1920, 1080); if (window.__paper) window.__paper.draw(x, 1920, 1080); x.globalCompositeOperation = 'multiply'; x.drawImage(ink, 0, 0, 1920, 1080);
