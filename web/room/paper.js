@@ -10,8 +10,9 @@
 (() => {
   const cv = document.getElementById('paper'), panel = document.getElementById('panel');
   if (!cv) return;
-  // W x H: the paper's own canvas, half again the sheet's size (the sheet drawn up smoothly), so a fibre's edge has more than one step in it at 1920 wide
-  const W = 2625, H = 1476, TINT = [0.95, 0.935, 0.905], GF = 2.2, GC = 1.6, GRAIN = 0.011, SRC = '../assets/paper/Gemini AS.webp';
+  // W x H: the paper's own canvas = the sheet's own size (a quarter over 1920 wide: a fibre's edge has more than one step in it)
+  const QP = new URLSearchParams(location.search), qn = (k, v) => (QP.has(k) ? +QP.get(k) : v);   // ?pgf= ?pgc= ?pgrain= ?pcore=: to weigh one against another, not kept
+  const W = 2408, H = 1354, TINT = [0.95, 0.935, 0.905], GF = qn('pgf', 1.6), GC = qn('pgc', 1.6), GRAIN = qn('pgrain', 0), CORE = qn('pcore', 0.7), SRC = '../assets/paper/Gemini AS.webp';
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const S = { k: 0.5 };
   try { Object.assign(S, JSON.parse(localStorage.getItem('paper.v1') || '{}')); } catch { /* default */ }
@@ -29,7 +30,10 @@
   //   fib  fibres and flecks: the sheet's LIGHTNESS over the sheet blurred a little (colour is stored at half size in such a file: no hue from it),
   //        and of that only what stands clear of the noise: the noise's own size is measured (NZ, the 90th percentile of all of it; a fibre
   //        is the few percent beyond), and what is no bigger is let fall away
-  //   grn  the tooth: fine grain made here, for the level stretches between fibres, which the sheet no longer gives
+  //   grn  a tooth made here, fine grain, for a sheet whose level stretches come out empty (the pasted one: CORE 1.6, GRAIN 0.011)
+  // v3, the sheet as Gemini made it (2752 x 1536 PNG from Yang, the watermark's corner cropped off): its tooth is its own, so only the
+  // faintest of the detail is dropped (CORE 0.7) and no grain is added. Weighed in the bot at 1920: CORE 0 / GF 2.2 = every thread of the
+  // weave, busy under pale ink; CORE 1.6 + grain = smooth as plastic beside it.
   function bake() {
     on = !!fib && S.k > 0.001; document.body.classList.toggle('paper', on);
     if (!on) return;
@@ -58,7 +62,7 @@
       f[n] = (0.3 * src[i] + 0.59 * src[i + 1] + 0.11 * src[i + 2]) / Math.max(8, 0.3 * mid[i] + 0.59 * mid[i + 1] + 0.11 * mid[i + 2]) - 1;
       for (let k = 0; k < 3; k++) cld[3 * n + k] = clamp(Math.round(800 * (mid[i + k] / Math.max(8, low[i + k]) - 1)), -127, 127); }
     const sm = []; for (let n = 7; n < N; n += 211) sm.push(Math.abs(f[n])); sm.sort((a, b) => a - b);
-    const NZ = Math.max(0.004, sm[Math.floor(0.9 * sm.length)]), T2 = (1.6 * NZ) ** 2;
+    const NZ = Math.max(0.004, sm[Math.floor(0.9 * sm.length)]), T2 = (CORE * NZ) ** 2 + 1e-12;
     for (let n = 0; n < N; n++) { const v = f[n], w = v * v; fib[n] = clamp(Math.round(128 + 400 * v * (w * w / (w * w + T2 * T2))), 0, 255); }
     // the tooth: grain a pixel across and grain three across, by a hash of the place (the same paper every load)
     let h = 0; const rnd = () => { h = (h + 0x6D2B79F5) | 0; let z = Math.imul(h ^ (h >>> 15), 1 | h); z = (z + Math.imul(z ^ (z >>> 7), 61 | z)) ^ z; return ((z ^ (z >>> 14)) >>> 0) / 4294967296; };
